@@ -4,6 +4,7 @@ export type ItemType = 'wood' | 'stone';
 export interface MapItem extends Tile {
   type: ItemType;
   quantity: number;
+  collect?: boolean;
 }
 
 export const ITEM_TYPES: ItemType[] = ['wood', 'stone'];
@@ -31,4 +32,8 @@ export function returnItems(items: MapItem[], tile: Tile, type: ItemType, quanti
   const stack = items.find((item) => item.type === type && item.column === tile.column && item.row === tile.row);
   if (stack) stack.quantity += quantity;
   else items.push({ ...tile, type, quantity });
+}
+
+export function nearbyItems(items: readonly MapItem[], target: MapItem): MapItem[] {
+  return items.filter(item => item.quantity > 0 && item.type === target.type && item.column >= target.column - 5 && item.column < target.column + 5 && item.row >= target.row - 5 && item.row < target.row + 5);
 }

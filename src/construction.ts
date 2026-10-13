@@ -6,6 +6,7 @@ import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import type { Movement, Tile } from './movement';
 import { BUILD_RECIPES } from './walls.ts';
 import type { Wall, Walls } from './walls';
+import type { Storage } from './storage';
 
 export interface Builder {
   movement: Movement;
@@ -23,11 +24,23 @@ export class Construction {
   readonly items: MapItem[];
   readonly claims = new Map<Wall, Builder>();
   readonly finish: (tile: Tile) => boolean;
+  storage?: Storage;
   readonly needsClearing: (tile: Tile) => boolean;
 
   constructor(walls: Walls, items: MapItem[], finish: (tile: Tile) => boolean, needsClearing: (tile: Tile) => boolean = () => false) {
     this.walls = walls; this.items = items; this.finish = finish;
     this.needsClearing = needsClearing;
+  }
+
+  sources(target: Wall): MapItem[] {
+    if (!this.storage) return this.items;
+    return this.storage.sources(target.material);
+  }
+
+  sourceApproach(from: Tile, source: MapItem, paths: Map<number, Path>): { goal: Tile; path: Path } | null {
+    const path = paths.get(source.row * this.walls.mapSize + source.column);
+    return path ? { goal: source, path } : this.walls.isBlocked(source) && this.walls.items.get(`${source.column},${source.row}`)?.kind === 'storage'
+      ? this.approach(from, source, paths) : null;
   }
 
   cancel(builder: Builder): void {
@@ -47,7 +60,7 @@ export class Construction {
     return findPath(from, to, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
   }
 
-  approach(from: Tile, target: Wall, paths?: Map<number, Path>): { goal: Tile; path: Path } | null {
+  approach(from: Tile, target: Tile, paths?: Map<number, Path>): { goal: Tile; path: Path } | null {
     let best: { goal: Tile; path: Path } | null = null;
     for (let row = target.row - 1; row <= target.row + 1; row++) {
       for (let column = target.column - 1; column <= target.column + 1; column++) {
@@ -72,7 +85,7 @@ export class Construction {
       if (owner && owner !== builder) continue;
       if (!material && target.delivered < recipe.materialCount
         && !(builder.inventory?.type === target.material && builder.inventory.quantity > 0)
-        && !this.items.some((item) => item.type === target.material && item.quantity > 0 && paths.has(item.row * this.walls.mapSize + item.column))) continue;
+        && !this.sources(target).some((item) => item.type === target.material && item.quantity > 0 && this.sourceApproach(builder.movement.tile, item, paths))) continue;
       const approach = this.approach(builder.movement.tile, target, paths);
       if (approach && (!best || approach.path.distance < best.path.distance)) best = { target, ...approach };
     }
@@ -125,16 +138,16 @@ export class Construction {
         returnItems(this.items, movement.tile, held.type, held.quantity);
         builder.inventory = null;
       }
-      let source: { item: MapItem; path: Path } | null = null;
+      let source: { item: MapItem; path: Path; goal: Tile } | null = null;
       const paths = findPaths(movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
-      for (const item of this.items) {
+      for (const item of this.sources(plan.target)) {
         if (item.quantity <= 0 || item.type !== plan.target.material) continue;
-        const path = paths.get(item.row * this.walls.mapSize + item.column);
-        if (path && (!source || path.distance < source.path.distance)) source = { item, path };
+        const approach = this.sourceApproach(movement.tile, item, paths);
+        if (approach && (!source || approach.path.distance < source.path.distance)) source = { item, ...approach };
       }
       if (!source) return;
       this.claims.set(plan.target, builder);
-      builder.job = { target: plan.target, phase: 'gather', source: source.item, goal: source.item };
+      builder.job = { target: plan.target, phase: 'gather', source: source.item, goal: source.goal };
       setRoute(movement, source.path.tiles);
       return;
     }

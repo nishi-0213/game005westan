@@ -8,20 +8,28 @@ canvas { display: block; width: 100%; height: 100%; }
   transform: translateX(-50%);
   z-index: 1;
   display: flex;
-  width: min(336px, calc(100vw - 160px));
+  width: min(276px, calc(100vw - 160px));
+  gap: 6px;
 }
 .pawn-roster-button {
   flex: 1;
   min-width: 0;
-  padding: 4px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 3px;
   border: 1px solid #708268;
   background: #263529;
   color: #f4e9cc;
   font: 11px system-ui, sans-serif;
   cursor: pointer;
 }
-.pawn-roster-button svg { display: block; width: 48px; height: 56px; margin: 0 auto; }
-.pawn-roster-button span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 16px; }
+.pawn-roster-button svg { display: block; width: min(48px, 65%); height: auto; max-height: 65%; flex-shrink: 1; margin: 0 auto; }
+.pawn-roster-button span { display: block; width: 100%; flex-shrink: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 16px; }
 .pawn-roster-button[aria-pressed="true"] { background: #475b3e; border-color: #f2c66d; }
 .pawn-roster-button:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
 
@@ -139,7 +147,7 @@ canvas { display: block; width: 100%; height: 100%; }
   font: 20px system-ui, sans-serif;
   cursor: pointer;
 }
-#collection-button {
+:is(#collection-button, #acquisition-button) {
   position: fixed;
   right: 64px;
   bottom: 0;
@@ -153,10 +161,10 @@ canvas { display: block; width: 100%; height: 100%; }
   font: 600 14px system-ui, sans-serif;
   cursor: pointer;
 }
-#collection-button[hidden] { display: none; }
-#collection-button[aria-pressed="true"] { background: #475b3e; color: #fff2a3; }
-#collection-button:hover { background: #354936; }
-#collection-button:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
+:is(#collection-button, #acquisition-button)[hidden] { display: none; }
+:is(#collection-button, #acquisition-button)[aria-pressed="true"] { background: #475b3e; color: #fff2a3; }
+:is(#collection-button, #acquisition-button):hover { background: #354936; }
+:is(#collection-button, #acquisition-button):focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
 
 .construction-tab {
   position: fixed;
@@ -249,3 +257,10 @@ canvas { display: block; width: 100%; height: 100%; }
 .priority-pawn svg { width: 24px; height: 28px; flex: none; }
 .priority-value[data-priority="1"] { color: #82c6dc; }
 .priority-value[data-priority="2"] { color: #f2c66d; }
+
+#storage-settings { position: fixed; inset: auto 0 82px auto; margin: 0; padding: 16px; border: 1px solid #708268; background: #263529; color: #f4e9cc; font: 13px system-ui, sans-serif; z-index: 3; }
+#storage-settings h2 { margin: 0 24px 12px 0; font-size: 16px; }
+#storage-settings label { display: block; margin: 8px 0; }
+#close-storage-settings { position: absolute; top: 4px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 20px; cursor: pointer; }
+
+#item-summary li[hidden] { display: none; }

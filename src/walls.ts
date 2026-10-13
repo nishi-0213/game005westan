@@ -1,13 +1,15 @@
 import type { Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
-export type ConstructionKind = 'wall' | 'barricade';
+export type ConstructionKind = 'wall' | 'barricade' | 'storage' | 'storageArea';
 export interface Wall extends Tile {
   kind: ConstructionKind;
   material: WallMaterial;
   state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
+  stored?: Record<WallMaterial, number>;
+  accepted?: Record<WallMaterial, boolean>;
 }
 
 export const WALL_COLORS: Record<WallMaterial, number> = {
@@ -18,6 +20,8 @@ export const WALL_PLAN_ALPHA = 0.7;
 export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; seconds: number } | null> = {
   wall: { materialCount: 10, seconds: 1 },
   barricade: { materialCount: 5, seconds: 1 },
+  storage: { materialCount: 30, seconds: 3 },
+  storageArea: { materialCount: 0, seconds: 0 },
 };
 
 export class Walls {
@@ -35,6 +39,7 @@ export class Walls {
     const key = `${tile.column},${tile.row}`;
     if (this.items.has(key)) return null;
     const wall: Wall = { ...tile, material, kind, state: 'planned', delivered: 0, workSeconds: 0 };
+    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0 }; wall.accepted = { wood: true, stone: true }; }
     this.items.set(key, wall);
     return wall;
   }
@@ -57,7 +62,7 @@ export class Walls {
 
   isBlocked = (tile: Tile): boolean => {
     const item = this.items.get(`${tile.column},${tile.row}`);
-    return item?.state === 'completed' && item.kind === 'wall';
+    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage');
   };
 
   cannotStop = (tile: Tile): boolean => {

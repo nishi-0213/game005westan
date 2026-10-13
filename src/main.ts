@@ -4,8 +4,11 @@ import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTi
 import { advancePathMovement, commandMove } from './pathfinding';
 import type { Tile } from './movement';
 import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
-import type { ConstructionKind, WallMaterial } from './walls';
-import { countItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES, returnItems } from './items';
+import type { ConstructionKind, WallMaterial, Wall } from './walls';
+import { nearbyItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES, returnItems } from './items';
+import { Storage } from './storage';
+import { Hauling } from './hauling';
+import type { HaulWorker } from './hauling';
 import { Construction } from './construction';
 import { ENVIRONMENT_PROPERTIES, initialEnvironment, nearbySameType } from './environment';
 import type { EnvironmentObject } from './environment';
@@ -72,10 +75,13 @@ const environmentViews = environmentObjects.map((object) => {
   environmentLayer.addChild(view);
   return { object, view, outline, collectIcon, progressBar, progress: -1 };
 });
+const walls = new Walls(MAP_SIZE);
+const storage = new Storage(walls);
 const mapItems = initialItems();
+let selectedItems = new Set<(typeof mapItems)[number]>();
 let selectedItem: (typeof mapItems)[number] | null = null;
 const itemLayer = new Container();
-const itemViews: { item: (typeof mapItems)[number]; view: Container; quantity: Text }[] = [];
+const itemViews: { item: (typeof mapItems)[number]; view: Container; quantity: Text; collectIcon: Graphics }[] = [];
 map.addChild(itemLayer);
 function createItemView(item: (typeof mapItems)[number]): void {
   const view = new Container();
@@ -90,9 +96,10 @@ function createItemView(item: (typeof mapItems)[number]): void {
   quantity.anchor.set(0.5, 0);
   quantity.scale.set(1 / map.scale.x);
   quantity.position.set(0, 13 + 2 / map.scale.y);
-  view.addChild(icon, quantity);
+  const collectIcon = new Graphics().moveTo(-3, -6).lineTo(3, -6).moveTo(0, -9).lineTo(0, -3).stroke({ color: 0xf2c66d, width: 2 });
+  view.addChild(icon, quantity, collectIcon);
   itemLayer.addChild(view);
-  itemViews.push({ item, view, quantity });
+  itemViews.push({ item, view, quantity, collectIcon });
 }
 for (const item of mapItems) createItemView(item);
 const itemSelection = new Graphics().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2)
@@ -115,30 +122,56 @@ const summaryRows = ITEM_TYPES.map((type) => {
 });
 
 function updateItemSummary(): void {
-  if (selectedItem && (selectedItem.quantity <= 0 || !mapItems.includes(selectedItem))) {
-    selectedItem = null;
-    updateItemSelection();
-  }
+  let selectionChanged = false;
+  for (const item of selectedItems) if (item.quantity <= 0 || !mapItems.includes(item)) { selectedItems.delete(item); selectionChanged = true; }
+  if (selectionChanged) { selectedItem = [...selectedItems][0] ?? null; updateItemSelection(); }
   for (const item of mapItems) if (!itemViews.some((entry) => entry.item === item)) createItemView(item);
-  for (const { item, view, quantity } of itemViews) {
+  for (const { item, view, quantity, collectIcon } of itemViews) {
     view.visible = item.quantity > 0;
+    collectIcon.visible = Boolean(item.collect);
     if (quantity.text !== String(item.quantity)) quantity.text = String(item.quantity);
   }
-  const totals = countItems(mapItems);
+  const totals = storage.totals();
   for (const entry of summaryRows) {
     if (entry.total === totals[entry.type]) continue;
     entry.total = totals[entry.type];
+    entry.row.hidden = entry.total <= 0;
     entry.quantity.textContent = `：${entry.total}`;
     entry.row.setAttribute('aria-label', `${ITEM_APPEARANCE[entry.type].name}：${entry.total}`);
   }
 }
 updateItemSummary();
 
-const walls = new Walls(MAP_SIZE);
 walls.environmentCannotStop = (tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
 const wallLayer = new Container();
 const wallViews = new Map<string, Graphics>();
 map.addChild(wallLayer);
+
+const storedItemLayer = new Container();
+map.addChild(storedItemLayer);
+const storedItemViews = new Map<Wall, { view: Container; icon: Graphics; quantity: Text }>();
+function updateStoredItemViews(): void {
+  for (const area of storage.boxes()) {
+    if (area.kind !== 'storageArea') continue;
+    let entry = storedItemViews.get(area);
+    if (!entry) {
+      const view = new Container();
+      view.position.set((area.column + 0.5) * TILE_SIZE, area.row * TILE_SIZE);
+      const icon = new Graphics().rect(-6, 1, 12, 12).fill(0xffffff);
+      const quantity = new Text({ text: '', resolution: RENDER_RESOLUTION * 2, roundPixels: true, style: { fontFamily: 'sans-serif', fontSize: 10, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } } });
+      quantity.anchor.set(0.5, 0);
+      view.addChild(icon, quantity);
+      storedItemLayer.addChild(view);
+      entry = { view, icon, quantity };
+      storedItemViews.set(area, entry);
+    }
+    const type = ITEM_TYPES.find(type => (area.stored?.[type] ?? 0) > 0);
+    entry.view.visible = Boolean(type);
+    if (type) { entry.icon.tint = ITEM_APPEARANCE[type].color; entry.quantity.text = String(area.stored![type]); }
+    entry.quantity.scale.set(1 / map.scale.x);
+    entry.quantity.position.set(0, 13 + 2 / map.scale.y);
+  }
+}
 
 const spawnTiles = [
   { column: 15, row: 15, color: 0xf2c66d },
@@ -164,11 +197,13 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   view.addChild(heldItem);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
-  const builder: HarvestWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
+  const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
   return { view, selection, heldItem, ...builder, name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearing = (tile: Tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
+construction.storage = storage;
+const hauling = new Hauling(mapItems, storage);
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
@@ -209,7 +244,12 @@ for (const [index, pawn] of pawns.entries()) {
   prioritiesRows.appendChild(row);
 }
 prioritiesTab.addEventListener('click', () => {
-  if (prioritiesWindow.open) prioritiesWindow.close(); else prioritiesWindow.show();
+  if (prioritiesWindow.open) prioritiesWindow.close(); else {
+    constructionSubtabs.hidden = true;
+    constructionTab.setAttribute('aria-expanded', 'false');
+    closeConstructionOptions();
+    prioritiesWindow.show();
+  }
   prioritiesTab.setAttribute('aria-expanded', String(prioritiesWindow.open));
 });
 document.querySelector<HTMLButtonElement>('#close-priorities')!.addEventListener('click', () => prioritiesWindow.close());
@@ -225,7 +265,7 @@ function updateConstructionProgress(): void {
   for (const [key, entry] of constructionProgressViews) {
     const building = walls.items.get(key)!;
     const recipe = BUILD_RECIPES[building.kind];
-    const progress = recipe ? Math.min(1, building.workSeconds / recipe.seconds) : 0;
+    const progress = recipe && recipe.seconds > 0 ? Math.min(1, building.workSeconds / recipe.seconds) : 0;
     entry.view.visible = building.state === 'planned' && progress > 0 && progress < 1;
     if (!entry.view.visible || entry.progress === progress) continue;
     entry.progress = progress;
@@ -250,7 +290,7 @@ const rosterButtons = pawns.map((pawn, index) => {
   button.title = formatPawnName(pawn.name);
   const portrait = createPawnPortrait(index);
   const label = document.createElement('span');
-  label.textContent = formatPawnName(pawn.name);
+  label.textContent = pawn.name.nickname || pawn.name.givenName;
   button.append(portrait, label);
   button.addEventListener('click', () => selectPawn(pawn));
   button.addEventListener('dblclick', () => {
@@ -267,6 +307,7 @@ function selectPawn(pawn: (typeof pawns)[number]): void {
   selectConstruction(null);
   selectedPawn = pawn;
   selectedItem = null;
+  selectedItems.clear();
   selectedEnvironment.clear();
   for (const entry of pawns) entry.selection.visible = entry === pawn;
   updateItemSelection();
@@ -286,16 +327,41 @@ function updatePawnPanels(): void {
   pawnSpecs.style.bottom = `${window.innerHeight - top}px`;
 }
 dropInventoryButton.addEventListener('click', () => {
-  if (selectedPawn) { harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
+  if (selectedPawn) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
 const itemProperties = document.querySelector<HTMLDialogElement>('#item-properties')!;
 const itemPropertiesName = document.querySelector<HTMLElement>('#item-properties-name')!;
 const itemPropertiesMass = document.querySelector<HTMLElement>('#item-properties-mass')!;
+const acquisitionButton = document.querySelector<HTMLButtonElement>('#acquisition-button')!;
 const collectionButton = document.querySelector<HTMLButtonElement>('#collection-button')!;
 const harvestSpeed = document.querySelector<HTMLElement>('#environment-harvest-speed')!;
 const harvestQuantity = document.querySelector<HTMLElement>('#environment-harvest-quantity')!;
+
+const storageSettings = document.querySelector<HTMLDialogElement>('#storage-settings')!;
+let configuredBox: Wall | null = null;
+function updateStorageSettings(): void {
+  if (!configuredBox) return;
+  for (const type of ITEM_TYPES) {
+    document.querySelector<HTMLElement>(`#stored-${type}`)!.textContent = `：${configuredBox.stored?.[type] ?? 0}`;
+    document.querySelector<HTMLInputElement>(`[data-storage-type="${type}"]`)!.checked = configuredBox.accepted?.[type] !== false;
+  }
+}
+function openStorageSettings(box: Wall): void {
+  configuredBox = box;
+  updateStorageSettings();
+  if (!storageSettings.open) storageSettings.show();
+}
+for (const input of document.querySelectorAll<HTMLInputElement>('[data-storage-type]')) {
+  input.addEventListener('change', () => {
+    if (!configuredBox) return;
+    configuredBox.accepted ??= { wood: true, stone: true };
+    configuredBox.accepted[input.dataset.storageType as WallMaterial] = input.checked;
+  });
+}
+document.querySelector<HTMLButtonElement>('#close-storage-settings')!.addEventListener('click', () => storageSettings.close());
+storageSettings.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); storageSettings.close(); } });
 
 function updateEnvironmentViews(): void {
   let changed = false;
@@ -320,21 +386,34 @@ collectionButton.addEventListener('click', () => {
   updateItemSelection();
 });
 
+acquisitionButton.addEventListener('click', () => {
+  const collect = ![...selectedItems].every(item => item.collect);
+  for (const item of selectedItems) item.collect = collect;
+  updateItemSelection();
+});
+
 function updateItemSelection(): void {
   const environment = [...selectedEnvironment][0];
   const hasSelection = selectedItem !== null || Boolean(environment);
   itemInfoButton.hidden = !hasSelection;
   itemInfoButton.setAttribute('aria-label', environment ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
+  acquisitionButton.hidden = !selectedItems.size;
+  const acquire = selectedItems.size > 0 && [...selectedItems].every(item => item.collect);
+  acquisitionButton.textContent = acquire ? '取得' : '無視';
+  acquisitionButton.setAttribute('aria-pressed', String(acquire));
   collectionButton.hidden = !environment;
   collectionButton.textContent = [...selectedEnvironment].every((object) => object.collect) ? '収集' : '無視';
   collectionButton.setAttribute('aria-pressed', String(Boolean(environment) && [...selectedEnvironment].every((object) => object.collect)));
   for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = !selectedItem;
   for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = !environment;
-  itemSelection.visible = selectedItem !== null;
+  itemSelection.visible = selectedItems.size > 0;
+  itemSelection.clear();
+  for (const item of selectedItems) itemSelection.rect(item.column * TILE_SIZE + 1, item.row * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+  if (selectedItems.size) itemSelection.stroke({ color: 0xfff2a3, width: 1.5 });
   pawnModeButton.hidden = hasSelection;
   if (selectedItem) {
     const properties = ITEM_APPEARANCE[selectedItem.type];
-    itemSelection.position.set(selectedItem.column * TILE_SIZE, selectedItem.row * TILE_SIZE);
+
     itemPropertiesName.textContent = properties.name;
     itemPropertiesMass.textContent = `${properties.massKg}kg`;
   } else if (environment) {
@@ -369,6 +448,7 @@ function updatePawnModeButton(): void {
 pawnModeButton.addEventListener('click', () => {
   if (!selectedPawn) return;
   selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
+  hauling.cancel(selectedPawn);
   construction.cancel(selectedPawn);
   harvesting.cancel(selectedPawn);
   if (selectedPawn.mode === 'automatic') stopAtNextSafeTile(selectedPawn.movement, walls.cannotStop);
@@ -383,13 +463,15 @@ const MARKER_FADE_SECONDS = 0.25;
 app.stage.addChild(map);
 
 let selectedConstruction: ConstructionKind | null = null;
-const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood' };
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood' };
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
 const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
 const constructionChoices = [
   { kind: 'wall' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#wall-button', materialsId: '#wall-materials' },
+  { kind: 'storageArea' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-area-button', materialsId: '#storage-area-materials' },
+  { kind: 'storage' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-button', materialsId: '#storage-materials' },
   { kind: 'barricade' as const, tabId: '#defense-tab', optionsId: '#defense-options', buttonId: '#barricade-button', materialsId: '#barricade-materials' },
 ].map((choice) => ({
   kind: choice.kind,
@@ -400,7 +482,8 @@ const constructionChoices = [
 }));
 function updateConstructionLabels(): void {
   for (const choice of constructionChoices) {
-    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
+    if (choice.kind === 'storageArea') { choice.button.textContent = '保管エリア'; continue; }
+    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'storage' ? '保管箱' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
   }
 }
 updateConstructionLabels();
@@ -421,6 +504,7 @@ function selectConstruction(kind: ConstructionKind | null): void {
   if (kind) {
     selectedPawn = null;
     selectedItem = null;
+    selectedItems.clear();
     selectedEnvironment.clear();
     updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = false;
@@ -445,6 +529,7 @@ function closeConstructionOptions(): void {
 }
 
 constructionTab.addEventListener('click', () => {
+  prioritiesWindow.close();
   constructionSubtabs.hidden = !constructionSubtabs.hidden;
   constructionTab.setAttribute('aria-expanded', String(!constructionSubtabs.hidden));
   if (constructionSubtabs.hidden) closeConstructionOptions();
@@ -453,7 +538,7 @@ for (const button of constructionSubtabs.querySelectorAll<HTMLButtonElement>('bu
   if (!constructionChoices.some((choice) => choice.tab === button)) button.addEventListener('click', closeConstructionOptions);
 }
 for (const choice of constructionChoices) {
-  choice.tab.addEventListener('click', () => {
+  if (constructionChoices.find(entry => entry.tab === choice.tab) === choice) choice.tab.addEventListener('click', () => {
     const opening = choice.options.hidden;
     closeConstructionOptions();
     choice.options.hidden = !opening;
@@ -465,6 +550,7 @@ for (const choice of constructionChoices) {
   });
   choice.button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
+    if (choice.kind === 'storage' || choice.kind === 'storageArea') return;
     const opening = choice.materials.hidden;
     hideMaterials();
     choice.materials.hidden = !opening;
@@ -493,6 +579,8 @@ function placeConstruction(tile: Tile): void {
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
     .fill(WALL_COLORS[wall.material]);
+  if (wall.kind === 'storageArea') view.clear().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2).fill({ color: 0xd7b97d, alpha: 0.15 }).stroke({ color: 0xd7b97d, width: 1 });
+  if (wall.kind === 'storage') view.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).stroke({ color: 0xd7b97d, width: 2 }).moveTo(2, 8).lineTo(TILE_SIZE - 2, 8).stroke({ color: 0xd7b97d, width: 1 }).rect(10, 7, 4, 5).fill(0xd7b97d);
   view.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
   view.alpha = WALL_PLAN_ALPHA;
   wallLayer.addChild(view);
@@ -502,6 +590,7 @@ function placeConstruction(tile: Tile): void {
   progressView.visible = false;
   constructionProgressLayer.addChild(progressView);
   constructionProgressViews.set(`${tile.column},${tile.row}`, { view: progressView, progress: -1 });
+  if (wall.kind === 'storageArea' && !needsClearing(tile)) { walls.complete(tile); view.alpha = 1; }
 }
 
 // Finalize only when no pawn or active route would be trapped by the new structure.
@@ -510,11 +599,11 @@ export function completeConstruction(tile: Tile): boolean {
   if (!item || item.state === 'completed') return false;
   if (needsClearing(tile)) return false;
   const sameTile = (entry: Tile): boolean => entry.column === tile.column && entry.row === tile.row;
-  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || (item.kind === 'wall' && sameTile(entry));
+  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage') && sameTile(entry));
   const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
   if (pawns.some(({ movement }) => {
     const occupied = [movement.tile, movement.nextTile, movement.destination];
-    if (item.kind === 'wall' && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
+    if ((item.kind === 'wall' || item.kind === 'storage') && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
       occupied.push(
         { column: movement.nextTile.column, row: movement.tile.row },
         { column: movement.tile.column, row: movement.nextTile.row },
@@ -568,6 +657,7 @@ function applyCamera(): void {
     quantity.scale.set(1 / scale);
     quantity.y = 13 + 2 / scale;
   }
+  for (const { quantity } of storedItemViews.values()) { quantity.scale.set(1 / scale); quantity.y = 13 + 2 / scale; }
   map.position.set(
     app.screen.width / 2 - camera.x * scale,
     app.screen.height / 2 - camera.y * scale,
@@ -626,6 +716,11 @@ app.canvas.addEventListener('pointerdown', (event) => {
     if (selectedConstruction) { selectConstruction(null); hideMaterials(); }
     return;
   }
+  const clickedStructure = walls.items.get(`${Math.floor(x / TILE_SIZE)},${Math.floor(y / TILE_SIZE)}`);
+  if (event.button === 2 && clickedStructure?.kind === 'storage' && clickedStructure.state === 'completed') {
+    openStorageSettings(clickedStructure);
+    return;
+  }
   if (event.button === 2 && selectedConstruction) {
     selectConstruction(null);
     hideMaterials();
@@ -647,6 +742,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     const row = Math.floor(y / TILE_SIZE);
     selectedItem = clickedPawn || walls.isBlocked({ column, row }) ? null
       : [...mapItems].reverse().find((item) => item.quantity > 0 && item.column === column && item.row === row) ?? null;
+    selectedItems = new Set(selectedItem ? [selectedItem] : []);
     const environment = !clickedPawn && !selectedItem && !walls.isBlocked({ column, row })
       ? environmentObjects.find((object) => !object.collected && object.column === column && object.row === row) : undefined;
     selectedEnvironment = new Set(environment ? [environment] : []);
@@ -666,6 +762,7 @@ app.canvas.addEventListener('dblclick', (event) => {
   if (selectedConstruction) return;
   const { x, y } = mapPosition(event);
   const column = Math.floor(x / TILE_SIZE), row = Math.floor(y / TILE_SIZE);
+  if (selectedItem && !selectedPawn) { selectedItems = new Set(nearbyItems(mapItems, selectedItem)); updateItemSelection(); return; }
   const object = environmentObjects.find((entry) => !entry.collected && entry.column === column && entry.row === row);
   if (!object || selectedPawn || selectedItem) return;
   selectedEnvironment = new Set(nearbySameType(environmentObjects, object));
@@ -699,7 +796,7 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
-    updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000, Math.random, ticker.elapsedMS / 1000);
+    updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000, Math.random, ticker.elapsedMS / 1000, hauling);
     advancePathMovement(pawn.movement, ticker.deltaMS / 1000, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
@@ -707,6 +804,8 @@ app.ticker.add((ticker) => {
     if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
   }
   for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
+  updateStorageSettings();
+  updateStoredItemViews();
   updateConstructionProgress();
   updateEnvironmentViews();
   updatePawnPanels();
