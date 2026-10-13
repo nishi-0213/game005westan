@@ -18,12 +18,12 @@ test('a wall gathers the right stack, deposits units singly, then builds for a f
  let sawPickup=false,sawBuilding=false;
  for(let i=0;i<200&&target.state==='planned';i++){
   const before=target.delivered;tick([builder]);assert.ok(target.delivered-before<=1);
-  if(builder.inventory){sawPickup=true;assert.equal(builder.inventory.type,'wood');assert.ok(builder.inventory.quantity<=100);}
+  if(builder.inventory){sawPickup=true;assert.equal(builder.inventory.type,'wood');assert.ok(builder.inventory.quantity<=20);}
   if(target.workSeconds>0){sawBuilding=true;assert.equal(target.delivered,10);}
   if(target.workSeconds<1)assert.equal(target.state,'planned');
  }
  assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
- assert.equal(builder.inventory.quantity,90);assert.equal(items[0].quantity,0);assert.equal(items[1].quantity,200);
+ assert.equal(builder.inventory.quantity,10);assert.equal(items[0].quantity,80);assert.equal(items[1].quantity,200);
  assert.ok(sawPickup&&sawBuilding);
 });
 
@@ -32,7 +32,7 @@ test('a barricade consumes five materials and one second',()=>{
  const target=walls.plan({column:5,row:2},'stone','barricade');
  for(let i=0;i<150&&target.state==='planned';i++)tick([builder]);
  assert.equal(target.state,'completed');assert.equal(target.delivered,5);assert.equal(target.workSeconds,1);
- assert.equal(builder.inventory.quantity,15);assert.equal(walls.isBlocked(target),false);assert.equal(walls.cannotStop(target),true);
+ assert.equal(builder.inventory.quantity,1);assert.equal(walls.isBlocked(target),false);assert.equal(walls.cannotStop(target),true);
 });
 
 test('an insufficient stack is delivered partially and construction waits for the remainder',()=>{
@@ -125,4 +125,29 @@ test('removing a plan stops its assigned builder and prevents completion',()=>{
  assert.equal(walls.removePlan(target),target);tick([builder]);
  assert.equal(builder.job,null);assert.equal(engine.claims.size,0);assert.equal(target.state,'cancelled');
  for(let i=0;i<50;i++)tick([builder]);assert.equal(walls.items.has('5,2'),false);assert.equal(target.workSeconds,0);
+});
+
+test('pickup obeys the 20kg limit for wood and stone',()=>{
+ for(const [type,limit] of [['wood',20],['stone',2]]){
+  const items=[{type,quantity:100,column:3,row:2}];const {walls,tick}=scene(items);walls.plan({column:5,row:2},type);const builder=pawn();
+  for(let i=0;i<100&&!builder.inventory;i++)tick([builder]);
+  assert.equal(builder.inventory.quantity,limit);assert.equal(items[0].quantity,100-limit);
+ }
+});
+
+test('dropping puts held materials on the ground at the next safe tile and releases the job',()=>{
+ const items=[];const {engine,tick}=scene(items);const builder=pawn();builder.mode='drafted';builder.inventory={type:'wood',quantity:20};
+ builder.movement.destination={column:5,row:2};advanceMovement(builder.movement,.125);
+ engine.requestDrop(builder);assert.equal(builder.dropRequested,true);assert.equal(items.length,0);
+ tick([builder],.125);tick([builder],.01);
+ assert.equal(builder.inventory,null);assert.equal(builder.dropRequested,false);
+ assert.deepEqual(items,[{column:3,row:2,type:'wood',quantity:20}]);
+});
+
+test('only the owning builder advances a single plan, and interruption allows handover',()=>{
+ const {walls,engine}=scene();const target=walls.plan({column:3,row:2},'wood');target.delivered=10;const first=pawn(),second=pawn();
+ engine.update(first,0);engine.update(second,0);assert.equal(second.job,null);
+ engine.update(first,.25);engine.update(second,.25);assert.equal(target.workSeconds,.25);
+ first.mode='drafted';engine.cancel(first);engine.update(second,.25);assert.equal(engine.claims.get(target),second);
+ engine.update(first,.25);engine.update(second,.25);assert.equal(target.workSeconds,.5);
 });

@@ -1,5 +1,5 @@
 import type { MapItem, ItemType } from './items';
-import { returnItems } from './items.ts';
+import { ITEM_APPEARANCE, PAWN_CARRY_LIMIT_KG, returnItems } from './items.ts';
 import { findPath, findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
@@ -13,6 +13,7 @@ export interface Builder {
   inventory: { type: ItemType; quantity: number } | null;
   job: { target: Wall; phase: 'gather' | 'deliver' | 'build'; source?: MapItem; goal: Tile } | null;
   retrySeconds: number;
+  dropRequested?: boolean;
 }
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 const adjacent = (a: Tile, b: Tile) => Math.max(Math.abs(a.column - b.column), Math.abs(a.row - b.row)) === 1;
@@ -32,6 +33,12 @@ export class Construction {
     builder.job = null;
     builder.retrySeconds = 0;
     stopAtNextSafeTile(builder.movement, this.walls.cannotStop);
+  }
+
+  requestDrop(builder: Builder): void {
+    if (!builder.inventory?.quantity) return;
+    this.cancel(builder);
+    builder.dropRequested = true;
   }
 
   path(from: Tile, to: Tile): Path | null {
@@ -82,8 +89,17 @@ export class Construction {
   }
 
   update(builder: Builder, seconds: number): void {
+    if (builder.dropRequested) {
+      if (builder.movement.nextTile || !sameTile(builder.movement.tile, builder.movement.destination)) return;
+      if (builder.inventory) returnItems(this.items, builder.movement.tile, builder.inventory.type, builder.inventory.quantity);
+      builder.inventory = null;
+      builder.dropRequested = false;
+      builder.retrySeconds = 0.25;
+      return;
+    }
     if (builder.mode !== 'automatic') { if (builder.job) this.cancel(builder); return; }
     if (builder.job && builder.job.target.state !== 'planned') this.cancel(builder);
+    if (builder.job && this.claims.get(builder.job.target) !== builder) this.cancel(builder);
     const movement = builder.movement;
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!builder.job) {
@@ -123,8 +139,9 @@ export class Construction {
     if (job.phase === 'gather') {
       const source = job.source!;
       if (source.quantity <= 0) { this.cancel(builder); return; }
-      builder.inventory = { type: source.type, quantity: source.quantity };
-      source.quantity = 0;
+      const quantity = Math.min(source.quantity, Math.floor(PAWN_CARRY_LIMIT_KG / ITEM_APPEARANCE[source.type].massKg));
+      builder.inventory = { type: source.type, quantity };
+      source.quantity -= quantity;
       if (!this.assignDelivery(builder)) this.cancel(builder);
       return;
     }

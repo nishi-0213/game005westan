@@ -151,6 +151,23 @@ let selectedPawn: (typeof pawns)[number] | null = null;
 const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
 const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
 const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
+const dropInventoryButton = document.querySelector<HTMLButtonElement>('#drop-inventory-button')!;
+const pawnSpecs = document.querySelector<HTMLElement>('#pawn-specs')!;
+
+function updatePawnPanels(): void {
+  dropInventoryButton.hidden = selectedPawn === null;
+  dropInventoryButton.disabled = !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
+  pawnSpecs.hidden = selectedPawn === null;
+  if (!selectedPawn) return;
+  const visibleMenus = document.querySelectorAll<HTMLElement>('.construction-subtabs, .building-options, .wall-materials');
+  let top = window.innerHeight - 40;
+  for (const menu of visibleMenus) if (!menu.hidden) top = Math.min(top, menu.getBoundingClientRect().top);
+  pawnSpecs.style.bottom = `${window.innerHeight - top}px`;
+}
+dropInventoryButton.addEventListener('click', () => {
+  if (selectedPawn) construction.requestDrop(selectedPawn);
+  updatePawnPanels();
+});
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
 const itemProperties = document.querySelector<HTMLDialogElement>('#item-properties')!;
 const itemPropertiesName = document.querySelector<HTMLElement>('#item-properties-name')!;
@@ -178,6 +195,7 @@ itemProperties.addEventListener('keydown', (event) => {
 function updatePawnModeButton(): void {
   const drafted = selectedPawn?.mode !== 'automatic';
   pawnModeButton.disabled = selectedPawn === null;
+  updatePawnPanels();
   pawnModeIcon.textContent = drafted ? '⚔' : '⚙';
   pawnModeLabel.textContent = drafted ? '徴兵' : '自動';
   pawnModeButton.dataset.mode = drafted ? 'drafted' : 'automatic';
@@ -504,6 +522,7 @@ app.ticker.add((ticker) => {
   }
   for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
   updateConstructionProgress();
+  updatePawnPanels();
   updateItemSummary();
 });
 
