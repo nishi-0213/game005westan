@@ -87,3 +87,7 @@ test('free timers use elapsed wall-clock time even when animation time is capped
  updateWork(s.worker,s.construction,s.harvesting,.1,()=>0,5);
  assert.notDeepEqual(s.worker.movement.destination,s.worker.movement.tile);
 });
+
+test('right-click priority rotation wraps in reverse',()=>{
+ let value=1;const seen=[];for(let i=0;i<5;i++){seen.push(value);value=nextPriority(value,-1);}assert.deepEqual(seen,[1,4,3,2,1]);
+});

@@ -11,7 +11,7 @@ export const INITIAL_PRIORITIES: WorkPriorities[] = [
   { construction: 3, harvesting: 3, free: 3 },
   { construction: 3, harvesting: 3, free: 3 },
 ];
-export function nextPriority(value: number): number { return value % 4 + 1; }
+export function nextPriority(value: number, direction: 1 | -1 = 1): number { return (value - 1 + direction + 4) % 4 + 1; }
 
 export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds): void {
   const wasFree = worker.freeActive;

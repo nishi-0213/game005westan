@@ -1,3 +1,43 @@
-export const SURNAMES = ['風見', '朝霧', '白峰', '冬木', '星野', '水無瀬', '月城', '花森', '天野', '早瀬', '橘', '桐生'];
-export const GIVEN_NAMES = ['蒼', '凛', '悠', '灯', '蓮', '楓', '澪', '律', '葵', '伊織', '千尋', '日向'];
-export const NICKNAMES = ['梟', '燕', '狼', '狐', '鷹', '猫', '蛍', '星', '風', '雨', '月', '雲'];
+export const SURNAMES = [
+  '風見', '朝霧', '白峰', '冬木', '星野', '水無瀬', '月城', '花森', '天野', '早瀬', '橘', '桐生',
+  'Smith', 'Johnson', 'Williams', 'Brown', 'Taylor', 'Wilson', 'Davis', 'Miller', 'Anderson', 'Thompson',
+  'Martin', 'Bernard', 'Dubois', 'Moreau', 'Laurent', 'Lefevre', 'Roux', 'Petit', 'Garcia', 'Rodriguez',
+  'Lopez', 'Martinez', 'Sanchez', 'Perez', 'Gomez', 'Fernandez', 'Silva', 'Santos', 'Costa', 'Pereira',
+  'Muller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Wagner', 'Becker', 'Hoffmann', 'Rossi', 'Russo',
+  'Ferrari', 'Esposito', 'Romano', 'Bianchi', 'Ricci', 'Marino', 'Ivanov', 'Petrov', 'Sokolov', 'Volkov',
+  'Kowalski', 'Nowak', 'Wisniewski', 'Novak', 'Horak', 'Nielsen', 'Jensen', 'Hansen', 'Larsen', 'Berg',
+  'Lindberg', 'Andersson', 'Eriksson', 'Korhonen', 'Virtanen', 'Murphy', 'Kelly', 'OBrien', 'Walsh', 'Ryan',
+  'Wang', 'Li', 'Zhang', 'Chen', 'Liu', 'Zhao', 'Lin', 'Huang', 'Kim', 'Park', 'Choi', 'Lee',
+  'Singh', 'Patel', 'Sharma', 'Gupta', 'Khan', 'Rahman', 'Ahmed', 'Ali', 'Hassan', 'Ibrahim',
+  'Okafor', 'Adeyemi', 'Mensah', 'Diallo', 'Ndlovu', 'Dlamini', 'Mwangi', 'Kamau', 'Nguyen', 'Tran', 'Pham', 'Le',
+];
+export const GIVEN_NAMES = [
+  '蒼', '凛', '悠', '灯', '蓮', '楓', '澪', '律', '葵', '伊織', '千尋', '日向',
+  'Emma', 'Olivia', 'Amelia', 'Charlotte', 'Sophia', 'Isabella', 'Mia', 'Evelyn', 'James', 'Oliver',
+  'William', 'Henry', 'Noah', 'Liam', 'Lucas', 'Benjamin', 'Alexander', 'Ethan', 'Daniel', 'Samuel',
+  'Alice', 'Chloe', 'Camille', 'Juliette', 'Lea', 'Manon', 'Louis', 'Gabriel', 'Arthur', 'Hugo',
+  'Mateo', 'Diego', 'Javier', 'Alejandro', 'Carlos', 'Lucia', 'Sofia', 'Isabel', 'Valentina', 'Elena',
+  'Luca', 'Matteo', 'Leonardo', 'Alessandro', 'Giulia', 'Chiara', 'Francesca', 'Aurora',
+  'Anna', 'Clara', 'Greta', 'Lena', 'Marlene', 'Felix', 'Leon', 'Jonas', 'Lukas', 'Emil',
+  'Anastasia', 'Irina', 'Natalia', 'Daria', 'Mikhail', 'Dmitri', 'Alexei', 'Nikolai', 'Pavel', 'Viktor',
+  'Astrid', 'Freya', 'Ingrid', 'Signe', 'Erik', 'Lars', 'Soren', 'Magnus', 'Aino', 'Elias',
+  'Aoife', 'Niamh', 'Saoirse', 'Siobhan', 'Sean', 'Cian', 'Finn', 'Ronan', 'Declan', 'Fiona',
+  'Mei', 'Ling', 'Xia', 'Hua', 'Wei', 'Jun', 'Ming', 'Tao', 'Min', 'Jiwoo', 'Sora', 'Hana',
+  'Aisha', 'Fatima', 'Layla', 'Mariam', 'Omar', 'Yusuf', 'Amir', 'Karim', 'Zain', 'Nadia',
+  'Arjun', 'Ravi', 'Vikram', 'Dev', 'Priya', 'Ananya', 'Isha', 'Meera', 'Kavya', 'Nikhil',
+  'Amara', 'Zuri', 'Nia', 'Imani', 'Kwame', 'Kofi', 'Chidi', 'Emeka', 'Ayo', 'Thabo',
+  'Linh', 'Mai', 'Anh', 'Thao', 'Minh', 'Bao', 'Duy', 'Quang', 'An', 'Lan',
+];
+export const NICKNAMES = [
+  '梟', '燕', '狼', '狐', '鷹', '猫', '蛍', '星', '風', '雨', '月', '雲',
+  'Ash', 'Ember', 'Flint', 'Spark', 'Frost', 'Snow', 'Storm', 'Thunder', 'Rain', 'Mist',
+  'Dawn', 'Dusk', 'Night', 'Moon', 'Star', 'Comet', 'Nova', 'Sol', 'Luna', 'Halo',
+  'Raven', 'Hawk', 'Falcon', 'Eagle', 'Owl', 'Sparrow', 'Robin', 'Wren', 'Lark', 'Finch',
+  'Fox', 'Wolf', 'Bear', 'Lynx', 'Tiger', 'Lion', 'Panther', 'Otter', 'Badger', 'Sable',
+  'Oak', 'Willow', 'Pine', 'Cedar', 'Maple', 'Birch', 'Ivy', 'Fern', 'Moss', 'Reed',
+  'Copper', 'Silver', 'Iron', 'Steel', 'Gold', 'Onyx', 'Jade', 'Ruby', 'Opal', 'Amber',
+  'Scout', 'Ranger', 'Nomad', 'Wanderer', 'Pilgrim', 'Sailor', 'Skipper', 'Ace', 'Dash', 'Swift',
+  'Echo', 'Whisper', 'Song', 'Chime', 'Drift', 'Tide', 'Wave', 'Brook', 'River', 'Stone',
+  'Sage', 'Lucky', 'Patch', 'Doc', 'Red', 'Blue', 'Indigo', 'Violet', 'Sunny', 'Smiley',
+  'Atlas', 'Orion', 'Vega', 'Lyra', 'Phoenix', 'Cricket', 'Firefly', 'Kite', 'Clover', 'Thistle',
+];

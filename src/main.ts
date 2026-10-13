@@ -57,7 +57,7 @@ const environmentViews = environmentObjects.map((object) => {
   const outline = new Graphics().rect(-11, -11, 22, 22).stroke({ color: 0xfff2a3, width: 1.5 });
   outline.visible = false;
   const shape = new Graphics();
-  if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x396f3b);
+  if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x8fba7a);
   else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
   const collectIcon = new Graphics()
     .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
@@ -174,11 +174,23 @@ map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
 const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
 const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorities-rows')!;
-for (const pawn of pawns) {
+function createPawnPortrait(index: number): SVGSVGElement {
+  const portrait = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  portrait.setAttribute('viewBox', '-12 -14 24 28');
+  portrait.setAttribute('aria-hidden', 'true');
+  portrait.innerHTML = `<ellipse cx="0" cy="7" rx="7" ry="3" fill="#17261c" opacity=".5"/><rect x="-5" y="-1" width="10" height="10" rx="4" fill="#${spawnTiles[index].color.toString(16)}"/><circle cx="0" cy="-5" r="4" fill="#ffe3bd" stroke="#25312a" stroke-width="1"/>`;
+  return portrait;
+}
+for (const [index, pawn] of pawns.entries()) {
   const row = document.createElement('tr');
   const name = document.createElement('th');
   name.scope = 'row';
-  name.textContent = formatPawnName(pawn.name);
+  const nameLabel = document.createElement('span');
+  nameLabel.textContent = formatPawnName(pawn.name);
+  const identity = document.createElement('div');
+  identity.className = 'priority-pawn';
+  identity.append(createPawnPortrait(index), nameLabel);
+  name.appendChild(identity);
   row.appendChild(name);
   for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
@@ -187,9 +199,11 @@ for (const pawn of pawns) {
     button.className = 'priority-value';
     const refresh = () => {
       button.textContent = String(pawn.priorities[task] ?? 3);
+      button.dataset.priority = button.textContent;
       button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
     };
     button.addEventListener('click', () => { pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3); refresh(); });
+    button.addEventListener('contextmenu', (event) => { event.preventDefault(); pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
     refresh(); cell.appendChild(button); row.appendChild(cell);
   }
   prioritiesRows.appendChild(row);
@@ -226,6 +240,38 @@ const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
 const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
 const dropInventoryButton = document.querySelector<HTMLButtonElement>('#drop-inventory-button')!;
 const pawnSpecs = document.querySelector<HTMLElement>('#pawn-specs')!;
+const pawnRoster = document.querySelector<HTMLElement>('#pawn-roster')!;
+const rosterButtons = pawns.map((pawn, index) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pawn-roster-button';
+  button.setAttribute('aria-label', `${formatPawnName(pawn.name)}を選択`);
+  button.setAttribute('aria-pressed', 'false');
+  button.title = formatPawnName(pawn.name);
+  const portrait = createPawnPortrait(index);
+  const label = document.createElement('span');
+  label.textContent = formatPawnName(pawn.name);
+  button.append(portrait, label);
+  button.addEventListener('click', () => selectPawn(pawn));
+  button.addEventListener('dblclick', () => {
+    selectPawn(pawn);
+    camera.x = pawn.view.x;
+    camera.y = pawn.view.y;
+    applyCamera();
+  });
+  pawnRoster.appendChild(button);
+  return { pawn, button };
+});
+
+function selectPawn(pawn: (typeof pawns)[number]): void {
+  selectConstruction(null);
+  selectedPawn = pawn;
+  selectedItem = null;
+  selectedEnvironment.clear();
+  for (const entry of pawns) entry.selection.visible = entry === pawn;
+  updateItemSelection();
+  updatePawnModeButton();
+}
 
 function updatePawnPanels(): void {
   dropInventoryButton.hidden = selectedPawn === null;
@@ -311,6 +357,7 @@ function updatePawnModeButton(): void {
   const drafted = selectedPawn?.mode !== 'automatic';
   pawnModeButton.disabled = selectedPawn === null;
   updatePawnPanels();
+  for (const entry of rosterButtons) entry.button.setAttribute('aria-pressed', String(entry.pawn === selectedPawn));
   pawnModeIcon.textContent = drafted ? '⚔' : '⚙';
   pawnModeLabel.textContent = drafted ? '徴兵' : '自動';
   pawnModeButton.dataset.mode = drafted ? 'drafted' : 'automatic';

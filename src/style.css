@@ -1,6 +1,30 @@
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #151d19; }
 canvas { display: block; width: 100%; height: 100%; }
 
+#pawn-roster {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  width: min(336px, calc(100vw - 160px));
+}
+.pawn-roster-button {
+  flex: 1;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid #708268;
+  background: #263529;
+  color: #f4e9cc;
+  font: 11px system-ui, sans-serif;
+  cursor: pointer;
+}
+.pawn-roster-button svg { display: block; width: 48px; height: 56px; margin: 0 auto; }
+.pawn-roster-button span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 16px; }
+.pawn-roster-button[aria-pressed="true"] { background: #475b3e; border-color: #f2c66d; }
+.pawn-roster-button:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
+
 #item-summary {
   position: fixed;
   top: 0;
@@ -176,7 +200,7 @@ canvas { display: block; width: 100%; height: 100%; }
 #priorities-window th { padding: 4px; text-align: left; font-weight: 500; }
 #priorities-window th[scope="row"] { overflow-wrap: anywhere; }
 #priorities-window td { padding: 4px; text-align: center; }
-.priority-value { width: 32px; height: 32px; border: 1px solid #708268; background: #354936; color: #fff2a3; font: inherit; cursor: pointer; }
+.priority-value { width: 32px; height: 32px; border: 1px solid #708268; background: #354936; color: #b6b6b6; font: inherit; cursor: pointer; }
 .priority-value:focus-visible { outline: 2px solid #f2c66d; }
 #close-priorities { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border: 0; background: transparent; color: inherit; font: 20px system-ui, sans-serif; cursor: pointer; }
 
@@ -220,3 +244,8 @@ canvas { display: block; width: 100%; height: 100%; }
   color: #fff2a3;
 }
 #wall-button, #barricade-button { width: auto; min-width: 96px; padding: 0 10px; }
+
+.priority-pawn { display: flex; align-items: center; gap: 6px; }
+.priority-pawn svg { width: 24px; height: 28px; flex: none; }
+.priority-value[data-priority="1"] { color: #82c6dc; }
+.priority-value[data-priority="2"] { color: #f2c66d; }
