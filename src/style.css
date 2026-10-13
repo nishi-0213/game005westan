@@ -281,3 +281,9 @@ canvas { display: block; width: 100%; height: 100%; }
 #food-command { position: fixed; inset: auto; margin: 0; padding: 24px 12px 12px; border: 1px solid #708268; background: #263529; color: #f4e9cc; z-index: 4; }
 #close-food-command { position: absolute; top: 2px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
 #eat-now-button { padding: 8px 14px; border: 1px solid #708268; background: #354936; color: #f4e9cc; cursor: pointer; }
+
+#time-controls { position: fixed; top: 0; right: 0; display: flex; gap: 3px; z-index: 2; }
+#time-controls button { padding: 6px 8px; border: 1px solid #708268; background: #263529; color: #f4e9cc; font: 12px system-ui, sans-serif; cursor: pointer; }
+#time-controls button[aria-pressed="true"] { background: #475b3e; border-color: #f2c66d; }
+#time-controls button:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
+@media (max-width: 600px) { #time-controls { top: 94px; } }

@@ -2,6 +2,8 @@ import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
 import { advancePathMovement, commandMove } from './pathfinding';
+import { SimulationClock } from './simulation-clock';
+import type { GameSpeed } from './simulation-clock';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
 import type { Tile } from './movement';
 import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
@@ -898,6 +900,15 @@ for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture'] as 
   app.canvas.addEventListener(eventName, stopDrawing);
 }
 
+const simulationClock = new SimulationClock();
+const speedButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-game-speed]')];
+for (const button of speedButtons) {
+  button.addEventListener('click', () => {
+    simulationClock.speed = Number(button.dataset.gameSpeed) as GameSpeed;
+    for (const choice of speedButtons) choice.setAttribute('aria-pressed', String(choice === button));
+  });
+}
+
 app.ticker.add((ticker) => {
   updateItemSummary();
   for (let index = destinationMarkers.length - 1; index >= 0; index--) {
@@ -918,10 +929,14 @@ app.ticker.add((ticker) => {
     camera.y += vertical / directionLength * distance;
     applyCamera();
   }
+  simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    for (const pawn of pawns) {
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds);
+      if (!eating) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling);
+      if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
+    }
+  });
   for (const pawn of pawns) {
-    const eating = updateNeeds(pawn, construction, harvesting, hauling, ticker.elapsedMS / 1000);
-    if (!eating) updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000, Math.random, ticker.elapsedMS / 1000, hauling);
-    if (!pawn.dead) advancePathMovement(pawn.movement, ticker.deltaMS / 1000, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     const position = pawn.deadPosition ?? renderedPosition(pawn.movement);
     pawn.view.rotation = pawn.dead ? Math.PI / 2 : 0;
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);

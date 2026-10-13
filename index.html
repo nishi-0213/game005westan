@@ -7,6 +7,11 @@
   </head>
   <body>
     <ul id="item-summary" aria-label="保管箱内のアイテム"></ul>
+    <nav id="time-controls" aria-label="ゲーム速度">
+      <button type="button" data-game-speed="0" aria-pressed="false">一時停止</button>
+      <button type="button" data-game-speed="1" aria-pressed="true">1倍</button>
+      <button type="button" data-game-speed="3" aria-pressed="false">3倍</button>
+    </nav>
     <nav id="pawn-roster" aria-label="ポーン一覧"></nav>
     <button id="pawn-mode-button" type="button" aria-label="ポーンを選択して状態を切り替え" disabled>
       <span id="pawn-mode-icon" aria-hidden="true">⚔</span>

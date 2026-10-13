@@ -14,7 +14,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   deadPosition?: Tile;
   eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number } | null;
 };
-export const SATIETY_LOSS_PER_SECOND = 0.1;
+export const SATIETY_LOSS_PER_SECOND = 1;
 export const FOOD_THRESHOLD = 20;
 export const STRAWBERRY_SATIETY = 20;
 export const EATING_SECONDS = 1;
