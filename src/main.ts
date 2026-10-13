@@ -1,9 +1,10 @@
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
 import { advanceMovement, createMovement, hasSafeExit, renderedPosition, setDestination } from './movement';
 import type { Tile } from './movement';
 import { dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial } from './walls';
+import { countItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES } from './items';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
@@ -36,6 +37,48 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 }
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
+const mapItems = initialItems();
+const itemLayer = new Container();
+map.addChild(itemLayer);
+for (const item of mapItems) {
+  const view = new Container();
+  view.position.set((item.column + 0.5) * TILE_SIZE, item.row * TILE_SIZE);
+  const icon = new Graphics().rect(-6, 1, 12, 12).fill(ITEM_APPEARANCE[item.type].color);
+  const quantity = new Text({
+    text: String(item.quantity),
+    style: { fontFamily: 'sans-serif', fontSize: 8, lineHeight: 9, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } },
+  });
+  quantity.anchor.set(0.5, 0);
+  quantity.position.set(0, 14);
+  view.addChild(icon, quantity);
+  itemLayer.addChild(view);
+}
+
+const itemSummary = document.querySelector<HTMLUListElement>('#item-summary')!;
+const summaryRows = ITEM_TYPES.map((type) => {
+  const row = document.createElement('li');
+  const icon = document.createElement('span');
+  icon.className = 'item-icon';
+  icon.style.backgroundColor = `#${ITEM_APPEARANCE[type].color.toString(16).padStart(6, '0')}`;
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-label', ITEM_APPEARANCE[type].name);
+  const quantity = document.createElement('span');
+  row.append(icon, quantity);
+  itemSummary.appendChild(row);
+  return { type, row, quantity, total: -1 };
+});
+
+function updateItemSummary(): void {
+  const totals = countItems(mapItems);
+  for (const entry of summaryRows) {
+    if (entry.total === totals[entry.type]) continue;
+    entry.total = totals[entry.type];
+    entry.quantity.textContent = `：${entry.total}`;
+    entry.row.setAttribute('aria-label', `${ITEM_APPEARANCE[entry.type].name}：${entry.total}`);
+  }
+}
+updateItemSummary();
+
 const walls = new Walls(MAP_SIZE);
 const wallLayer = new Container();
 const wallViews = new Map<string, Graphics>();
@@ -310,6 +353,7 @@ for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture'] as 
 }
 
 app.ticker.add((ticker) => {
+  updateItemSummary();
   for (let index = destinationMarkers.length - 1; index >= 0; index--) {
     const marker = destinationMarkers[index];
     marker.ageSeconds += ticker.deltaMS / 1000;
