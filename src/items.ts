@@ -24,3 +24,10 @@ export function countItems(items: readonly MapItem[]): Record<ItemType, number> 
   for (const item of items) totals[item.type] += item.quantity;
   return totals;
 }
+
+export function returnItems(items: MapItem[], tile: Tile, type: ItemType, quantity: number): void {
+  if (quantity <= 0) return;
+  const stack = items.find((item) => item.type === type && item.column === tile.column && item.row === tile.row);
+  if (stack) stack.quantity += quantity;
+  else items.push({ ...tile, type, quantity });
+}

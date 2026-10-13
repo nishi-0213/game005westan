@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { countItems, initialItems } from '../src/items.ts';
+import { countItems, initialItems, returnItems } from '../src/items.ts';
 
 test('initial map has central stacks totaling 100 wood and 200 stone', () => {
   const items = initialItems();
@@ -26,4 +26,12 @@ test('counts add every stack including stacks at distant map edges', () => {
 
 test('empty map reports zero totals', () => {
   assert.deepEqual(countItems([]), { wood: 0, stone: 0 });
+});
+
+test('returned building materials merge with an existing stack without losing quantities', () => {
+  const items = [{type:'wood',quantity:90,column:5,row:5}];
+  returnItems(items,{column:5,row:5},'wood',10);
+  returnItems(items,{column:5,row:5},'stone',5);
+  assert.equal(items.length,2);
+  assert.deepEqual(countItems(items),{wood:100,stone:5});
 });

@@ -2,9 +2,9 @@ import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
 import { advanceMovement, createMovement, movementHasSafeExit, renderedPosition, setDestination, stopAtNextSafeTile } from './movement';
 import type { Tile } from './movement';
-import { dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
+import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial } from './walls';
-import { countItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES } from './items';
+import { countItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES, returnItems } from './items';
 import { Construction } from './construction';
 import type { Builder } from './construction';
 
@@ -112,12 +112,32 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
     .circle(0, -5, 4).fill(0xffe3bd)
     .stroke({ color: 0x25312a, width: 1 });
   view.addChild(body);
+  const heldItem = new Graphics().rect(4, 0, 6, 6).fill(0xffffff);
+  heldItem.visible = false;
+  view.addChild(heldItem);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
   const builder: Builder = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0 };
-  return { view, selection, ...builder };
+  return { view, selection, heldItem, ...builder };
 });
 const construction = new Construction(walls, mapItems, completeConstruction);
+const constructionProgressLayer = new Container();
+map.addChild(constructionProgressLayer);
+const constructionProgressViews = new Map<string, { view: Graphics; progress: number }>();
+
+function updateConstructionProgress(): void {
+  for (const [key, entry] of constructionProgressViews) {
+    const building = walls.items.get(key)!;
+    const recipe = BUILD_RECIPES[building.kind];
+    const progress = recipe ? Math.min(1, building.workSeconds / recipe.seconds) : 0;
+    entry.view.visible = building.state === 'planned' && progress > 0 && progress < 1;
+    if (!entry.view.visible || entry.progress === progress) continue;
+    entry.progress = progress;
+    entry.view.clear()
+      .rect(0, 0, TILE_SIZE, 4).fill(0x152019)
+      .rect(1, 1, (TILE_SIZE - 2) * progress, 2).fill(0xf2c66d);
+  }
+}
 let selectedPawn: (typeof pawns)[number] | null = null;
 const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
 const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
@@ -259,6 +279,11 @@ function placeConstruction(tile: Tile): void {
   view.alpha = WALL_PLAN_ALPHA;
   wallLayer.addChild(view);
   wallViews.set(`${tile.column},${tile.row}`, view);
+  const progressView = new Graphics();
+  progressView.position.set(tile.column * TILE_SIZE, (tile.row + 1) * TILE_SIZE + 1);
+  progressView.visible = false;
+  constructionProgressLayer.addChild(progressView);
+  constructionProgressViews.set(`${tile.column},${tile.row}`, { view: progressView, progress: -1 });
 }
 
 // Finalize only when no pawn or active route would be trapped by the new structure.
@@ -285,6 +310,20 @@ export function completeConstruction(tile: Tile): boolean {
 }
 
 export const completeWall = completeConstruction;
+
+function removeConstructionPlan(tile: Tile): boolean {
+  const removed = walls.removePlan(tile);
+  if (!removed) return false;
+  for (const pawn of pawns) if (pawn.job?.target === removed) construction.cancel(pawn);
+  returnItems(mapItems, tile, removed.material, removed.delivered);
+  const key = `${tile.column},${tile.row}`;
+  wallViews.get(key)?.destroy();
+  wallViews.delete(key);
+  constructionProgressViews.get(key)?.view.destroy();
+  constructionProgressViews.delete(key);
+  updateItemSummary();
+  return true;
+}
 
 function showDestination(column: number, row: number): void {
   const marker = new Graphics()
@@ -365,6 +404,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     hideMaterials();
     return;
   }
+  if (event.button === 2 && removeConstructionPlan({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) })) return;
   if (event.button === 0 && selectedConstruction) {
     drawingPointer = event.pointerId;
     previousDragTile = null;
@@ -420,8 +460,11 @@ app.ticker.add((ticker) => {
     advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
+    pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);
+    if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
   }
   for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
+  updateConstructionProgress();
   updateItemSummary();
 });
 

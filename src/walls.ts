@@ -5,7 +5,7 @@ export type ConstructionKind = 'wall' | 'barricade';
 export interface Wall extends Tile {
   kind: ConstructionKind;
   material: WallMaterial;
-  state: 'planned' | 'completed';
+  state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
 }
@@ -43,6 +43,15 @@ export class Walls {
     if (!wall || wall.state === 'completed') return false;
     wall.state = 'completed';
     return true;
+  }
+
+  removePlan(tile: Tile): Wall | null {
+    const key = `${tile.column},${tile.row}`;
+    const item = this.items.get(key);
+    if (!item || item.state !== 'planned') return null;
+    item.state = 'cancelled';
+    this.items.delete(key);
+    return item;
   }
 
   isBlocked = (tile: Tile): boolean => {

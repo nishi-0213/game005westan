@@ -66,3 +66,10 @@ test('diagonal movement cannot cut across either edge of a completed wall', () =
     assert.deepEqual(pawn.tile, { column: 15, row: 15 });
   }
 });
+
+test('only planned structures can be removed, including partially built barricades',()=>{
+ const walls=new Walls(32);const target=walls.plan({column:5,row:5},'stone','barricade');target.delivered=5;target.workSeconds=.5;
+ assert.equal(walls.removePlan(target),target);assert.equal(target.state,'cancelled');assert.equal(target.delivered,5);assert.equal(walls.items.size,0);
+ const completed=walls.plan({column:6,row:5},'wood');walls.complete(completed);
+ assert.equal(walls.removePlan(completed),null);assert.equal(walls.isBlocked(completed),true);
+});

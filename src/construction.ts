@@ -1,4 +1,5 @@
 import type { MapItem, ItemType } from './items';
+import { returnItems } from './items.ts';
 import { findPath, findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
@@ -82,7 +83,7 @@ export class Construction {
 
   update(builder: Builder, seconds: number): void {
     if (builder.mode !== 'automatic') { if (builder.job) this.cancel(builder); return; }
-    if (builder.job?.target.state === 'completed') this.cancel(builder);
+    if (builder.job && builder.job.target.state !== 'planned') this.cancel(builder);
     const movement = builder.movement;
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!builder.job) {
@@ -101,9 +102,7 @@ export class Construction {
       if (builder.inventory?.quantity && builder.inventory.type === plan.target.material) { this.assignDelivery(builder); return; }
       if (builder.inventory?.quantity) {
         const held = builder.inventory;
-        const stack = this.items.find((item) => item.type === held.type && sameTile(item, movement.tile));
-        if (stack) stack.quantity += held.quantity;
-        else this.items.push({ ...movement.tile, type: held.type, quantity: held.quantity });
+        returnItems(this.items, movement.tile, held.type, held.quantity);
         builder.inventory = null;
       }
       let source: { item: MapItem; path: Path } | null = null;

@@ -101,3 +101,28 @@ test('construction target is reselected by arrival time after collecting materia
  for(let i=0;i<60&&!builder.inventory;i++)tick([builder]);
  assert.ok(builder.inventory);assert.equal(builder.job.target,afterPickup);
 });
+
+test('drafting interrupts construction without losing materials or work, then resumes from the remaining time',()=>{
+ const {walls,engine}=scene();const builder=pawn();const target=walls.plan({column:3,row:2},'wood');target.delivered=10;
+ engine.update(builder,0);engine.update(builder,.4);assert.equal(target.workSeconds,.4);
+ builder.mode='drafted';engine.cancel(builder);engine.update(builder,2);
+ assert.equal(target.workSeconds,.4);assert.equal(target.delivered,10);assert.equal(target.state,'planned');
+ builder.mode='automatic';engine.update(builder,0);engine.update(builder,.59);
+ assert.equal(target.state,'planned');assert.ok(target.workSeconds>.98);
+ engine.update(builder,.02);assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
+});
+
+test('a different automatic pawn can finish progress saved by an interrupted builder',()=>{
+ const {walls,engine}=scene();const first=pawn();const second=pawn();const target=walls.plan({column:3,row:2},'stone');target.delivered=10;
+ engine.update(first,0);engine.update(first,.25);first.mode='drafted';engine.cancel(first);
+ engine.update(second,0);assert.equal(second.job.phase,'build');assert.equal(target.workSeconds,.25);
+ engine.update(second,.75);assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
+});
+
+test('removing a plan stops its assigned builder and prevents completion',()=>{
+ const {walls,engine,tick}=scene([{type:'wood',quantity:100,column:3,row:2}]);const builder=pawn();const target=walls.plan({column:5,row:2},'wood');
+ engine.update(builder,.05);assert.equal(builder.job.target,target);
+ assert.equal(walls.removePlan(target),target);tick([builder]);
+ assert.equal(builder.job,null);assert.equal(engine.claims.size,0);assert.equal(target.state,'cancelled');
+ for(let i=0;i<50;i++)tick([builder]);assert.equal(walls.items.has('5,2'),false);assert.equal(target.workSeconds,0);
+});
