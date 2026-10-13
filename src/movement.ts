@@ -22,11 +22,11 @@ export function setDestination(movement: Movement, destination: Tile): void {
 }
 
 function nextStep(tile: Tile, destination: Tile): Tile | null {
-  if (tile.column !== destination.column) {
-    return { column: tile.column + Math.sign(destination.column - tile.column), row: tile.row };
-  }
-  if (tile.row !== destination.row) {
-    return { column: tile.column, row: tile.row + Math.sign(destination.row - tile.row) };
+  if (tile.column !== destination.column || tile.row !== destination.row) {
+    return {
+      column: tile.column + Math.sign(destination.column - tile.column),
+      row: tile.row + Math.sign(destination.row - tile.row),
+    };
   }
   return null;
 }
@@ -36,9 +36,13 @@ export function advanceMovement(movement: Movement, seconds: number): void {
   while (remaining > 0) {
     movement.nextTile ??= nextStep(movement.tile, movement.destination);
     if (!movement.nextTile) return;
-    const distance = Math.min(remaining, 1 - movement.progress);
-    movement.progress += distance;
-    remaining -= distance;
+    const segmentLength = Math.hypot(
+      movement.nextTile.column - movement.tile.column,
+      movement.nextTile.row - movement.tile.row,
+    );
+    const progress = Math.min(remaining / segmentLength, 1 - movement.progress);
+    movement.progress += progress;
+    remaining = Math.max(0, remaining - progress * segmentLength);
     if (movement.progress >= 1) {
       movement.tile = movement.nextTile;
       movement.nextTile = null;

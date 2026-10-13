@@ -59,6 +59,49 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
 let selectedPawn: (typeof pawns)[number] | null = null;
 app.stage.addChild(map);
 
+const camera = { x: MAP_PIXELS / 2, y: MAP_PIXELS / 2, zoom: 1 };
+const cameraKeys = new Set<string>();
+const CAMERA_SPEED = 400;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 4;
+
+function applyCamera(): void {
+  const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS * camera.zoom;
+  map.scale.set(scale);
+  map.position.set(
+    app.screen.width / 2 - camera.x * scale,
+    app.screen.height / 2 - camera.y * scale,
+  );
+}
+
+window.addEventListener('keydown', (event) => {
+  if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) {
+    event.preventDefault();
+    cameraKeys.add(event.code);
+  }
+});
+window.addEventListener('keyup', (event) => cameraKeys.delete(event.code));
+window.addEventListener('blur', () => cameraKeys.clear());
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) cameraKeys.clear();
+});
+
+app.canvas.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  const bounds = app.canvas.getBoundingClientRect();
+  const screenX = (event.clientX - bounds.left) * app.screen.width / bounds.width;
+  const screenY = (event.clientY - bounds.top) * app.screen.height / bounds.height;
+  const worldX = (screenX - map.x) / map.scale.x;
+  const worldY = (screenY - map.y) / map.scale.y;
+  const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? app.screen.height : 1);
+  camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom * Math.exp(-pixels * 0.001)));
+  applyCamera();
+  // Keep the world point under the cursor fixed while zooming.
+  camera.x += worldX - (screenX - map.x) / map.scale.x;
+  camera.y += worldY - (screenY - map.y) / map.scale.y;
+  applyCamera();
+}, { passive: false });
+
 app.canvas.addEventListener('pointerdown', (event) => {
   const bounds = app.canvas.getBoundingClientRect();
   const x = ((event.clientX - bounds.left) * app.screen.width / bounds.width - map.x) / map.scale.x;
@@ -79,6 +122,15 @@ app.canvas.addEventListener('pointerdown', (event) => {
 });
 
 app.ticker.add((ticker) => {
+  const horizontal = Number(cameraKeys.has('KeyD')) - Number(cameraKeys.has('KeyA'));
+  const vertical = Number(cameraKeys.has('KeyS')) - Number(cameraKeys.has('KeyW'));
+  const directionLength = Math.hypot(horizontal, vertical);
+  if (directionLength > 0) {
+    const distance = CAMERA_SPEED * ticker.deltaMS / 1000 / map.scale.x;
+    camera.x += horizontal / directionLength * distance;
+    camera.y += vertical / directionLength * distance;
+    applyCamera();
+  }
   for (const pawn of pawns) {
     advanceMovement(pawn.movement, ticker.deltaMS / 1000);
     const position = renderedPosition(pawn.movement);
@@ -86,13 +138,5 @@ app.ticker.add((ticker) => {
   }
 });
 
-function fitMap(): void {
-  const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS;
-  map.scale.set(scale);
-  map.position.set(
-    (app.screen.width - MAP_PIXELS * scale) / 2,
-    (app.screen.height - MAP_PIXELS * scale) / 2,
-  );
-}
-app.renderer.on('resize', fitMap);
-fitMap();
+app.renderer.on('resize', applyCamera);
+applyCamera();
