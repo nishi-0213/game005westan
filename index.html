@@ -27,6 +27,12 @@
       </dl>
     </dialog>
     <button class="construction-tab" type="button" aria-expanded="false" aria-controls="construction-subtabs">建設</button>
+    <button id="priorities-tab" class="construction-tab" type="button" aria-expanded="false" aria-controls="priorities-window">優先順位</button>
+    <dialog id="priorities-window" aria-labelledby="priorities-title">
+      <button id="close-priorities" type="button" aria-label="優先順位ウィンドウを閉じる">×</button>
+      <h2 id="priorities-title">優先順位</h2>
+      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th></tr></thead><tbody id="priorities-rows"></tbody></table>
+    </dialog>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
       <button class="construction-subtab" type="button">作業所</button>

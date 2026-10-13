@@ -10,6 +10,8 @@ import { ENVIRONMENT_PROPERTIES, initialEnvironment, nearbySameType } from './en
 import type { EnvironmentObject } from './environment';
 import { Harvesting } from './harvesting';
 import type { HarvestWorker } from './harvesting';
+import { formatPawnName, generatePawnNames } from './pawn-names';
+import { INITIAL_PRIORITIES, nextPriority, updateWork } from './work-priorities';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
@@ -127,7 +129,8 @@ const spawnTiles = [
   { column: 16, row: 15, color: 0x82c6dc },
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
-const pawns = spawnTiles.map(({ column, row, color }) => {
+const pawnNames = generatePawnNames(spawnTiles.length);
+const pawns = spawnTiles.map(({ column, row, color }, index) => {
   const view = new Container();
   const selection = new Graphics()
     .circle(0, 0, TILE_SIZE * 0.43)
@@ -146,10 +149,42 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
   const builder: HarvestWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
-  return { view, selection, heldItem, ...builder };
+  return { view, selection, heldItem, ...builder, name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const construction = new Construction(walls, mapItems, completeConstruction);
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
+const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
+const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
+const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorities-rows')!;
+for (const pawn of pawns) {
+  const row = document.createElement('tr');
+  const name = document.createElement('th');
+  name.scope = 'row';
+  name.textContent = formatPawnName(pawn.name);
+  row.appendChild(name);
+  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集']] as const) {
+    const cell = document.createElement('td');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'priority-value';
+    const refresh = () => {
+      button.textContent = String(pawn.priorities[task]);
+      button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
+    };
+    button.addEventListener('click', () => { pawn.priorities[task] = nextPriority(pawn.priorities[task]); refresh(); });
+    refresh(); cell.appendChild(button); row.appendChild(cell);
+  }
+  prioritiesRows.appendChild(row);
+}
+prioritiesTab.addEventListener('click', () => {
+  if (prioritiesWindow.open) prioritiesWindow.close(); else prioritiesWindow.show();
+  prioritiesTab.setAttribute('aria-expanded', String(prioritiesWindow.open));
+});
+document.querySelector<HTMLButtonElement>('#close-priorities')!.addEventListener('click', () => prioritiesWindow.close());
+prioritiesWindow.addEventListener('close', () => prioritiesTab.setAttribute('aria-expanded', 'false'));
+prioritiesWindow.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') { event.preventDefault(); prioritiesWindow.close(); }
+});
 const constructionProgressLayer = new Container();
 map.addChild(constructionProgressLayer);
 const constructionProgressViews = new Map<string, { view: Graphics; progress: number }>();
@@ -579,15 +614,7 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
-    const collectFirst = pawn.mode === 'automatic' && !pawn.dropRequested
-      && (pawn.harvestJob !== null || harvesting.hasAvailableWork(pawn));
-    if (collectFirst) {
-      if (pawn.job) construction.cancel(pawn);
-      harvesting.update(pawn, ticker.deltaMS / 1000);
-    } else {
-      construction.update(pawn, ticker.deltaMS / 1000);
-      harvesting.update(pawn, ticker.deltaMS / 1000);
-    }
+    updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000);
     advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);

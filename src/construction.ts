@@ -60,6 +60,7 @@ export class Construction {
   }
 
   nearestPlan(builder: Builder, material?: ItemType): { target: Wall; goal: Tile; path: Path } | null {
+    if (![...this.walls.items.values()].some((target) => target.state === 'planned')) return null;
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
     const paths = findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
     for (const target of this.walls.items.values()) {
