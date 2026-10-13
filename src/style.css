@@ -21,3 +21,29 @@ canvas { display: block; width: 100%; height: 100%; }
 
 .construction-tab:hover { background: #354936; }
 .construction-tab:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
+
+.construction-subtabs {
+  position: fixed;
+  left: 0;
+  bottom: 40px;
+  z-index: 1;
+  display: flex;
+}
+
+.construction-subtabs[hidden] { display: none; }
+
+.construction-subtab {
+  width: 96px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #708268;
+  border-left: 0;
+  background: #263529;
+  color: #f4e9cc;
+  font: 600 14px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.construction-subtab:hover { background: #354936; }
+.construction-subtab:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
+.construction-tab[aria-expanded="true"] { background: #354936; }

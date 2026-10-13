@@ -2,6 +2,13 @@ import { Application, Container, Graphics } from 'pixi.js';
 import './style.css';
 import { advanceMovement, createMovement, renderedPosition, setDestination } from './movement';
 
+const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
+const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
+constructionTab.addEventListener('click', () => {
+  constructionSubtabs.hidden = !constructionSubtabs.hidden;
+  constructionTab.setAttribute('aria-expanded', String(!constructionSubtabs.hidden));
+});
+
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
 const MAP_PIXELS = MAP_SIZE * TILE_SIZE;
@@ -57,18 +64,22 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
   return { view, selection, movement: createMovement({ column, row }) };
 });
 let selectedPawn: (typeof pawns)[number] | null = null;
-const destinationMarkers: { view: Graphics; createdAt: number }[] = [];
+const destinationMarkerLayer = new Container();
+map.addChild(destinationMarkerLayer);
+const destinationMarkers: { view: Graphics; ageSeconds: number }[] = [];
 const MARKER_HOLD_SECONDS = 0.5;
 const MARKER_FADE_SECONDS = 0.25;
 app.stage.addChild(map);
 
 function showDestination(column: number, row: number): void {
   const marker = new Graphics()
-    .circle(0, 0, (TILE_SIZE - 2) / 2)
-    .stroke({ color: 0xfff2a3, width: 2 });
+    .circle(0, 0, (TILE_SIZE - 4) / 2)
+    .stroke({ color: 0x152019, width: 4 })
+    .circle(0, 0, (TILE_SIZE - 4) / 2)
+    .stroke({ color: 0xffffff, width: 2 });
   marker.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
-  map.addChild(marker);
-  destinationMarkers.push({ view: marker, createdAt: performance.now() });
+  destinationMarkerLayer.addChild(marker);
+  destinationMarkers.push({ view: marker, ageSeconds: 0 });
 }
 
 const camera = { x: MAP_PIXELS / 2, y: MAP_PIXELS / 2, zoom: 1 };
@@ -135,11 +146,10 @@ app.canvas.addEventListener('pointerdown', (event) => {
 });
 
 app.ticker.add((ticker) => {
-  const now = performance.now();
   for (let index = destinationMarkers.length - 1; index >= 0; index--) {
     const marker = destinationMarkers[index];
-    const age = (now - marker.createdAt) / 1000;
-    marker.view.alpha = Math.max(0, 1 - Math.max(0, age - MARKER_HOLD_SECONDS) / MARKER_FADE_SECONDS);
+    marker.ageSeconds += ticker.deltaMS / 1000;
+    marker.view.alpha = Math.max(0, 1 - Math.max(0, marker.ageSeconds - MARKER_HOLD_SECONDS) / MARKER_FADE_SECONDS);
     if (marker.view.alpha === 0) {
       marker.view.destroy();
       destinationMarkers.splice(index, 1);

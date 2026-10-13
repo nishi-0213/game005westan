@@ -6,7 +6,12 @@
     <title>れ・こんきすた。</title>
   </head>
   <body>
-    <button class="construction-tab" type="button">建設</button>
+    <button class="construction-tab" type="button" aria-expanded="false" aria-controls="construction-subtabs">建設</button>
+    <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
+      <button class="construction-subtab" type="button">建物</button>
+      <button class="construction-subtab" type="button">作業所</button>
+      <button class="construction-subtab" type="button">防衛</button>
+    </nav>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
