@@ -57,7 +57,19 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
   return { view, selection, movement: createMovement({ column, row }) };
 });
 let selectedPawn: (typeof pawns)[number] | null = null;
+const destinationMarkers: { view: Graphics; createdAt: number }[] = [];
+const MARKER_HOLD_SECONDS = 0.5;
+const MARKER_FADE_SECONDS = 0.25;
 app.stage.addChild(map);
+
+function showDestination(column: number, row: number): void {
+  const marker = new Graphics()
+    .circle(0, 0, (TILE_SIZE - 2) / 2)
+    .stroke({ color: 0xfff2a3, width: 2 });
+  marker.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
+  map.addChild(marker);
+  destinationMarkers.push({ view: marker, createdAt: performance.now() });
+}
 
 const camera = { x: MAP_PIXELS / 2, y: MAP_PIXELS / 2, zoom: 1 };
 const cameraKeys = new Set<string>();
@@ -117,11 +129,22 @@ app.canvas.addEventListener('pointerdown', (event) => {
     const row = Math.floor(y / TILE_SIZE);
     if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE) {
       setDestination(selectedPawn.movement, { column, row });
+      showDestination(column, row);
     }
   }
 });
 
 app.ticker.add((ticker) => {
+  const now = performance.now();
+  for (let index = destinationMarkers.length - 1; index >= 0; index--) {
+    const marker = destinationMarkers[index];
+    const age = (now - marker.createdAt) / 1000;
+    marker.view.alpha = Math.max(0, 1 - Math.max(0, age - MARKER_HOLD_SECONDS) / MARKER_FADE_SECONDS);
+    if (marker.view.alpha === 0) {
+      marker.view.destroy();
+      destinationMarkers.splice(index, 1);
+    }
+  }
   const horizontal = Number(cameraKeys.has('KeyD')) - Number(cameraKeys.has('KeyA'));
   const vertical = Number(cameraKeys.has('KeyS')) - Number(cameraKeys.has('KeyW'));
   const directionLength = Math.hypot(horizontal, vertical);
