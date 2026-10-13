@@ -6,7 +6,10 @@ import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from '.
 import type { ConstructionKind, WallMaterial } from './walls';
 import { countItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES, returnItems } from './items';
 import { Construction } from './construction';
-import type { Builder } from './construction';
+import { ENVIRONMENT_PROPERTIES, initialEnvironment, nearbySameType } from './environment';
+import type { EnvironmentObject } from './environment';
+import { Harvesting } from './harvesting';
+import type { HarvestWorker } from './harvesting';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
@@ -39,6 +42,22 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 }
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
+const environmentObjects = initialEnvironment(MAP_SIZE);
+let selectedEnvironment = new Set<EnvironmentObject>();
+const environmentLayer = new Container();
+map.addChild(environmentLayer);
+const environmentViews = environmentObjects.map((object) => {
+  const view = new Container();
+  view.position.set((object.column + 0.5) * TILE_SIZE, (object.row + 0.5) * TILE_SIZE);
+  const outline = new Graphics().rect(-11, -11, 22, 22).stroke({ color: 0xfff2a3, width: 1.5 });
+  outline.visible = false;
+  const shape = new Graphics();
+  if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x396f3b);
+  else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
+  view.addChild(outline, shape);
+  environmentLayer.addChild(view);
+  return { object, view, outline };
+});
 const mapItems = initialItems();
 let selectedItem: (typeof mapItems)[number] | null = null;
 const itemLayer = new Container();
@@ -126,10 +145,11 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
   view.addChild(heldItem);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
-  const builder: Builder = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0 };
+  const builder: HarvestWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
   return { view, selection, heldItem, ...builder };
 });
 const construction = new Construction(walls, mapItems, completeConstruction);
+const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 const constructionProgressLayer = new Container();
 map.addChild(constructionProgressLayer);
 const constructionProgressViews = new Map<string, { view: Graphics; progress: number }>();
@@ -165,27 +185,59 @@ function updatePawnPanels(): void {
   pawnSpecs.style.bottom = `${window.innerHeight - top}px`;
 }
 dropInventoryButton.addEventListener('click', () => {
-  if (selectedPawn) construction.requestDrop(selectedPawn);
+  if (selectedPawn) { harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
 const itemProperties = document.querySelector<HTMLDialogElement>('#item-properties')!;
 const itemPropertiesName = document.querySelector<HTMLElement>('#item-properties-name')!;
 const itemPropertiesMass = document.querySelector<HTMLElement>('#item-properties-mass')!;
+const collectionButton = document.querySelector<HTMLButtonElement>('#collection-button')!;
+const harvestSpeed = document.querySelector<HTMLElement>('#environment-harvest-speed')!;
+const harvestQuantity = document.querySelector<HTMLElement>('#environment-harvest-quantity')!;
+
+function updateEnvironmentViews(): void {
+  let changed = false;
+  for (const object of selectedEnvironment) if (object.collected) { selectedEnvironment.delete(object); changed = true; }
+  for (const entry of environmentViews) {
+    entry.view.visible = !entry.object.collected;
+    entry.outline.visible = selectedEnvironment.has(entry.object);
+  }
+  if (changed) updateItemSelection();
+}
+collectionButton.addEventListener('click', () => {
+  const collect = ![...selectedEnvironment].every((object) => object.collect);
+  for (const object of selectedEnvironment) object.collect = collect;
+  updateItemSelection();
+});
 
 function updateItemSelection(): void {
-  itemInfoButton.hidden = selectedItem === null;
+  const environment = [...selectedEnvironment][0];
+  const hasSelection = selectedItem !== null || Boolean(environment);
+  itemInfoButton.hidden = !hasSelection;
+  itemInfoButton.setAttribute('aria-label', environment ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
+  collectionButton.hidden = !environment;
+  collectionButton.textContent = [...selectedEnvironment].every((object) => object.collect) ? '収集' : '無視';
+  collectionButton.setAttribute('aria-pressed', String(Boolean(environment) && [...selectedEnvironment].every((object) => object.collect)));
+  for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = !selectedItem;
+  for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = !environment;
   itemSelection.visible = selectedItem !== null;
-  pawnModeButton.hidden = selectedItem !== null;
+  pawnModeButton.hidden = hasSelection;
   if (selectedItem) {
     const properties = ITEM_APPEARANCE[selectedItem.type];
     itemSelection.position.set(selectedItem.column * TILE_SIZE, selectedItem.row * TILE_SIZE);
     itemPropertiesName.textContent = properties.name;
     itemPropertiesMass.textContent = `${properties.massKg}kg`;
+  } else if (environment) {
+    const properties = ENVIRONMENT_PROPERTIES[environment.type];
+    itemPropertiesName.textContent = properties.name;
+    harvestSpeed.textContent = `${properties.seconds}s`;
+    harvestQuantity.textContent = String(properties.quantity);
   } else itemProperties.close();
+  updateEnvironmentViews();
 }
 itemInfoButton.addEventListener('click', () => {
-  if (selectedItem && !itemProperties.open) itemProperties.show();
+  if ((selectedItem || selectedEnvironment.size) && !itemProperties.open) itemProperties.show();
 });
 document.querySelector<HTMLButtonElement>('#close-item-properties')!.addEventListener('click', () => itemProperties.close());
 itemProperties.addEventListener('keydown', (event) => {
@@ -208,6 +260,7 @@ pawnModeButton.addEventListener('click', () => {
   if (!selectedPawn) return;
   selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
   construction.cancel(selectedPawn);
+  harvesting.cancel(selectedPawn);
   if (selectedPawn.mode === 'automatic') stopAtNextSafeTile(selectedPawn.movement, walls.cannotStop);
   updatePawnModeButton();
 });
@@ -258,6 +311,7 @@ function selectConstruction(kind: ConstructionKind | null): void {
   if (kind) {
     selectedPawn = null;
     selectedItem = null;
+    selectedEnvironment.clear();
     updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = false;
     updatePawnModeButton();
@@ -431,7 +485,7 @@ app.canvas.addEventListener('wheel', (event) => {
   applyCamera();
 }, { passive: false });
 
-function mapPosition(event: PointerEvent): { x: number; y: number } {
+function mapPosition(event: MouseEvent): { x: number; y: number } {
   const bounds = app.canvas.getBoundingClientRect();
   const x = ((event.clientX - bounds.left) * app.screen.width / bounds.width - map.x) / map.scale.x;
   const y = ((event.clientY - bounds.top) * app.screen.height / bounds.height - map.y) / map.scale.y;
@@ -473,6 +527,9 @@ app.canvas.addEventListener('pointerdown', (event) => {
     const row = Math.floor(y / TILE_SIZE);
     selectedItem = clickedPawn || walls.isBlocked({ column, row }) ? null
       : [...mapItems].reverse().find((item) => item.quantity > 0 && item.column === column && item.row === row) ?? null;
+    const environment = !clickedPawn && !selectedItem && !walls.isBlocked({ column, row })
+      ? environmentObjects.find((object) => !object.collected && object.column === column && object.row === row) : undefined;
+    selectedEnvironment = new Set(environment ? [environment] : []);
     updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
     updatePawnModeButton();
@@ -484,6 +541,15 @@ app.canvas.addEventListener('pointerdown', (event) => {
       showDestination(column, row);
     }
   }
+});
+app.canvas.addEventListener('dblclick', (event) => {
+  if (selectedConstruction) return;
+  const { x, y } = mapPosition(event);
+  const column = Math.floor(x / TILE_SIZE), row = Math.floor(y / TILE_SIZE);
+  const object = environmentObjects.find((entry) => !entry.collected && entry.column === column && entry.row === row);
+  if (!object || selectedPawn || selectedItem) return;
+  selectedEnvironment = new Set(nearbySameType(environmentObjects, object));
+  updateItemSelection();
 });
 app.canvas.addEventListener('pointermove', (event) => {
   if (drawingPointer === event.pointerId && selectedConstruction) drawWalls(event);
@@ -513,7 +579,15 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
-    construction.update(pawn, ticker.deltaMS / 1000);
+    const collectFirst = pawn.mode === 'automatic' && !pawn.dropRequested
+      && (pawn.harvestJob !== null || harvesting.hasAvailableWork(pawn));
+    if (collectFirst) {
+      if (pawn.job) construction.cancel(pawn);
+      harvesting.update(pawn, ticker.deltaMS / 1000);
+    } else {
+      construction.update(pawn, ticker.deltaMS / 1000);
+      harvesting.update(pawn, ticker.deltaMS / 1000);
+    }
     advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
@@ -522,6 +596,7 @@ app.ticker.add((ticker) => {
   }
   for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
   updateConstructionProgress();
+  updateEnvironmentViews();
   updatePawnPanels();
   updateItemSummary();
 });

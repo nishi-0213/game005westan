@@ -16,10 +16,15 @@
     </button>
     <section id="pawn-specs" aria-label="ポーンのスペック" hidden></section>
     <button id="item-info-button" type="button" aria-label="アイテムのインフォメーション" aria-controls="item-properties" hidden>I</button>
+    <button id="collection-button" type="button" aria-pressed="false" hidden>無視</button>
     <dialog id="item-properties" aria-labelledby="item-properties-name">
       <button id="close-item-properties" type="button" aria-label="プロパティウィンドウを閉じる">×</button>
       <h2 id="item-properties-name"></h2>
-      <dl><dt>質量</dt><dd id="item-properties-mass"></dd></dl>
+      <dl>
+        <dt data-item-property>質量</dt><dd id="item-properties-mass" data-item-property></dd>
+        <dt data-environment-property hidden>収集速度</dt><dd id="environment-harvest-speed" data-environment-property hidden></dd>
+        <dt data-environment-property hidden>収集量</dt><dd id="environment-harvest-quantity" data-environment-property hidden></dd>
+      </dl>
     </dialog>
     <button class="construction-tab" type="button" aria-expanded="false" aria-controls="construction-subtabs">建設</button>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>

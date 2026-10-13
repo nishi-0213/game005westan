@@ -97,7 +97,7 @@ canvas { display: block; width: 100%; height: 100%; }
   font: 14px system-ui, sans-serif;
 }
 #item-properties h2 { margin: 0 24px 16px 0; font-size: 16px; }
-#item-properties dl { display: flex; gap: 20px; margin: 0; }
+#item-properties dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 20px; margin: 0; }
 #item-properties dd { margin: 0; }
 #close-item-properties {
   position: absolute;
@@ -111,6 +111,24 @@ canvas { display: block; width: 100%; height: 100%; }
   font: 20px system-ui, sans-serif;
   cursor: pointer;
 }
+#collection-button {
+  position: fixed;
+  right: 64px;
+  bottom: 0;
+  z-index: 1;
+  width: 96px;
+  height: 64px;
+  border: 1px solid #708268;
+  border-bottom: 0;
+  background: #263529;
+  color: #f4e9cc;
+  font: 600 14px system-ui, sans-serif;
+  cursor: pointer;
+}
+#collection-button[hidden] { display: none; }
+#collection-button[aria-pressed="true"] { background: #475b3e; color: #fff2a3; }
+#collection-button:hover { background: #354936; }
+#collection-button:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
 
 .construction-tab {
   position: fixed;
