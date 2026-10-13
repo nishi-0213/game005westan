@@ -8,8 +8,8 @@ export interface MapItem extends Tile {
 
 export const ITEM_TYPES: ItemType[] = ['wood', 'stone'];
 export const ITEM_APPEARANCE = {
-  wood: { name: '木材', color: 0x916039 },
-  stone: { name: '石材', color: 0x929292 },
+  wood: { name: '木材', color: 0x916039, massKg: 1 },
+  stone: { name: '石材', color: 0x929292, massKg: 10 },
 };
 
 export function initialItems(): MapItem[] {

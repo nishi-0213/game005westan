@@ -11,6 +11,12 @@
       <span id="pawn-mode-icon" aria-hidden="true">⚔</span>
       <span id="pawn-mode-label">徴兵</span>
     </button>
+    <button id="item-info-button" type="button" aria-label="アイテムのインフォメーション" aria-controls="item-properties" hidden>I</button>
+    <dialog id="item-properties" aria-labelledby="item-properties-name">
+      <button id="close-item-properties" type="button" aria-label="プロパティウィンドウを閉じる">×</button>
+      <h2 id="item-properties-name"></h2>
+      <dl><dt>質量</dt><dd id="item-properties-mass"></dd></dl>
+    </dialog>
     <button class="construction-tab" type="button" aria-expanded="false" aria-controls="construction-subtabs">建設</button>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>

@@ -40,6 +40,7 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
 const mapItems = initialItems();
+let selectedItem: (typeof mapItems)[number] | null = null;
 const itemLayer = new Container();
 const itemViews: { item: (typeof mapItems)[number]; view: Container; quantity: Text }[] = [];
 map.addChild(itemLayer);
@@ -58,6 +59,10 @@ function createItemView(item: (typeof mapItems)[number]): void {
   itemViews.push({ item, view, quantity });
 }
 for (const item of mapItems) createItemView(item);
+const itemSelection = new Graphics().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2)
+  .stroke({ color: 0xfff2a3, width: 1.5 });
+itemSelection.visible = false;
+itemLayer.addChild(itemSelection);
 
 const itemSummary = document.querySelector<HTMLUListElement>('#item-summary')!;
 const summaryRows = ITEM_TYPES.map((type) => {
@@ -74,6 +79,10 @@ const summaryRows = ITEM_TYPES.map((type) => {
 });
 
 function updateItemSummary(): void {
+  if (selectedItem && (selectedItem.quantity <= 0 || !mapItems.includes(selectedItem))) {
+    selectedItem = null;
+    updateItemSelection();
+  }
   for (const item of mapItems) if (!itemViews.some((entry) => entry.item === item)) createItemView(item);
   for (const { item, view, quantity } of itemViews) {
     view.visible = item.quantity > 0;
@@ -142,6 +151,29 @@ let selectedPawn: (typeof pawns)[number] | null = null;
 const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
 const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
 const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
+const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
+const itemProperties = document.querySelector<HTMLDialogElement>('#item-properties')!;
+const itemPropertiesName = document.querySelector<HTMLElement>('#item-properties-name')!;
+const itemPropertiesMass = document.querySelector<HTMLElement>('#item-properties-mass')!;
+
+function updateItemSelection(): void {
+  itemInfoButton.hidden = selectedItem === null;
+  itemSelection.visible = selectedItem !== null;
+  pawnModeButton.hidden = selectedItem !== null;
+  if (selectedItem) {
+    const properties = ITEM_APPEARANCE[selectedItem.type];
+    itemSelection.position.set(selectedItem.column * TILE_SIZE, selectedItem.row * TILE_SIZE);
+    itemPropertiesName.textContent = properties.name;
+    itemPropertiesMass.textContent = `${properties.massKg}kg`;
+  } else itemProperties.close();
+}
+itemInfoButton.addEventListener('click', () => {
+  if (selectedItem && !itemProperties.open) itemProperties.show();
+});
+document.querySelector<HTMLButtonElement>('#close-item-properties')!.addEventListener('click', () => itemProperties.close());
+itemProperties.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') { event.preventDefault(); itemProperties.close(); }
+});
 
 function updatePawnModeButton(): void {
   const drafted = selectedPawn?.mode !== 'automatic';
@@ -207,6 +239,8 @@ function selectConstruction(kind: ConstructionKind | null): void {
   stopDrawing();
   if (kind) {
     selectedPawn = null;
+    selectedItem = null;
+    updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = false;
     updatePawnModeButton();
   }
@@ -417,6 +451,11 @@ app.canvas.addEventListener('pointerdown', (event) => {
       Math.abs(view.x - x) <= TILE_SIZE * 0.45 && Math.abs(view.y - y) <= TILE_SIZE * 0.45,
     );
     selectedPawn = clickedPawn ?? null;
+    const column = Math.floor(x / TILE_SIZE);
+    const row = Math.floor(y / TILE_SIZE);
+    selectedItem = clickedPawn || walls.isBlocked({ column, row }) ? null
+      : [...mapItems].reverse().find((item) => item.quantity > 0 && item.column === column && item.row === row) ?? null;
+    updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
     updatePawnModeButton();
   } else if (event.button === 2 && selectedPawn?.mode === 'drafted') {
