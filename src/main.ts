@@ -1,5 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import './style.css';
+import { advanceMovement, createMovement, renderedPosition, setDestination } from './movement';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
@@ -38,16 +39,52 @@ const spawnTiles = [
   { column: 16, row: 15, color: 0x82c6dc },
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
-for (const { column, row, color } of spawnTiles) {
-  const pawn = new Graphics()
+const pawns = spawnTiles.map(({ column, row, color }) => {
+  const view = new Container();
+  const selection = new Graphics()
+    .circle(0, 0, TILE_SIZE * 0.43)
+    .stroke({ color: 0xfff2a3, width: 2 });
+  selection.visible = false;
+  view.addChild(selection);
+  const body = new Graphics()
     .ellipse(0, 7, 7, 3).fill({ color: 0x17261c, alpha: 0.5 })
     .roundRect(-5, -1, 10, 10, 4).fill(color)
     .circle(0, -5, 4).fill(0xffe3bd)
     .stroke({ color: 0x25312a, width: 1 });
-  pawn.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
-  map.addChild(pawn);
-}
+  view.addChild(body);
+  view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
+  map.addChild(view);
+  return { view, selection, movement: createMovement({ column, row }) };
+});
+let selectedPawn: (typeof pawns)[number] | null = null;
 app.stage.addChild(map);
+
+app.canvas.addEventListener('pointerdown', (event) => {
+  const bounds = app.canvas.getBoundingClientRect();
+  const x = ((event.clientX - bounds.left) * app.screen.width / bounds.width - map.x) / map.scale.x;
+  const y = ((event.clientY - bounds.top) * app.screen.height / bounds.height - map.y) / map.scale.y;
+  if (event.button === 0) {
+    const clickedPawn = [...pawns].reverse().find(({ view }) =>
+      Math.abs(view.x - x) <= TILE_SIZE * 0.45 && Math.abs(view.y - y) <= TILE_SIZE * 0.45,
+    );
+    selectedPawn = clickedPawn ?? null;
+    for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
+  } else if (event.button === 2 && selectedPawn) {
+    const column = Math.floor(x / TILE_SIZE);
+    const row = Math.floor(y / TILE_SIZE);
+    if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE) {
+      setDestination(selectedPawn.movement, { column, row });
+    }
+  }
+});
+
+app.ticker.add((ticker) => {
+  for (const pawn of pawns) {
+    advanceMovement(pawn.movement, ticker.deltaMS / 1000);
+    const position = renderedPosition(pawn.movement);
+    pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
+  }
+});
 
 function fitMap(): void {
   const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS;
