@@ -47,3 +47,17 @@ canvas { display: block; width: 100%; height: 100%; }
 .construction-subtab:hover { background: #354936; }
 .construction-subtab:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
 .construction-tab[aria-expanded="true"] { background: #354936; }
+
+.building-options, .wall-materials {
+  position: fixed;
+  left: 0;
+  z-index: 1;
+  display: flex;
+}
+.building-options { bottom: 80px; }
+.wall-materials { bottom: 120px; }
+.building-options[hidden], .wall-materials[hidden] { display: none; }
+.construction-subtab[aria-pressed="true"], .construction-subtab[aria-expanded="true"] {
+  background: #475b3e;
+  color: #fff2a3;
+}

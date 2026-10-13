@@ -31,11 +31,22 @@ function nextStep(tile: Tile, destination: Tile): Tile | null {
   return null;
 }
 
-export function advanceMovement(movement: Movement, seconds: number): void {
+export function advanceMovement(movement: Movement, seconds: number, isBlocked: (tile: Tile) => boolean = () => false): void {
   let remaining = Math.max(0, seconds) * TILES_PER_SECOND;
   while (remaining > 0) {
     movement.nextTile ??= nextStep(movement.tile, movement.destination);
     if (!movement.nextTile) return;
+    const next = movement.nextTile;
+    const diagonal = next.column !== movement.tile.column && next.row !== movement.tile.row;
+    if (isBlocked(next) || (diagonal && (
+      isBlocked({ column: next.column, row: movement.tile.row })
+      || isBlocked({ column: movement.tile.column, row: next.row })
+    ))) {
+      movement.nextTile = null;
+      movement.progress = 0;
+      movement.destination = { ...movement.tile };
+      return;
+    }
     const segmentLength = Math.hypot(
       movement.nextTile.column - movement.tile.column,
       movement.nextTile.row - movement.tile.row,

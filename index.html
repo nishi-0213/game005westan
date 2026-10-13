@@ -8,9 +8,16 @@
   <body>
     <button class="construction-tab" type="button" aria-expanded="false" aria-controls="construction-subtabs">建設</button>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
-      <button class="construction-subtab" type="button">建物</button>
+      <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
       <button class="construction-subtab" type="button">作業所</button>
       <button class="construction-subtab" type="button">防衛</button>
+    </nav>
+    <nav id="building-options" class="building-options" aria-label="建物の選択" hidden>
+      <button id="wall-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="wall-materials">壁</button>
+    </nav>
+    <nav id="wall-materials" class="wall-materials" aria-label="壁の素材" hidden>
+      <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
+      <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>
     </nav>
     <script type="module" src="/src/main.ts"></script>
   </body>
