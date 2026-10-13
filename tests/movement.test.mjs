@@ -1,12 +1,43 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { advanceMovement, createMovement, renderedPosition, setDestination } from '../src/movement.ts';
+import { advanceMovement, createMovement, renderedPosition, setDestination, stopAtNextSafeTile } from '../src/movement.ts';
 
 test('idle coordinates stay on a tile center', () => {
   const state = createMovement({ column: 15, row: 15 });
   advanceMovement(state, 10);
   assert.deepEqual(renderedPosition(state), { column: 15, row: 15 });
   assert.equal(state.nextTile, null);
+});
+
+test('stopping cancels a pending order when the pawn is still at a safe tile', () => {
+  const state = createMovement({ column: 15, row: 15 });
+  setDestination(state, { column: 20, row: 15 });
+  stopAtNextSafeTile(state);
+  advanceMovement(state, 5);
+  assert.deepEqual(state.tile, { column: 15, row: 15 });
+});
+
+test('stopping during movement finishes the active segment without teleporting', () => {
+  const state = createMovement({ column: 15, row: 15 });
+  setDestination(state, { column: 20, row: 15 });
+  advanceMovement(state, 0.125);
+  const before = renderedPosition(state);
+  stopAtNextSafeTile(state);
+  assert.deepEqual(renderedPosition(state), before);
+  advanceMovement(state, 5);
+  assert.deepEqual(state.tile, { column: 16, row: 15 });
+  assert.equal(state.progress, 0);
+});
+
+test('stopping while entering barricades continues through to the first safe tile', () => {
+  const state = createMovement({ column: 15, row: 15 });
+  const cannotStop = ({ column, row }) => row === 15 && (column === 16 || column === 17);
+  setDestination(state, { column: 20, row: 15 });
+  advanceMovement(state, 0.125, undefined, cannotStop);
+  stopAtNextSafeTile(state, cannotStop);
+  assert.deepEqual(state.destination, { column: 18, row: 15 });
+  advanceMovement(state, 5, undefined, cannotStop);
+  assert.deepEqual(state.tile, { column: 18, row: 15 });
 });
 
 test('rendering interpolates while logical position remains an integer tile', () => {

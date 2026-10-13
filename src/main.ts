@@ -1,6 +1,6 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
-import { advanceMovement, createMovement, hasSafeExit, renderedPosition, setDestination } from './movement';
+import { advanceMovement, createMovement, hasSafeExit, renderedPosition, setDestination, stopAtNextSafeTile } from './movement';
 import type { Tile } from './movement';
 import { dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial } from './walls';
@@ -104,9 +104,31 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
   view.addChild(body);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
-  return { view, selection, movement: createMovement({ column, row }) };
+  return { view, selection, movement: createMovement({ column, row }), mode: 'drafted' as 'drafted' | 'automatic' };
 });
 let selectedPawn: (typeof pawns)[number] | null = null;
+const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
+const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
+const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
+
+function updatePawnModeButton(): void {
+  const drafted = selectedPawn?.mode !== 'automatic';
+  pawnModeButton.disabled = selectedPawn === null;
+  pawnModeIcon.textContent = drafted ? '⚔' : '⚙';
+  pawnModeLabel.textContent = drafted ? '徴兵' : '自動';
+  pawnModeButton.dataset.mode = drafted ? 'drafted' : 'automatic';
+  pawnModeButton.setAttribute('aria-label', selectedPawn
+    ? `ポーンの状態：${drafted ? '徴兵' : '自動'}。${drafted ? '自動' : '徴兵'}へ切り替え`
+    : 'ポーンを選択して状態を切り替え');
+}
+
+pawnModeButton.addEventListener('click', () => {
+  if (!selectedPawn) return;
+  selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
+  if (selectedPawn.mode === 'automatic') stopAtNextSafeTile(selectedPawn.movement, walls.cannotStop);
+  updatePawnModeButton();
+});
+updatePawnModeButton();
 const destinationMarkerLayer = new Container();
 map.addChild(destinationMarkerLayer);
 const destinationMarkers: { view: Graphics; ageSeconds: number }[] = [];
@@ -147,6 +169,7 @@ function selectConstruction(kind: ConstructionKind | null): void {
   if (kind) {
     selectedPawn = null;
     for (const pawn of pawns) pawn.selection.visible = false;
+    updatePawnModeButton();
   }
 }
 
@@ -336,7 +359,8 @@ app.canvas.addEventListener('pointerdown', (event) => {
     );
     selectedPawn = clickedPawn ?? null;
     for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
-  } else if (event.button === 2 && selectedPawn) {
+    updatePawnModeButton();
+  } else if (event.button === 2 && selectedPawn?.mode === 'drafted') {
     const column = Math.floor(x / TILE_SIZE);
     const row = Math.floor(y / TILE_SIZE);
     if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE

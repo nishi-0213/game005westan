@@ -39,6 +39,16 @@ function nextStep(tile: Tile, destination: Tile): Tile | null {
   return null;
 }
 
+export function stopAtNextSafeTile(movement: Movement, cannotStop: TileRule = allowAll): void {
+  let stop = movement.nextTile ?? movement.tile;
+  while (cannotStop(stop)) {
+    const next = nextStep(stop, movement.destination);
+    if (!next) return;
+    stop = next;
+  }
+  movement.destination = { ...stop };
+}
+
 function blockedStep(from: Tile, to: Tile, isBlocked: TileRule): boolean {
   return isBlocked(to) || (to.column !== from.column && to.row !== from.row && (
     isBlocked({ column: to.column, row: from.row }) || isBlocked({ column: from.column, row: to.row })
