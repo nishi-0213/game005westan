@@ -10,12 +10,19 @@
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
       <button class="construction-subtab" type="button">作業所</button>
-      <button class="construction-subtab" type="button">防衛</button>
+      <button id="defense-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="defense-options">防衛</button>
     </nav>
     <nav id="building-options" class="building-options" aria-label="建物の選択" hidden>
       <button id="wall-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="wall-materials">壁</button>
     </nav>
     <nav id="wall-materials" class="wall-materials" aria-label="壁の素材" hidden>
+      <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
+      <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>
+    </nav>
+    <nav id="defense-options" class="building-options" aria-label="防衛の選択" hidden>
+      <button id="barricade-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="barricade-materials">バリケード</button>
+    </nav>
+    <nav id="barricade-materials" class="wall-materials" aria-label="バリケードの素材" hidden>
       <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
       <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>
     </nav>

@@ -1,7 +1,9 @@
 import type { Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
+export type ConstructionKind = 'wall' | 'barricade';
 export interface Wall extends Tile {
+  kind: ConstructionKind;
   material: WallMaterial;
   state: 'planned' | 'completed';
 }
@@ -20,12 +22,12 @@ export class Walls {
     this.mapSize = mapSize;
   }
 
-  plan(tile: Tile, material: WallMaterial): Wall | null {
+  plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall'): Wall | null {
     if (!Number.isInteger(tile.column) || !Number.isInteger(tile.row)
       || tile.column < 0 || tile.row < 0 || tile.column >= this.mapSize || tile.row >= this.mapSize) return null;
     const key = `${tile.column},${tile.row}`;
     if (this.items.has(key)) return null;
-    const wall: Wall = { ...tile, material, state: 'planned' };
+    const wall: Wall = { ...tile, material, kind, state: 'planned' };
     this.items.set(key, wall);
     return wall;
   }
@@ -37,8 +39,15 @@ export class Walls {
     return true;
   }
 
-  isBlocked = (tile: Tile): boolean =>
-    this.items.get(`${tile.column},${tile.row}`)?.state === 'completed';
+  isBlocked = (tile: Tile): boolean => {
+    const item = this.items.get(`${tile.column},${tile.row}`);
+    return item?.state === 'completed' && item.kind === 'wall';
+  };
+
+  cannotStop = (tile: Tile): boolean => {
+    const item = this.items.get(`${tile.column},${tile.row}`);
+    return item?.state === 'completed' && item.kind === 'barricade';
+  };
 }
 
 // Fill skipped tiles when a drag crosses several cells between pointer events.

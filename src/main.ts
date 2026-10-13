@@ -1,9 +1,9 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import './style.css';
-import { advanceMovement, createMovement, renderedPosition, setDestination } from './movement';
+import { advanceMovement, createMovement, hasSafeExit, renderedPosition, setDestination } from './movement';
 import type { Tile } from './movement';
 import { dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
-import type { WallMaterial } from './walls';
+import type { ConstructionKind, WallMaterial } from './walls';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
@@ -71,16 +71,22 @@ const MARKER_HOLD_SECONDS = 0.5;
 const MARKER_FADE_SECONDS = 0.25;
 app.stage.addChild(map);
 
-let placingWalls = false;
-let wallMaterial: WallMaterial = 'wood';
+let selectedConstruction: ConstructionKind | null = null;
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood' };
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
 const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
-const buildingsTab = document.querySelector<HTMLButtonElement>('#buildings-tab')!;
-const buildingOptions = document.querySelector<HTMLElement>('#building-options')!;
-const wallButton = document.querySelector<HTMLButtonElement>('#wall-button')!;
-const wallMaterials = document.querySelector<HTMLElement>('#wall-materials')!;
+const constructionChoices = [
+  { kind: 'wall' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#wall-button', materialsId: '#wall-materials' },
+  { kind: 'barricade' as const, tabId: '#defense-tab', optionsId: '#defense-options', buttonId: '#barricade-button', materialsId: '#barricade-materials' },
+].map((choice) => ({
+  kind: choice.kind,
+  tab: document.querySelector<HTMLButtonElement>(choice.tabId)!,
+  options: document.querySelector<HTMLElement>(choice.optionsId)!,
+  button: document.querySelector<HTMLButtonElement>(choice.buttonId)!,
+  materials: document.querySelector<HTMLElement>(choice.materialsId)!,
+}));
 
 function stopDrawing(): void {
   if (drawingPointer !== null && app.canvas.hasPointerCapture(drawingPointer)) {
@@ -90,88 +96,110 @@ function stopDrawing(): void {
   previousDragTile = null;
 }
 
-function selectWall(enabled: boolean): void {
-  placingWalls = enabled;
-  wallButton.setAttribute('aria-pressed', String(enabled));
-  app.canvas.style.cursor = enabled ? 'crosshair' : '';
+function selectConstruction(kind: ConstructionKind | null): void {
+  selectedConstruction = kind;
+  for (const choice of constructionChoices) choice.button.setAttribute('aria-pressed', String(choice.kind === kind));
+  app.canvas.style.cursor = kind ? 'crosshair' : '';
   stopDrawing();
-  if (enabled) {
+  if (kind) {
     selectedPawn = null;
     for (const pawn of pawns) pawn.selection.visible = false;
   }
 }
 
 function hideMaterials(): void {
-  wallMaterials.hidden = true;
-  wallButton.setAttribute('aria-expanded', 'false');
+  for (const choice of constructionChoices) {
+    choice.materials.hidden = true;
+    choice.button.setAttribute('aria-expanded', 'false');
+  }
 }
 
-function closeBuildings(): void {
-  buildingOptions.hidden = true;
-  buildingsTab.setAttribute('aria-expanded', 'false');
+function closeConstructionOptions(): void {
+  for (const choice of constructionChoices) {
+    choice.options.hidden = true;
+    choice.tab.setAttribute('aria-expanded', 'false');
+  }
   hideMaterials();
-  selectWall(false);
+  selectConstruction(null);
 }
 
 constructionTab.addEventListener('click', () => {
   constructionSubtabs.hidden = !constructionSubtabs.hidden;
   constructionTab.setAttribute('aria-expanded', String(!constructionSubtabs.hidden));
-  if (constructionSubtabs.hidden) closeBuildings();
-});
-buildingsTab.addEventListener('click', () => {
-  if (!buildingOptions.hidden) closeBuildings();
-  else {
-    buildingOptions.hidden = false;
-    buildingsTab.setAttribute('aria-expanded', 'true');
-  }
+  if (constructionSubtabs.hidden) closeConstructionOptions();
 });
 for (const button of constructionSubtabs.querySelectorAll<HTMLButtonElement>('button')) {
-  if (button !== buildingsTab) button.addEventListener('click', closeBuildings);
+  if (!constructionChoices.some((choice) => choice.tab === button)) button.addEventListener('click', closeConstructionOptions);
 }
-wallButton.addEventListener('click', () => { selectWall(!placingWalls); hideMaterials(); });
-wallButton.addEventListener('contextmenu', (event) => {
-  event.preventDefault();
-  wallMaterials.hidden = !wallMaterials.hidden;
-  wallButton.setAttribute('aria-expanded', String(!wallMaterials.hidden));
-});
-for (const button of wallMaterials.querySelectorAll<HTMLButtonElement>('button')) {
-  button.addEventListener('click', () => {
-    wallMaterial = button.dataset.material as WallMaterial;
-    for (const choice of wallMaterials.querySelectorAll('button')) {
-      choice.setAttribute('aria-pressed', String(choice === button));
-    }
-    selectWall(true);
+for (const choice of constructionChoices) {
+  choice.tab.addEventListener('click', () => {
+    const opening = choice.options.hidden;
+    closeConstructionOptions();
+    choice.options.hidden = !opening;
+    choice.tab.setAttribute('aria-expanded', String(opening));
+  });
+  choice.button.addEventListener('click', () => {
+    selectConstruction(selectedConstruction === choice.kind ? null : choice.kind);
     hideMaterials();
   });
+  choice.button.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    const opening = choice.materials.hidden;
+    hideMaterials();
+    choice.materials.hidden = !opening;
+    choice.button.setAttribute('aria-expanded', String(opening));
+  });
+  for (const button of choice.materials.querySelectorAll<HTMLButtonElement>('button')) {
+    button.addEventListener('click', () => {
+      constructionMaterials[choice.kind] = button.dataset.material as WallMaterial;
+      for (const option of choice.materials.querySelectorAll('button')) {
+        option.setAttribute('aria-pressed', String(option === button));
+      }
+      selectConstruction(choice.kind);
+      hideMaterials();
+    });
+  }
 }
 
-function placeWall(tile: Tile): void {
-  const wall = walls.plan(tile, wallMaterial);
+function placeConstruction(tile: Tile): void {
+  if (!selectedConstruction) return;
+  const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction);
   if (!wall) return;
-  const view = new Graphics().rect(0, 0, TILE_SIZE, TILE_SIZE).fill(WALL_COLORS[wall.material]);
+  const lowerHalf = wall.kind === 'barricade';
+  const view = new Graphics()
+    .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
+    .fill(WALL_COLORS[wall.material]);
   view.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
   view.alpha = WALL_PLAN_ALPHA;
   wallLayer.addChild(view);
   wallViews.set(`${tile.column},${tile.row}`, view);
 }
 
-// The future construction algorithm can call this when construction finishes.
-// Do not complete walls beneath pawns or their active movement segments.
-export function completeWall(tile: Tile): boolean {
+// Called by the future construction algorithm; construction never completes automatically.
+export function completeConstruction(tile: Tile): boolean {
+  const item = walls.items.get(`${tile.column},${tile.row}`);
+  if (!item || item.state === 'completed') return false;
+  const sameTile = (entry: Tile): boolean => entry.column === tile.column && entry.row === tile.row;
+  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || (item.kind === 'wall' && sameTile(entry));
+  const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
   if (pawns.some(({ movement }) => {
-    const occupied = [movement.tile, movement.nextTile];
-    if (movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
+    const occupied = [movement.tile, movement.nextTile, movement.destination];
+    if (item.kind === 'wall' && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
       occupied.push(
         { column: movement.nextTile.column, row: movement.tile.row },
         { column: movement.tile.column, row: movement.nextTile.row },
       );
     }
-    return occupied.some((entry) => entry?.column === tile.column && entry.row === tile.row);
+    const start = movement.nextTile ?? movement.tile;
+    return occupied.some((entry) => entry && sameTile(entry))
+      || !hasSafeExit(start, movement.destination, blockedAfter, cannotStopAfter);
   })) return false;
   if (!walls.complete(tile)) return false;
   wallViews.get(`${tile.column},${tile.row}`)!.alpha = 1;
   return true;
 }
+
+export const completeWall = completeConstruction;
 
 function showDestination(column: number, row: number): void {
   const marker = new Graphics()
@@ -241,13 +269,18 @@ function drawWalls(event: PointerEvent): void {
     previousDragTile = null;
     return;
   }
-  for (const entry of dragTiles(previousDragTile ?? tile, tile)) placeWall(entry);
+  for (const entry of dragTiles(previousDragTile ?? tile, tile)) placeConstruction(entry);
   previousDragTile = tile;
 }
 
 app.canvas.addEventListener('pointerdown', (event) => {
   const { x, y } = mapPosition(event);
-  if (event.button === 0 && placingWalls) {
+  if (event.button === 2 && selectedConstruction) {
+    selectConstruction(null);
+    hideMaterials();
+    return;
+  }
+  if (event.button === 0 && selectedConstruction) {
     drawingPointer = event.pointerId;
     previousDragTile = null;
     app.canvas.setPointerCapture(event.pointerId);
@@ -263,14 +296,14 @@ app.canvas.addEventListener('pointerdown', (event) => {
   } else if (event.button === 2 && selectedPawn) {
     const column = Math.floor(x / TILE_SIZE);
     const row = Math.floor(y / TILE_SIZE);
-    if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE && !walls.isBlocked({ column, row })) {
-      setDestination(selectedPawn.movement, { column, row });
+    if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE
+      && setDestination(selectedPawn.movement, { column, row }, walls.isBlocked, walls.cannotStop)) {
       showDestination(column, row);
     }
   }
 });
 app.canvas.addEventListener('pointermove', (event) => {
-  if (drawingPointer === event.pointerId && placingWalls) drawWalls(event);
+  if (drawingPointer === event.pointerId && selectedConstruction) drawWalls(event);
 });
 for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
   app.canvas.addEventListener(eventName, stopDrawing);
@@ -296,7 +329,7 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
-    advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked);
+    advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
   }

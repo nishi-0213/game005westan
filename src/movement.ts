@@ -16,9 +16,17 @@ export function createMovement(tile: Tile): Movement {
   return { tile: { ...tile }, destination: { ...tile }, nextTile: null, progress: 0 };
 }
 
-export function setDestination(movement: Movement, destination: Tile): void {
+type TileRule = (tile: Tile) => boolean;
+const allowAll: TileRule = () => false;
+
+export function setDestination(movement: Movement, destination: Tile, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): boolean {
+  if (isBlocked(destination) || cannotStop(destination)) return false;
+  // When already crossing a barricade, reject orders that would strand the pawn there.
+  const start = movement.nextTile ?? movement.tile;
+  if (cannotStop(start) && !hasSafeExit(start, destination, isBlocked, cannotStop)) return false;
   movement.destination = { ...destination };
   // Finish an active segment before changing direction, so every turn is at a tile center.
+  return true;
 }
 
 function nextStep(tile: Tile, destination: Tile): Tile | null {
@@ -31,17 +39,30 @@ function nextStep(tile: Tile, destination: Tile): Tile | null {
   return null;
 }
 
-export function advanceMovement(movement: Movement, seconds: number, isBlocked: (tile: Tile) => boolean = () => false): void {
+function blockedStep(from: Tile, to: Tile, isBlocked: TileRule): boolean {
+  return isBlocked(to) || (to.column !== from.column && to.row !== from.row && (
+    isBlocked({ column: to.column, row: from.row }) || isBlocked({ column: from.column, row: to.row })
+  ));
+}
+
+export function hasSafeExit(from: Tile, destination: Tile, isBlocked: TileRule, cannotStop: TileRule): boolean {
+  let current = from;
+  while (cannotStop(current)) {
+    const next = nextStep(current, destination);
+    if (!next || blockedStep(current, next, isBlocked)) return false;
+    current = next;
+  }
+  return !isBlocked(current);
+}
+
+export function advanceMovement(movement: Movement, seconds: number, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): void {
   let remaining = Math.max(0, seconds) * TILES_PER_SECOND;
   while (remaining > 0) {
     movement.nextTile ??= nextStep(movement.tile, movement.destination);
     if (!movement.nextTile) return;
     const next = movement.nextTile;
-    const diagonal = next.column !== movement.tile.column && next.row !== movement.tile.row;
-    if (isBlocked(next) || (diagonal && (
-      isBlocked({ column: next.column, row: movement.tile.row })
-      || isBlocked({ column: movement.tile.column, row: next.row })
-    ))) {
+    if (blockedStep(movement.tile, next, isBlocked)
+      || !hasSafeExit(next, movement.destination, isBlocked, cannotStop)) {
       movement.nextTile = null;
       movement.progress = 0;
       movement.destination = { ...movement.tile };
