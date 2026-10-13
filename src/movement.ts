@@ -57,7 +57,7 @@ export function stopAtNextSafeTile(movement: Movement, cannotStop: TileRule = al
 
 export function setRoute(movement: Movement, route: Tile[]): void {
   movement.route = route.map((tile) => ({ ...tile }));
-  movement.destination = { ...(route.at(-1) ?? movement.tile) };
+  movement.destination = { ...(route.at(-1) ?? movement.nextTile ?? movement.tile) };
 }
 
 export function movementHasSafeExit(movement: Movement, blocked: TileRule, cannotStop: TileRule): boolean {

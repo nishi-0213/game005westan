@@ -7,6 +7,7 @@ export interface EnvironmentObject extends Tile {
   collect: boolean;
   collected: boolean;
   workSeconds: number;
+  clusterId?: number;
 }
 export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; material: ItemType; quantity: number; seconds: number }> = {
   tree: { name: '木', material: 'wood', quantity: 12, seconds: 4 },
@@ -15,15 +16,56 @@ export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; mat
 
 export function initialEnvironment(size: number, random: () => number = Math.random): EnvironmentObject[] {
   const available: Tile[] = [];
+  const allowed = (tile: Tile) => tile.column >= 0 && tile.row >= 0 && tile.column < size && tile.row < size
+    && !(Math.abs(tile.column - size / 2) <= 2 && Math.abs(tile.row - size / 2) <= 2);
+  const key = (tile: Tile) => `${tile.column},${tile.row}`;
   for (let row = 0; row < size; row++) for (let column = 0; column < size; column++) {
-    if (Math.abs(column - size / 2) <= 2 && Math.abs(row - size / 2) <= 2) continue;
-    available.push({ column, row });
+    if (allowed({ column, row })) available.push({ column, row });
   }
-  for (let i = available.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [available[i], available[j]] = [available[j], available[i]];
+  const result: EnvironmentObject[] = [];
+  const rockTiles = new Set<string>();
+  const directions = [{ dc: 1, dr: 0 }, { dc: -1, dr: 0 }, { dc: 0, dr: 1 }, { dc: 0, dr: -1 },
+    { dc: 1, dr: 1 }, { dc: 1, dr: -1 }, { dc: -1, dr: 1 }, { dc: -1, dr: -1 }];
+  for (let clusterId = 0; clusterId < 4; clusterId++) {
+    const length = 3 + Math.floor(random() * 6);
+    const zigzag = random() < 0.5;
+    const candidates: Tile[][] = [];
+    for (const start of available) for (const direction of directions.slice(0, zigzag ? 4 : 8)) {
+      const chain: Tile[] = [{ ...start }];
+      for (let i = 1; i < length; i++) {
+        const previous = chain[i - 1];
+        chain.push({
+          column: previous.column + (zigzag && !direction.dc ? (i % 2 ? 1 : -1) : direction.dc),
+          row: previous.row + (zigzag && !direction.dr ? (i % 2 ? 1 : -1) : direction.dr),
+        });
+      }
+      if (chain.every(tile => allowed(tile) && !rockTiles.has(key(tile))
+        && !directions.some(({ dc, dr }) => rockTiles.has(key({ column: tile.column + dc, row: tile.row + dr }))))) candidates.push(chain);
+    }
+    const chain = candidates[Math.floor(random() * candidates.length)];
+    if (!chain) continue;
+    for (const tile of chain) {
+      rockTiles.add(key(tile));
+      result.push({ ...tile, type: 'rock', clusterId, collect: false, collected: false, workSeconds: 0 });
+    }
   }
-  return available.slice(0, 48).map((tile, index) => ({ ...tile, type: index < 24 ? 'tree' : 'rock', collect: false, collected: false, workSeconds: 0 }));
+  // Smooth value noise defines forest density; weighted sampling keeps sparse trees outside dense patches.
+  const spacing = 6, width = Math.ceil(size / spacing) + 1;
+  const lattice = Array.from({ length: width * width }, () => random());
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const density = (tile: Tile) => {
+    const x = tile.column / spacing, y = tile.row / spacing, ix = Math.floor(x), iy = Math.floor(y);
+    const fx = smooth(x - ix), fy = smooth(y - iy);
+    const at = (cx: number, cy: number) => lattice[cy * width + cx];
+    const top = at(ix, iy) * (1 - fx) + at(ix + 1, iy) * fx;
+    const bottom = at(ix, iy + 1) * (1 - fx) + at(ix + 1, iy + 1) * fx;
+    return top * (1 - fy) + bottom * fy;
+  };
+  const trees = available.filter(tile => !rockTiles.has(key(tile))).map(tile => ({
+    tile, score: -Math.log(Math.max(0.000001, random())) / (0.001 + density(tile) ** 6),
+  })).sort((a, b) => a.score - b.score).slice(0, 24);
+  for (const { tile } of trees) result.push({ ...tile, type: 'tree', collect: false, collected: false, workSeconds: 0 });
+  return result;
 }
 
 export function nearbySameType(objects: readonly EnvironmentObject[], center: EnvironmentObject): EnvironmentObject[] {

@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
-import { advanceMovement, createMovement, movementHasSafeExit, renderedPosition, setDestination, stopAtNextSafeTile } from './movement';
+import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
+import { advancePathMovement, commandMove } from './pathfinding';
 import type { Tile } from './movement';
 import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial } from './walls';
@@ -11,18 +12,19 @@ import type { EnvironmentObject } from './environment';
 import { Harvesting } from './harvesting';
 import type { HarvestWorker } from './harvesting';
 import { formatPawnName, generatePawnNames } from './pawn-names';
-import { INITIAL_PRIORITIES, nextPriority, updateWork } from './work-priorities';
+import { currentAction, INITIAL_PRIORITIES, nextPriority, updateWork } from './work-priorities';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
 const MAP_PIXELS = MAP_SIZE * TILE_SIZE;
+const RENDER_RESOLUTION = Math.max(2, window.devicePixelRatio || 1);
 const app = new Application();
 
 await app.init({
   resizeTo: window,
   background: '#151d19',
   antialias: true,
-  resolution: window.devicePixelRatio || 1,
+  resolution: RENDER_RESOLUTION,
   autoDensity: true,
 });
 document.body.appendChild(app.canvas);
@@ -47,6 +49,7 @@ map.addChild(terrain);
 const environmentObjects = initialEnvironment(MAP_SIZE);
 let selectedEnvironment = new Set<EnvironmentObject>();
 const environmentLayer = new Container();
+const environmentHud = new Container();
 map.addChild(environmentLayer);
 const environmentViews = environmentObjects.map((object) => {
   const view = new Container();
@@ -56,9 +59,18 @@ const environmentViews = environmentObjects.map((object) => {
   const shape = new Graphics();
   if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x396f3b);
   else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
+  const collectIcon = new Graphics()
+    .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
+    .moveTo(0, -3).lineTo(-3, 3).stroke({ color: 0xf2c66d, width: 2 });
+  collectIcon.position.set(view.x, view.y - 16);
+  collectIcon.visible = false;
+  const progressBar = new Graphics();
+  progressBar.position.set(object.column * TILE_SIZE, (object.row + 1) * TILE_SIZE + 1);
+  progressBar.visible = false;
   view.addChild(outline, shape);
+  environmentHud.addChild(collectIcon, progressBar);
   environmentLayer.addChild(view);
-  return { object, view, outline };
+  return { object, view, outline, collectIcon, progressBar, progress: -1 };
 });
 const mapItems = initialItems();
 let selectedItem: (typeof mapItems)[number] | null = null;
@@ -71,10 +83,13 @@ function createItemView(item: (typeof mapItems)[number]): void {
   const icon = new Graphics().rect(-6, 1, 12, 12).fill(ITEM_APPEARANCE[item.type].color);
   const quantity = new Text({
     text: String(item.quantity),
-    style: { fontFamily: 'sans-serif', fontSize: 8, lineHeight: 9, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } },
+    resolution: RENDER_RESOLUTION * 2,
+    roundPixels: true,
+    style: { fontFamily: 'sans-serif', fontSize: 10, lineHeight: 12, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } },
   });
   quantity.anchor.set(0.5, 0);
-  quantity.position.set(0, 14);
+  quantity.scale.set(1 / map.scale.x);
+  quantity.position.set(0, 13 + 2 / map.scale.y);
   view.addChild(icon, quantity);
   itemLayer.addChild(view);
   itemViews.push({ item, view, quantity });
@@ -120,6 +135,7 @@ function updateItemSummary(): void {
 updateItemSummary();
 
 const walls = new Walls(MAP_SIZE);
+walls.environmentCannotStop = (tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
 const wallLayer = new Container();
 const wallViews = new Map<string, Graphics>();
 map.addChild(wallLayer);
@@ -151,8 +167,10 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   const builder: HarvestWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
   return { view, selection, heldItem, ...builder, name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
-const construction = new Construction(walls, mapItems, completeConstruction);
+const needsClearing = (tile: Tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
+const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
+map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
 const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
 const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorities-rows')!;
@@ -162,16 +180,16 @@ for (const pawn of pawns) {
   name.scope = 'row';
   name.textContent = formatPawnName(pawn.name);
   row.appendChild(name);
-  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集']] as const) {
+  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'priority-value';
     const refresh = () => {
-      button.textContent = String(pawn.priorities[task]);
+      button.textContent = String(pawn.priorities[task] ?? 3);
       button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
     };
-    button.addEventListener('click', () => { pawn.priorities[task] = nextPriority(pawn.priorities[task]); refresh(); });
+    button.addEventListener('click', () => { pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3); refresh(); });
     refresh(); cell.appendChild(button); row.appendChild(cell);
   }
   prioritiesRows.appendChild(row);
@@ -214,6 +232,8 @@ function updatePawnPanels(): void {
   dropInventoryButton.disabled = !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
   pawnSpecs.hidden = selectedPawn === null;
   if (!selectedPawn) return;
+  const action = currentAction(selectedPawn);
+  if (pawnSpecs.textContent !== action) pawnSpecs.textContent = action;
   const visibleMenus = document.querySelectorAll<HTMLElement>('.construction-subtabs, .building-options, .wall-materials');
   let top = window.innerHeight - 40;
   for (const menu of visibleMenus) if (!menu.hidden) top = Math.min(top, menu.getBoundingClientRect().top);
@@ -237,6 +257,14 @@ function updateEnvironmentViews(): void {
   for (const entry of environmentViews) {
     entry.view.visible = !entry.object.collected;
     entry.outline.visible = selectedEnvironment.has(entry.object);
+    entry.collectIcon.visible = entry.object.collect && !entry.object.collected;
+    const progress = Math.min(1, entry.object.workSeconds / ENVIRONMENT_PROPERTIES[entry.object.type].seconds);
+    entry.progressBar.visible = !entry.object.collected && progress > 0 && progress < 1;
+    if (entry.progressBar.visible && entry.progress !== progress) {
+      entry.progress = progress;
+      entry.progressBar.clear().rect(0, 0, TILE_SIZE, 4).fill(0x152019)
+        .rect(1, 1, (TILE_SIZE - 2) * progress, 2).fill(0xf2c66d);
+    }
   }
   if (changed) updateItemSelection();
 }
@@ -412,6 +440,8 @@ function placeConstruction(tile: Tile): void {
   if (!selectedConstruction) return;
   const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction);
   if (!wall) return;
+  const environment = environmentObjects.find((object) => !object.collected && object.column === tile.column && object.row === tile.row);
+  if (environment) environment.collect = true;
   const lowerHalf = wall.kind === 'barricade';
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
@@ -431,6 +461,7 @@ function placeConstruction(tile: Tile): void {
 export function completeConstruction(tile: Tile): boolean {
   const item = walls.items.get(`${tile.column},${tile.row}`);
   if (!item || item.state === 'completed') return false;
+  if (needsClearing(tile)) return false;
   const sameTile = (entry: Tile): boolean => entry.column === tile.column && entry.row === tile.row;
   const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || (item.kind === 'wall' && sameTile(entry));
   const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
@@ -486,6 +517,10 @@ const MAX_ZOOM = 4;
 function applyCamera(): void {
   const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS * camera.zoom;
   map.scale.set(scale);
+  for (const { quantity } of itemViews) {
+    quantity.scale.set(1 / scale);
+    quantity.y = 13 + 2 / scale;
+  }
   map.position.set(
     app.screen.width / 2 - camera.x * scale,
     app.screen.height / 2 - camera.y * scale,
@@ -540,12 +575,15 @@ function drawWalls(event: PointerEvent): void {
 
 app.canvas.addEventListener('pointerdown', (event) => {
   const { x, y } = mapPosition(event);
+  if (event.button === 2 && removeConstructionPlan({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) })) {
+    if (selectedConstruction) { selectConstruction(null); hideMaterials(); }
+    return;
+  }
   if (event.button === 2 && selectedConstruction) {
     selectConstruction(null);
     hideMaterials();
     return;
   }
-  if (event.button === 2 && removeConstructionPlan({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) })) return;
   if (event.button === 0 && selectedConstruction) {
     drawingPointer = event.pointerId;
     previousDragTile = null;
@@ -572,7 +610,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     const column = Math.floor(x / TILE_SIZE);
     const row = Math.floor(y / TILE_SIZE);
     if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE
-      && setDestination(selectedPawn.movement, { column, row }, walls.isBlocked, walls.cannotStop)) {
+      && commandMove(selectedPawn.movement, { column, row }, MAP_SIZE, walls.isBlocked, walls.cannotStop)) {
       showDestination(column, row);
     }
   }
@@ -614,8 +652,8 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
-    updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000);
-    advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked, walls.cannotStop);
+    updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000, Math.random, ticker.elapsedMS / 1000);
+    advancePathMovement(pawn.movement, ticker.deltaMS / 1000, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);

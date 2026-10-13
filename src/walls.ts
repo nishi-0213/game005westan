@@ -23,6 +23,7 @@ export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; se
 export class Walls {
   readonly items = new Map<string, Wall>();
   readonly mapSize: number;
+  environmentCannotStop: (tile: Tile) => boolean = () => false;
 
   constructor(mapSize: number) {
     this.mapSize = mapSize;
@@ -61,7 +62,7 @@ export class Walls {
 
   cannotStop = (tile: Tile): boolean => {
     const item = this.items.get(`${tile.column},${tile.row}`);
-    return item?.state === 'completed' && item.kind === 'barricade';
+    return (item?.state === 'completed' && item.kind === 'barricade') || this.environmentCannotStop(tile);
   };
 }
 

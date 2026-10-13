@@ -10,9 +10,19 @@ const object=(type,column,row)=>({type,column,row,collect:true,collected:false,w
 const pawn=()=>({movement:createMovement({column:2,row:2}),mode:'automatic',inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0});
 
 test('random environmental placement produces unique trees/rocks and preserves the central spawn area',()=>{
- const objects=initialEnvironment(32,()=>.5);assert.equal(objects.length,48);
- assert.equal(objects.filter(o=>o.type==='tree').length,24);assert.equal(objects.filter(o=>o.type==='rock').length,24);
- assert.equal(new Set(objects.map(o=>`${o.column},${o.row}`)).size,48);
+ let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+ const objects=initialEnvironment(32,random);
+ assert.equal(objects.filter(o=>o.type==='tree').length,24);
+ const rocks=objects.filter(o=>o.type==='rock');assert.ok(rocks.length>=12&&rocks.length<=32);
+ const groups=new Map();for(const rock of rocks){if(!groups.has(rock.clusterId))groups.set(rock.clusterId,[]);groups.get(rock.clusterId).push(rock);}
+ assert.equal(groups.size,4);
+ for(const chain of groups.values()){
+  assert.ok(chain.length>=3&&chain.length<=8);
+  for(let i=1;i<chain.length;i++)assert.equal(Math.max(Math.abs(chain[i].column-chain[i-1].column),Math.abs(chain[i].row-chain[i-1].row)),1);
+  const dx=chain.slice(1).map((r,i)=>r.column-chain[i].column),dy=chain.slice(1).map((r,i)=>r.row-chain[i].row);
+  assert.ok(new Set(dx).size===1||new Set(dy).size===1);
+ }
+ assert.equal(new Set(objects.map(o=>`${o.column},${o.row}`)).size,objects.length);
  assert.ok(objects.every(o=>o.column<14||o.column>18||o.row<14||o.row>18));
  assert.ok(objects.every(o=>!o.collect&&!o.collected));
 });

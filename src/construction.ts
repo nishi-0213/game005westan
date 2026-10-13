@@ -23,9 +23,11 @@ export class Construction {
   readonly items: MapItem[];
   readonly claims = new Map<Wall, Builder>();
   readonly finish: (tile: Tile) => boolean;
+  readonly needsClearing: (tile: Tile) => boolean;
 
-  constructor(walls: Walls, items: MapItem[], finish: (tile: Tile) => boolean) {
+  constructor(walls: Walls, items: MapItem[], finish: (tile: Tile) => boolean, needsClearing: (tile: Tile) => boolean = () => false) {
     this.walls = walls; this.items = items; this.finish = finish;
+    this.needsClearing = needsClearing;
   }
 
   cancel(builder: Builder): void {
@@ -65,7 +67,7 @@ export class Construction {
     const paths = findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
     for (const target of this.walls.items.values()) {
       const recipe = BUILD_RECIPES[target.kind];
-      if (target.state !== 'planned' || !recipe || (material && target.material !== material)) continue;
+      if (target.state !== 'planned' || !recipe || this.needsClearing(target) || (material && target.material !== material)) continue;
       const owner = this.claims.get(target);
       if (owner && owner !== builder) continue;
       if (!material && target.delivered < recipe.materialCount
@@ -99,6 +101,7 @@ export class Construction {
       return;
     }
     if (builder.mode !== 'automatic') { if (builder.job) this.cancel(builder); return; }
+    if (builder.job && this.needsClearing(builder.job.target)) { this.cancel(builder); return; }
     if (builder.job && builder.job.target.state !== 'planned') this.cancel(builder);
     if (builder.job && this.claims.get(builder.job.target) !== builder) this.cancel(builder);
     const movement = builder.movement;

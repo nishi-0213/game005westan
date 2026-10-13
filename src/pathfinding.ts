@@ -1,4 +1,5 @@
-import type { Tile } from './movement';
+import type { Movement, Tile } from './movement';
+import { advanceMovement, setRoute } from './movement.ts';
 
 export interface Path { tiles: Tile[]; distance: number }
 export function findPaths(start: Tile, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): Map<number, Path> {
@@ -37,5 +38,22 @@ export function findPaths(start: Tile, size: number, blocked: (tile: Tile) => bo
 }
 
 export function findPath(start: Tile, goal: Tile, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): Path | null {
+  if (goal.column < 0 || goal.row < 0 || goal.column >= size || goal.row >= size) return null;
   return findPaths(start, size, blocked, cannotStop).get(goal.row * size + goal.column) ?? null;
+}
+
+export function commandMove(movement: Movement, goal: Tile, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): boolean {
+  const path = findPath(movement.nextTile ?? movement.tile, goal, size, blocked, cannotStop);
+  if (!path) return false;
+  setRoute(movement, path.tiles);
+  return true;
+}
+
+export function advancePathMovement(movement: Movement, seconds: number, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): void {
+  const goal = { ...movement.destination };
+  const hadRoute = movement.route !== undefined;
+  advanceMovement(movement, seconds, blocked, cannotStop);
+  if (hadRoute && (movement.destination.column !== goal.column || movement.destination.row !== goal.row)) {
+    commandMove(movement, goal, size, blocked, cannotStop);
+  }
 }
