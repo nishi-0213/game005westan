@@ -12,10 +12,12 @@ export interface Builder {
   movement: Movement;
   mode: 'drafted' | 'automatic';
   inventory: { type: ItemType; quantity: number } | null;
-  job: { target: Wall; phase: 'gather' | 'deliver' | 'build'; source?: MapItem; goal: Tile } | null;
+  job: { target: Wall; phase: 'gather' | 'deliver' | 'build' | 'demolish'; source?: MapItem; goal: Tile } | null;
   retrySeconds: number;
   dropRequested?: boolean;
 }
+export const isBuildingPhase = (phase: string): boolean => phase === 'build' || phase === 'demolish';
+export type ConstructionWork = 'all' | 'transport' | 'build';
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 const adjacent = (a: Tile, b: Tile) => Math.max(Math.abs(a.column - b.column), Math.abs(a.row - b.row)) === 1;
 
@@ -25,6 +27,7 @@ export class Construction {
   readonly claims = new Map<Wall, Builder>();
   readonly finish: (tile: Tile) => boolean;
   storage?: Storage;
+  demolish?: (tile: Tile) => boolean;
   readonly needsClearing: (tile: Tile) => boolean;
 
   constructor(walls: Walls, items: MapItem[], finish: (tile: Tile) => boolean, needsClearing: (tile: Tile) => boolean = () => false) {
@@ -74,16 +77,19 @@ export class Construction {
     return best;
   }
 
-  nearestPlan(builder: Builder, material?: ItemType): { target: Wall; goal: Tile; path: Path } | null {
-    if (![...this.walls.items.values()].some((target) => target.state === 'planned')) return null;
+  nearestPlan(builder: Builder, material?: ItemType, work: ConstructionWork = 'all'): { target: Wall; goal: Tile; path: Path } | null {
+    if (![...this.walls.items.values()].some((target) => target.state === 'planned' || target.state === 'completed' && target.demolition)) return null;
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
     const paths = findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
     for (const target of this.walls.items.values()) {
       const recipe = BUILD_RECIPES[target.kind];
-      if (target.state !== 'planned' || !recipe || this.needsClearing(target) || (material && target.material !== material)) continue;
+      const destroying = target.state === 'completed' && target.demolition;
+      if ((!destroying && target.state !== 'planned') || !recipe || this.needsClearing(target) || (material && (destroying || target.material !== material))) continue;
+      const ready = destroying || target.delivered >= recipe.materialCount;
+      if (work === 'build' && !ready || work === 'transport' && ready) continue;
       const owner = this.claims.get(target);
       if (owner && owner !== builder) continue;
-      if (!material && target.delivered < recipe.materialCount
+      if (!material && !destroying && target.delivered < recipe.materialCount
         && !(builder.inventory?.type === target.material && builder.inventory.quantity > 0)
         && !this.sources(target).some((item) => item.type === target.material && item.quantity > 0 && this.sourceApproach(builder.movement.tile, item, paths))) continue;
       const approach = this.approach(builder.movement.tile, target, paths);
@@ -92,9 +98,9 @@ export class Construction {
     return best;
   }
 
-  assignDelivery(builder: Builder): boolean {
+  assignDelivery(builder: Builder, work: ConstructionWork = 'all'): boolean {
     const material = builder.inventory?.quantity ? builder.inventory.type : undefined;
-    const plan = this.nearestPlan(builder, material);
+    const plan = this.nearestPlan(builder, material, work);
     if (!plan) return false;
     if (builder.job && this.claims.get(builder.job.target) === builder) this.claims.delete(builder.job.target);
     this.claims.set(plan.target, builder);
@@ -104,7 +110,7 @@ export class Construction {
     return true;
   }
 
-  update(builder: Builder, seconds: number): void {
+  update(builder: Builder, seconds: number, work: ConstructionWork = 'all'): void {
     if (builder.dropRequested) {
       if (builder.movement.nextTile || !sameTile(builder.movement.tile, builder.movement.destination)) return;
       if (builder.inventory) returnItems(this.items, builder.movement.tile, builder.inventory.type, builder.inventory.quantity);
@@ -115,7 +121,7 @@ export class Construction {
     }
     if (builder.mode !== 'automatic') { if (builder.job) this.cancel(builder); return; }
     if (builder.job && this.needsClearing(builder.job.target)) { this.cancel(builder); return; }
-    if (builder.job && builder.job.target.state !== 'planned') this.cancel(builder);
+    if (builder.job && (builder.job.phase === 'demolish' ? builder.job.target.state !== 'completed' || !builder.job.target.demolition : builder.job.target.state !== 'planned')) this.cancel(builder);
     if (builder.job && this.claims.get(builder.job.target) !== builder) this.cancel(builder);
     const movement = builder.movement;
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
@@ -123,16 +129,16 @@ export class Construction {
       builder.retrySeconds -= seconds;
       if (builder.retrySeconds > 0) return;
       builder.retrySeconds = 0.25;
-      const plan = this.nearestPlan(builder);
+      const plan = this.nearestPlan(builder, undefined, work);
       if (!plan) return;
       const recipe = BUILD_RECIPES[plan.target.kind]!;
-      if (plan.target.delivered >= recipe.materialCount) {
+      if (plan.target.demolition || plan.target.delivered >= recipe.materialCount) {
         this.claims.set(plan.target, builder);
-        builder.job = { target: plan.target, phase: 'build', goal: plan.goal };
+        builder.job = { target: plan.target, phase: plan.target.demolition ? 'demolish' : 'build', goal: plan.goal };
         setRoute(movement, plan.path.tiles);
         return;
       }
-      if (builder.inventory?.quantity && builder.inventory.type === plan.target.material) { this.assignDelivery(builder); return; }
+      if (builder.inventory?.quantity && builder.inventory.type === plan.target.material) { this.assignDelivery(builder, work); return; }
       if (builder.inventory?.quantity) {
         const held = builder.inventory;
         returnItems(this.items, movement.tile, held.type, held.quantity);
@@ -159,19 +165,24 @@ export class Construction {
       const quantity = Math.min(source.quantity, Math.floor(PAWN_CARRY_LIMIT_KG / ITEM_APPEARANCE[source.type].massKg));
       builder.inventory = { type: source.type, quantity };
       source.quantity -= quantity;
-      if (!this.assignDelivery(builder)) this.cancel(builder);
+      if (!this.assignDelivery(builder, work)) this.cancel(builder);
       return;
     }
     if (!adjacent(movement.tile, job.target)) { this.cancel(builder); return; }
     const recipe = BUILD_RECIPES[job.target.kind]!;
     if (job.phase === 'deliver') {
-      if (job.target.delivered >= recipe.materialCount) { job.phase = 'build'; return; }
+      if (job.target.delivered >= recipe.materialCount) { if (work === 'transport') this.cancel(builder); else job.phase = 'build'; return; }
       if (!builder.inventory?.quantity || builder.inventory.type !== job.target.material) { builder.inventory = null; this.cancel(builder); return; }
       // Transfer and consume exactly one material unit per operation.
       builder.inventory.quantity -= 1;
       job.target.delivered += 1;
       if (!builder.inventory.quantity) builder.inventory = null;
-      if (job.target.delivered >= recipe.materialCount) job.phase = 'build';
+      if (job.target.delivered >= recipe.materialCount) { if (work === 'transport') this.cancel(builder); else job.phase = 'build'; }
+      return;
+    }
+    if (job.phase === 'demolish') {
+      job.target.demolitionSeconds = Math.min(recipe.seconds, (job.target.demolitionSeconds ?? 0) + seconds);
+      if (job.target.demolitionSeconds >= recipe.seconds && this.demolish?.(job.target)) this.cancel(builder);
       return;
     }
     job.target.workSeconds = Math.min(recipe.seconds, job.target.workSeconds + seconds);

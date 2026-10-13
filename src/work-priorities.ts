@@ -2,19 +2,21 @@ import type { Hauling, HaulWorker } from './hauling';
 import type { HarvestWorker } from './harvesting';
 import type { Harvesting } from './harvesting';
 import type { Construction } from './construction';
+import { isBuildingPhase } from './construction.ts';
 import { findPaths } from './pathfinding.ts';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
 
-export interface WorkPriorities { construction: number; harvesting: number; free?: number }
-export type AutonomousWorker = HarvestWorker & HaulWorker & { priorities: WorkPriorities; freeSeconds?: number; freeActive?: boolean };
+export interface WorkPriorities { construction: number; harvesting: number; hauling?: number; free?: number }
+export type AutonomousWorker = HarvestWorker & HaulWorker & { priorities: WorkPriorities; dead?: boolean; freeSeconds?: number; freeActive?: boolean };
 export const INITIAL_PRIORITIES: WorkPriorities[] = [
-  { construction: 3, harvesting: 3, free: 3 },
-  { construction: 3, harvesting: 3, free: 3 },
-  { construction: 3, harvesting: 3, free: 3 },
+  { construction: 3, harvesting: 3, hauling: 3, free: 3 },
+  { construction: 3, harvesting: 3, hauling: 3, free: 3 },
+  { construction: 3, harvesting: 3, hauling: 3, free: 3 },
 ];
 export function nextPriority(value: number, direction: 1 | -1 = 1): number { return (value - 1 + direction + 4) % 4 + 1; }
 
 export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling): void {
+  if (worker.dead) return;
   const wasFree = worker.freeActive;
   worker.freeActive = false;
   if (worker.mode !== 'automatic' || worker.dropRequested) {
@@ -23,11 +25,17 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
     construction.update(worker, seconds); harvesting.update(worker, seconds); return;
   }
   const canHarvest = Boolean(worker.harvestJob) || harvesting.hasAvailableWork(worker);
-  const canHaul = Boolean(worker.haulJob) || Boolean(!worker.job && hauling?.hasAvailableWork(worker));
-  const canCollect = canHarvest || canHaul;
-  const canBuild = Boolean(worker.job) || construction.nearestPlan(worker) !== null;
-  const freePriority = worker.priorities.free ?? 4;
-  if ((!canCollect || freePriority < worker.priorities.harvesting) && (!canBuild || freePriority < worker.priorities.construction)) {
+  const canDeliver = !worker.haulJob && (Boolean(worker.job && !isBuildingPhase(worker.job.phase)) || construction.nearestPlan(worker, undefined, 'transport') !== null);
+  const canStore = Boolean(worker.haulJob) || Boolean(!worker.job && hauling?.hasAvailableWork(worker));
+  const canBuild = Boolean(worker.job && isBuildingPhase(worker.job.phase)) || construction.nearestPlan(worker, undefined, 'build') !== null;
+  const choices = [
+    { task: 'harvest', priority: worker.priorities.harvesting, available: canHarvest },
+    { task: 'transport', priority: worker.priorities.hauling ?? 3, available: canDeliver || canStore },
+    { task: 'build', priority: worker.priorities.construction, available: canBuild },
+    { task: 'free', priority: worker.priorities.free ?? 4, available: true },
+  ].filter(choice => choice.available).sort((a, b) => a.priority - b.priority);
+  const task = choices[0].task;
+  if (task === 'free') {
     if (worker.job) construction.cancel(worker);
     if (worker.harvestJob) harvesting.cancel(worker);
     if (worker.haulJob) hauling?.cancel(worker);
@@ -47,31 +55,33 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
   }
   if (wasFree) stopAtNextSafeTile(worker.movement, construction.walls.cannotStop);
   worker.freeSeconds = 0;
-  const collectFirst = canCollect && (!canBuild || worker.priorities.harvesting <= worker.priorities.construction);
-  if (collectFirst) {
+  if (task === 'harvest') {
     if (worker.job) construction.cancel(worker);
-    if (canHarvest) {
-      if (worker.haulJob) hauling?.cancel(worker);
-      harvesting.update(worker, seconds);
-    } else {
-      if (worker.harvestJob) harvesting.cancel(worker);
-      hauling?.update(worker);
-    }
+    if (worker.haulJob) hauling?.cancel(worker);
+    harvesting.update(worker, seconds);
   } else {
     if (worker.harvestJob) harvesting.cancel(worker);
-    if (worker.haulJob) hauling?.cancel(worker);
-    construction.update(worker, seconds);
-    if (!canBuild) harvesting.update(worker, seconds);
+    if (task === 'build' || canDeliver) {
+      if (worker.haulJob) hauling?.cancel(worker);
+      const work = task === 'build' ? 'build' : 'transport';
+      if (worker.job && isBuildingPhase(worker.job.phase) !== (work === 'build')) construction.cancel(worker);
+      construction.update(worker, seconds, work);
+    } else {
+      if (worker.job) construction.cancel(worker);
+      hauling?.update(worker);
+    }
   }
 }
 
 export function currentAction(worker: AutonomousWorker): string {
+  if (worker.dead) return '死亡';
   if (worker.dropRequested) return '地面に置く';
   if (worker.mode === 'drafted') return '徴兵';
   const moving = Boolean(worker.movement.nextTile) || worker.movement.tile.column !== worker.movement.destination.column || worker.movement.tile.row !== worker.movement.destination.row;
   if (worker.haulJob) return worker.haulJob.phase === 'pickup' ? 'アイテムを取得中' : '保管箱へ運搬中';
   if (worker.harvestJob) return moving ? '収集へ移動中' : '収集中';
   if (worker.job) {
+    if (worker.job.phase === 'demolish') return moving ? '破壊へ移動中' : '破壊中';
     if (worker.job.phase === 'build') return moving ? '建設へ移動中' : '建築中';
     if (worker.job.phase === 'gather') return '素材を取得中';
     return moving ? '素材を運搬中' : '素材を搬入中';

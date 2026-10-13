@@ -88,7 +88,7 @@ canvas { display: block; width: 100%; height: 100%; }
   bottom: 40px;
   z-index: 1;
   width: min(240px, calc(100vw - 2px));
-  height: 100px;
+  min-height: 100px;
   border: 1px solid #708268;
   border-left: 0;
   background: #263529;
@@ -264,3 +264,20 @@ canvas { display: block; width: 100%; height: 100%; }
 #close-storage-settings { position: absolute; top: 4px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 20px; cursor: pointer; }
 
 #item-summary li[hidden] { display: none; }
+
+#pawn-specs h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
+.pawn-specs-inventory { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.pawn-specs-inventory .item-icon[hidden] { display: none; }
+
+.construction-subtabs { max-width: 100vw; }
+.construction-subtabs > button { min-width: 0; flex-shrink: 1; }
+
+.pawn-specs-tabs { display: flex; gap: 4px; margin: -4px 0 10px; }
+.pawn-specs-tabs button { flex: 1; border: 1px solid #708268; padding: 4px; background: #354936; color: #f4e9cc; cursor: pointer; }
+.pawn-specs-tabs button[aria-pressed="true"] { background: #475b3e; border-color: #f2c66d; }
+.pawn-needs label { display: grid; grid-template-columns: 42px 1fr 38px; align-items: center; gap: 6px; margin: 10px 0; font-size: 12px; }
+.pawn-needs progress { width: 100%; height: 12px; accent-color: #8fba7a; }
+
+#food-command { position: fixed; inset: auto; margin: 0; padding: 24px 12px 12px; border: 1px solid #708268; background: #263529; color: #f4e9cc; z-index: 4; }
+#close-food-command { position: absolute; top: 2px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
+#eat-now-button { padding: 8px 14px; border: 1px solid #708268; background: #354936; color: #f4e9cc; cursor: pointer; }

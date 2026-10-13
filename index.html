@@ -33,13 +33,14 @@
     <dialog id="priorities-window" aria-labelledby="priorities-title">
       <button id="close-priorities" type="button" aria-label="優先順位ウィンドウを閉じる">×</button>
       <h2 id="priorities-title">優先順位</h2>
-      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
+      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
     </dialog>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
       <button class="construction-subtab" type="button">作業所</button>
       <button id="storage-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="storage-options">保管</button>
       <button id="defense-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="defense-options">防衛</button>
+      <button id="demolition-button" class="construction-subtab" type="button" aria-pressed="false">破壊</button>
     </nav>
     <nav id="building-options" class="building-options" aria-label="建物の選択" hidden>
       <button id="wall-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="wall-materials">壁</button>
@@ -67,6 +68,11 @@
       <p>受け入れるアイテム</p>
       <label><input type="checkbox" data-storage-type="wood" checked />木材 <span id="stored-wood">0</span></label>
       <label><input type="checkbox" data-storage-type="stone" checked />石材 <span id="stored-stone">0</span></label>
+      <label><input type="checkbox" data-storage-type="strawberry" checked />苺 <span id="stored-strawberry">0</span></label>
+    </dialog>
+    <dialog id="food-command" aria-label="苺の操作">
+      <button id="close-food-command" type="button" aria-label="苺の操作を閉じる">×</button>
+      <button id="eat-now-button" type="button">今すぐ食べる</button>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

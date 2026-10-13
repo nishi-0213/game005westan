@@ -13,6 +13,7 @@ test('random environmental placement produces unique trees/rocks and preserves t
  let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
  const objects=initialEnvironment(32,random);
  assert.equal(objects.filter(o=>o.type==='tree').length,24);
+ assert.equal(objects.filter(o=>o.type==='wildStrawberry').length,16);
  const rocks=objects.filter(o=>o.type==='rock');assert.ok(rocks.length>=12&&rocks.length<=32);
  const groups=new Map();for(const rock of rocks){if(!groups.has(rock.clusterId))groups.set(rock.clusterId,[]);groups.get(rock.clusterId).push(rock);}
  assert.equal(groups.size,4);
@@ -33,12 +34,12 @@ test('double-click selection uses exactly a 10x10 same-type area',()=>{
  assert.deepEqual(nearbySameType(objects,center),objects.slice(0,3));
 });
 
-for(const [type,seconds,quantity,material] of [['tree',4,12,'wood'],['rock',5,8,'stone']]){
+for(const [type,seconds,quantity,material] of [['tree',4,12,'wood'],['rock',5,8,'stone'],['wildStrawberry',1,5,'strawberry']]){
  test(`${type} produces ${quantity} ground items only after ${seconds} seconds`,()=>{
   const target=object(type,3,2),items=[],walls=new Walls(8),engine=new Harvesting([target],items,walls),worker=pawn();
   engine.update(worker,0);assert.ok(worker.harvestJob);
   engine.update(worker,seconds-.1);assert.equal(items.length,0);assert.equal(target.collected,false);
-  engine.update(worker,.2);assert.equal(target.collected,true);assert.deepEqual(items,[{type:material,quantity,column:3,row:2}]);assert.equal(worker.inventory,null);
+  engine.update(worker,.2);assert.equal(target.collected,true);assert.deepEqual(items,[{type:material,quantity,column:3,row:2,...(material==='strawberry'?{collect:true}:{})}]);assert.equal(worker.inventory,null);
   engine.update(worker,20);assert.equal(items[0].quantity,quantity);
  });
 }

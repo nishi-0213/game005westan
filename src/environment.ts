@@ -1,7 +1,7 @@
 import type { Tile } from './movement';
 import type { ItemType } from './items';
 
-export type EnvironmentType = 'tree' | 'rock';
+export type EnvironmentType = 'tree' | 'rock' | 'wildStrawberry';
 export interface EnvironmentObject extends Tile {
   type: EnvironmentType;
   collect: boolean;
@@ -11,6 +11,7 @@ export interface EnvironmentObject extends Tile {
 }
 export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; material: ItemType; quantity: number; seconds: number }> = {
   tree: { name: '木', material: 'wood', quantity: 12, seconds: 4 },
+  wildStrawberry: { name: '野苺', material: 'strawberry', quantity: 5, seconds: 1 },
   rock: { name: '岩', material: 'stone', quantity: 8, seconds: 5 },
 };
 
@@ -65,6 +66,13 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
     tile, score: -Math.log(Math.max(0.000001, random())) / (0.001 + density(tile) ** 6),
   })).sort((a, b) => a.score - b.score).slice(0, 24);
   for (const { tile } of trees) result.push({ ...tile, type: 'tree', collect: false, collected: false, workSeconds: 0 });
+  const occupied = new Set(result.map(key));
+  const berries = available.filter(tile => !occupied.has(key(tile)));
+  for (let i = 0; i < 16 && berries.length; i++) {
+    const index = Math.floor(random() * berries.length);
+    const tile = berries.splice(index, 1)[0];
+    result.push({ ...tile, type: 'wildStrawberry', collect: false, collected: false, workSeconds: 0 });
+  }
   return result;
 }
 

@@ -2,6 +2,7 @@ import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
 import { advancePathMovement, commandMove } from './pathfinding';
+import { initialNeeds, requestEat, updateNeeds } from './needs';
 import type { Tile } from './movement';
 import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
@@ -10,6 +11,7 @@ import { Storage } from './storage';
 import { Hauling } from './hauling';
 import type { HaulWorker } from './hauling';
 import { Construction } from './construction';
+import { demolishStructure } from './demolition';
 import { ENVIRONMENT_PROPERTIES, initialEnvironment, nearbySameType } from './environment';
 import type { EnvironmentObject } from './environment';
 import { Harvesting } from './harvesting';
@@ -61,6 +63,7 @@ const environmentViews = environmentObjects.map((object) => {
   outline.visible = false;
   const shape = new Graphics();
   if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x8fba7a);
+  else if (object.type === 'wildStrawberry') shape.ellipse(0, 3, 9, 5).fill(0x8fba7a).circle(-4, 1, 3).circle(3, -1, 3).circle(1, 5, 3).fill(0xe75b70);
   else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
   const collectIcon = new Graphics()
     .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
@@ -198,11 +201,12 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
   const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
-  return { view, selection, heldItem, ...builder, name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, ...builder, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearing = (tile: Tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
 construction.storage = storage;
+construction.demolish = completeDemolition;
 const hauling = new Hauling(mapItems, storage);
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 map.addChild(environmentHud);
@@ -227,7 +231,7 @@ for (const [index, pawn] of pawns.entries()) {
   identity.append(createPawnPortrait(index), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
-  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['free', '自由']] as const) {
+  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
@@ -280,6 +284,43 @@ const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
 const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
 const dropInventoryButton = document.querySelector<HTMLButtonElement>('#drop-inventory-button')!;
 const pawnSpecs = document.querySelector<HTMLElement>('#pawn-specs')!;
+const pawnSpecsName = document.createElement('h2');
+const pawnSpecsAction = document.createElement('div');
+const pawnSpecsInventory = document.createElement('div');
+pawnSpecsInventory.className = 'pawn-specs-inventory';
+const pawnSpecsItemIcon = document.createElement('span');
+pawnSpecsItemIcon.className = 'item-icon';
+pawnSpecsItemIcon.setAttribute('aria-hidden', 'true');
+const pawnSpecsItemLabel = document.createElement('span');
+pawnSpecsInventory.append(pawnSpecsItemIcon, pawnSpecsItemLabel);
+const pawnSpecsTabs = document.createElement('nav');
+pawnSpecsTabs.className = 'pawn-specs-tabs';
+pawnSpecsTabs.setAttribute('aria-label', 'ポーン情報');
+const overviewTab = document.createElement('button');
+overviewTab.type = 'button'; overviewTab.textContent = '概要'; overviewTab.setAttribute('aria-pressed', 'true');
+const needsTab = document.createElement('button');
+needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute('aria-pressed', 'false');
+pawnSpecsTabs.append(overviewTab, needsTab);
+const pawnOverview = document.createElement('div');
+pawnOverview.className = 'pawn-overview';
+pawnOverview.append(pawnSpecsName, pawnSpecsAction, pawnSpecsInventory);
+const pawnNeeds = document.createElement('div');
+pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
+const needsMeters = (['満腹感', '健康'] as const).map(label => {
+  const row = document.createElement('label');
+  const title = document.createElement('span'); title.textContent = label;
+  const meter = document.createElement('progress'); meter.max = 100; meter.value = 100; meter.setAttribute('aria-label', label);
+  const value = document.createElement('span'); value.textContent = '100%';
+  row.append(title, meter, value); pawnNeeds.appendChild(row);
+  return { meter, value };
+});
+function selectPawnInfoTab(needs: boolean): void {
+  pawnOverview.hidden = needs; pawnNeeds.hidden = !needs;
+  overviewTab.setAttribute('aria-pressed', String(!needs)); needsTab.setAttribute('aria-pressed', String(needs));
+}
+overviewTab.addEventListener('click', () => selectPawnInfoTab(false));
+needsTab.addEventListener('click', () => selectPawnInfoTab(true));
+pawnSpecs.append(pawnSpecsTabs, pawnOverview, pawnNeeds);
 const pawnRoster = document.querySelector<HTMLElement>('#pawn-roster')!;
 const rosterButtons = pawns.map((pawn, index) => {
   const button = document.createElement('button');
@@ -316,18 +357,26 @@ function selectPawn(pawn: (typeof pawns)[number]): void {
 
 function updatePawnPanels(): void {
   dropInventoryButton.hidden = selectedPawn === null;
-  dropInventoryButton.disabled = !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
+  dropInventoryButton.disabled = Boolean(selectedPawn?.dead) || !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
   pawnSpecs.hidden = selectedPawn === null;
   if (!selectedPawn) return;
-  const action = currentAction(selectedPawn);
-  if (pawnSpecs.textContent !== action) pawnSpecs.textContent = action;
+  const action = selectedPawn.dead ? '死亡' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
+  for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) { needsMeters[index].meter.value = value; needsMeters[index].value.textContent = `${Math.round(value)}%`; }
+  const fullName = formatPawnName(selectedPawn.name);
+  if (pawnSpecsName.textContent !== fullName) pawnSpecsName.textContent = fullName;
+  if (pawnSpecsAction.textContent !== action) pawnSpecsAction.textContent = action;
+  const held = selectedPawn.inventory;
+  pawnSpecsItemIcon.hidden = !held?.quantity;
+  const inventoryLabel = held?.quantity ? `所持：${ITEM_APPEARANCE[held.type].name} × ${held.quantity}` : '所持：なし';
+  if (pawnSpecsItemLabel.textContent !== inventoryLabel) pawnSpecsItemLabel.textContent = inventoryLabel;
+  if (held) pawnSpecsItemIcon.style.backgroundColor = `#${ITEM_APPEARANCE[held.type].color.toString(16).padStart(6, '0')}`;
   const visibleMenus = document.querySelectorAll<HTMLElement>('.construction-subtabs, .building-options, .wall-materials');
   let top = window.innerHeight - 40;
   for (const menu of visibleMenus) if (!menu.hidden) top = Math.min(top, menu.getBoundingClientRect().top);
   pawnSpecs.style.bottom = `${window.innerHeight - top}px`;
 }
 dropInventoryButton.addEventListener('click', () => {
-  if (selectedPawn) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
+  if (selectedPawn && !selectedPawn.dead) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
@@ -338,6 +387,21 @@ const acquisitionButton = document.querySelector<HTMLButtonElement>('#acquisitio
 const collectionButton = document.querySelector<HTMLButtonElement>('#collection-button')!;
 const harvestSpeed = document.querySelector<HTMLElement>('#environment-harvest-speed')!;
 const harvestQuantity = document.querySelector<HTMLElement>('#environment-harvest-quantity')!;
+
+const foodCommandWindow = document.querySelector<HTMLDialogElement>('#food-command')!;
+let foodCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
+function openFoodCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  foodCommand = { pawn, source };
+  foodCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
+  foodCommandWindow.style.top = `${Math.max(0, Math.min(event.clientY, window.innerHeight - 80))}px`;
+  if (!foodCommandWindow.open) foodCommandWindow.show();
+}
+document.querySelector<HTMLButtonElement>('#eat-now-button')!.addEventListener('click', () => {
+  if (foodCommand) requestEat(foodCommand.pawn, foodCommand.source, construction, harvesting, hauling);
+  foodCommandWindow.close();
+});
+document.querySelector<HTMLButtonElement>('#close-food-command')!.addEventListener('click', () => foodCommandWindow.close());
+foodCommandWindow.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); foodCommandWindow.close(); } });
 
 const storageSettings = document.querySelector<HTMLDialogElement>('#storage-settings')!;
 let configuredBox: Wall | null = null;
@@ -356,8 +420,8 @@ function openStorageSettings(box: Wall): void {
 for (const input of document.querySelectorAll<HTMLInputElement>('[data-storage-type]')) {
   input.addEventListener('change', () => {
     if (!configuredBox) return;
-    configuredBox.accepted ??= { wood: true, stone: true };
-    configuredBox.accepted[input.dataset.storageType as WallMaterial] = input.checked;
+    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true };
+    configuredBox.accepted[input.dataset.storageType as (typeof ITEM_TYPES)[number]] = input.checked;
   });
 }
 document.querySelector<HTMLButtonElement>('#close-storage-settings')!.addEventListener('click', () => storageSettings.close());
@@ -393,6 +457,7 @@ acquisitionButton.addEventListener('click', () => {
 });
 
 function updateItemSelection(): void {
+  foodCommandWindow.close();
   const environment = [...selectedEnvironment][0];
   const hasSelection = selectedItem !== null || Boolean(environment);
   itemInfoButton.hidden = !hasSelection;
@@ -434,7 +499,7 @@ itemProperties.addEventListener('keydown', (event) => {
 
 function updatePawnModeButton(): void {
   const drafted = selectedPawn?.mode !== 'automatic';
-  pawnModeButton.disabled = selectedPawn === null;
+  pawnModeButton.disabled = selectedPawn === null || Boolean(selectedPawn.dead);
   updatePawnPanels();
   for (const entry of rosterButtons) entry.button.setAttribute('aria-pressed', String(entry.pawn === selectedPawn));
   pawnModeIcon.textContent = drafted ? '⚔' : '⚙';
@@ -446,7 +511,7 @@ function updatePawnModeButton(): void {
 }
 
 pawnModeButton.addEventListener('click', () => {
-  if (!selectedPawn) return;
+  if (!selectedPawn || selectedPawn.dead) return;
   selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
   hauling.cancel(selectedPawn);
   construction.cancel(selectedPawn);
@@ -463,6 +528,9 @@ const MARKER_FADE_SECONDS = 0.25;
 app.stage.addChild(map);
 
 let selectedConstruction: ConstructionKind | null = null;
+let demolitionSelected = false;
+const demolitionButton = document.querySelector<HTMLButtonElement>('#demolition-button')!;
+const demolitionMarks = new Map<Wall, Graphics>();
 const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood' };
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
@@ -497,6 +565,8 @@ function stopDrawing(): void {
 }
 
 function selectConstruction(kind: ConstructionKind | null): void {
+  demolitionSelected = false;
+  demolitionButton.setAttribute('aria-pressed', 'false');
   selectedConstruction = kind;
   for (const choice of constructionChoices) choice.button.setAttribute('aria-pressed', String(choice.kind === kind));
   app.canvas.style.cursor = kind ? 'crosshair' : '';
@@ -535,7 +605,7 @@ constructionTab.addEventListener('click', () => {
   if (constructionSubtabs.hidden) closeConstructionOptions();
 });
 for (const button of constructionSubtabs.querySelectorAll<HTMLButtonElement>('button')) {
-  if (!constructionChoices.some((choice) => choice.tab === button)) button.addEventListener('click', closeConstructionOptions);
+  if (button !== demolitionButton && !constructionChoices.some((choice) => choice.tab === button)) button.addEventListener('click', closeConstructionOptions);
 }
 for (const choice of constructionChoices) {
   if (constructionChoices.find(entry => entry.tab === choice.tab) === choice) choice.tab.addEventListener('click', () => {
@@ -567,6 +637,48 @@ for (const choice of constructionChoices) {
       hideMaterials();
     });
   }
+}
+
+demolitionButton.addEventListener('click', () => {
+  const enabled = !demolitionSelected;
+  closeConstructionOptions();
+  if (enabled) {
+    selectedPawn = null;
+    selectedItem = null;
+    selectedItems.clear();
+    selectedEnvironment.clear();
+    for (const pawn of pawns) pawn.selection.visible = false;
+    updateItemSelection();
+    updatePawnModeButton();
+  }
+  demolitionSelected = enabled;
+  demolitionButton.setAttribute('aria-pressed', String(enabled));
+  app.canvas.style.cursor = enabled ? 'crosshair' : '';
+});
+
+function markDemolition(tile: Tile): void {
+  const target = walls.items.get(`${tile.column},${tile.row}`);
+  if (!target || target.state !== 'completed' || (target.kind !== 'wall' && target.kind !== 'storage') || target.demolition) return;
+  target.demolition = true;
+  const mark = new Graphics().moveTo(4, 4).lineTo(TILE_SIZE - 4, TILE_SIZE - 4)
+    .moveTo(TILE_SIZE - 4, 4).lineTo(4, TILE_SIZE - 4).stroke({ color: 0xff8a80, width: 2 });
+  mark.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
+  destinationMarkerLayer.addChild(mark);
+  demolitionMarks.set(target, mark);
+}
+
+function completeDemolition(tile: Tile): boolean {
+  const target = demolishStructure(walls, mapItems, tile);
+  if (!target) return false;
+  const key = `${tile.column},${tile.row}`;
+  wallViews.get(key)?.destroy();
+  wallViews.delete(key);
+  constructionProgressViews.get(key)?.view.destroy();
+  constructionProgressViews.delete(key);
+  demolitionMarks.get(target)?.destroy();
+  demolitionMarks.delete(target);
+  if (configuredBox === target) { configuredBox = null; storageSettings.close(); }
+  return true;
 }
 
 function placeConstruction(tile: Tile): void {
@@ -712,9 +824,20 @@ function drawWalls(event: PointerEvent): void {
 
 app.canvas.addEventListener('pointerdown', (event) => {
   const { x, y } = mapPosition(event);
+  if (demolitionSelected) {
+    if (event.button === 0) markDemolition({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) });
+    else if (event.button === 2) selectConstruction(null);
+    return;
+  }
   if (event.button === 2 && removeConstructionPlan({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) })) {
     if (selectedConstruction) { selectConstruction(null); hideMaterials(); }
     return;
+  }
+  if (event.button === 2 && selectedPawn && !selectedPawn.dead) {
+    const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
+    const source = [...mapItems].reverse().find(item => item.type === 'strawberry' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
+      ?? (walls.items.get(`${tile.column},${tile.row}`)?.kind === 'storageArea' ? storage.sources('strawberry').find(item => item.column === tile.column && item.row === tile.row) : undefined);
+    if (source) { openFoodCommand(selectedPawn, source, event); return; }
   }
   const clickedStructure = walls.items.get(`${Math.floor(x / TILE_SIZE)},${Math.floor(y / TILE_SIZE)}`);
   if (event.button === 2 && clickedStructure?.kind === 'storage' && clickedStructure.state === 'completed') {
@@ -749,7 +872,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
     updatePawnModeButton();
-  } else if (event.button === 2 && selectedPawn?.mode === 'drafted') {
+  } else if (event.button === 2 && selectedPawn?.mode === 'drafted' && !selectedPawn.dead) {
     const column = Math.floor(x / TILE_SIZE);
     const row = Math.floor(y / TILE_SIZE);
     if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE
@@ -759,7 +882,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
   }
 });
 app.canvas.addEventListener('dblclick', (event) => {
-  if (selectedConstruction) return;
+  if (selectedConstruction || demolitionSelected) return;
   const { x, y } = mapPosition(event);
   const column = Math.floor(x / TILE_SIZE), row = Math.floor(y / TILE_SIZE);
   if (selectedItem && !selectedPawn) { selectedItems = new Set(nearbyItems(mapItems, selectedItem)); updateItemSelection(); return; }
@@ -796,19 +919,23 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
-    updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000, Math.random, ticker.elapsedMS / 1000, hauling);
-    advancePathMovement(pawn.movement, ticker.deltaMS / 1000, MAP_SIZE, walls.isBlocked, walls.cannotStop);
-    const position = renderedPosition(pawn.movement);
+    const eating = updateNeeds(pawn, construction, harvesting, hauling, ticker.elapsedMS / 1000);
+    if (!eating) updateWork(pawn, construction, harvesting, ticker.deltaMS / 1000, Math.random, ticker.elapsedMS / 1000, hauling);
+    if (!pawn.dead) advancePathMovement(pawn.movement, ticker.deltaMS / 1000, MAP_SIZE, walls.isBlocked, walls.cannotStop);
+    const position = pawn.deadPosition ?? renderedPosition(pawn.movement);
+    pawn.view.rotation = pawn.dead ? Math.PI / 2 : 0;
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);
     if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
   }
+  for (const entry of rosterButtons) entry.button.querySelector('svg')!.style.transform = entry.pawn.dead ? 'rotate(90deg)' : '';
   for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
+  if (foodCommandWindow.open && (!foodCommand || foodCommand.pawn !== selectedPawn || foodCommand.pawn.dead || foodCommand.source.quantity <= 0)) foodCommandWindow.close();
   updateStorageSettings();
   updateStoredItemViews();
   updateConstructionProgress();
   updateEnvironmentViews();
-  updatePawnPanels();
+  updatePawnModeButton();
   updateItemSummary();
 });
 

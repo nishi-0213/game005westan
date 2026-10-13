@@ -1,3 +1,4 @@
+import type { ItemType } from './items';
 import type { Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
@@ -8,8 +9,10 @@ export interface Wall extends Tile {
   state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
-  stored?: Record<WallMaterial, number>;
-  accepted?: Record<WallMaterial, boolean>;
+  stored?: Record<ItemType, number>;
+  demolition?: boolean;
+  demolitionSeconds?: number;
+  accepted?: Record<ItemType, boolean>;
 }
 
 export const WALL_COLORS: Record<WallMaterial, number> = {
@@ -39,7 +42,7 @@ export class Walls {
     const key = `${tile.column},${tile.row}`;
     if (this.items.has(key)) return null;
     const wall: Wall = { ...tile, material, kind, state: 'planned', delivered: 0, workSeconds: 0 };
-    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0 }; wall.accepted = { wood: true, stone: true }; }
+    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true }; }
     this.items.set(key, wall);
     return wall;
   }

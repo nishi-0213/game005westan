@@ -74,6 +74,10 @@ export class Harvesting {
     if (active.target.workSeconds >= properties.seconds) {
       active.target.collected = true;
       returnItems(this.items, { column: active.target.column, row: active.target.row }, properties.material, properties.quantity);
+      if (properties.material === 'strawberry') {
+        const stack = this.items.find(item => item.type === 'strawberry' && item.column === active.target.column && item.row === active.target.row);
+        if (stack) stack.collect = true;
+      }
       this.cancel(worker);
     }
   }

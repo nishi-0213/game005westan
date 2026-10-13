@@ -16,7 +16,7 @@ function scene(priorities={construction:3,harvesting:3}){
 }
 
 test('all initial priorities are 3 and clicking loops across all four values',()=>{
- assert.deepEqual(INITIAL_PRIORITIES,Array.from({length:3},()=>({construction:3,harvesting:3,free:3})));
+ assert.deepEqual(INITIAL_PRIORITIES,Array.from({length:3},()=>({construction:3,harvesting:3,hauling:3,free:3})));
  let value=1;const seen=[];for(let i=0;i<5;i++){seen.push(value);value=nextPriority(value);}assert.deepEqual(seen,[1,2,3,4,1]);
 });
 
