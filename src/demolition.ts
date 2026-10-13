@@ -1,3 +1,4 @@
+import { invalidatePaths } from './pathfinding.ts';
 import type { MapItem } from './items';
 import { ITEM_TYPES, returnItems } from './items.ts';
 import type { Tile } from './movement';
@@ -12,5 +13,6 @@ export function demolishStructure(walls: Walls, items: MapItem[], tile: Tile): W
   target.stored = { wood: 0, stone: 0, strawberry: 0 };
   target.state = 'cancelled';
   walls.items.delete(`${tile.column},${tile.row}`);
+  invalidatePaths(walls.isBlocked);
   return target;
 }

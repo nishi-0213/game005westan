@@ -1,3 +1,4 @@
+import { invalidatePaths, registerPathCache } from './pathfinding.ts';
 import type { ItemType } from './items';
 import type { Tile } from './movement';
 
@@ -34,6 +35,7 @@ export class Walls {
 
   constructor(mapSize: number) {
     this.mapSize = mapSize;
+    registerPathCache(this.isBlocked);
   }
 
   plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall'): Wall | null {
@@ -51,6 +53,7 @@ export class Walls {
     const wall = this.items.get(`${tile.column},${tile.row}`);
     if (!wall || wall.state === 'completed') return false;
     wall.state = 'completed';
+    invalidatePaths(this.isBlocked);
     return true;
   }
 
@@ -60,6 +63,7 @@ export class Walls {
     if (!item || item.state !== 'planned') return null;
     item.state = 'cancelled';
     this.items.delete(key);
+    invalidatePaths(this.isBlocked);
     return item;
   }
 

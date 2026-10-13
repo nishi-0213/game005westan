@@ -1,3 +1,4 @@
+import type { Clearing, ClearanceJob } from './clearing';
 import type { Builder } from './construction';
 import type { ItemType, MapItem } from './items';
 import { ITEM_APPEARANCE, PAWN_CARRY_LIMIT_KG } from './items.ts';
@@ -9,16 +10,19 @@ import type { Wall } from './walls';
 import type { Storage } from './storage';
 
 export interface HaulWorker extends Builder {
+  clearJob?: ClearanceJob | null;
   haulJob?: { source?: MapItem; target: Wall; phase: 'pickup' | 'deposit'; goal: Tile } | null;
 }
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 export class Hauling {
+  clearing?: Clearing;
   readonly claims = new Map<MapItem, HaulWorker>();
   readonly items: MapItem[];
   readonly storage: Storage;
   constructor(items: MapItem[], storage: Storage) { this.items = items; this.storage = storage; }
 
   cancel(worker: HaulWorker): void {
+    if (worker.clearJob) this.clearing?.cancel(worker);
     const source = worker.haulJob?.source;
     if (source && this.claims.get(source) === worker) this.claims.delete(source);
     worker.haulJob = null;
@@ -41,10 +45,11 @@ export class Hauling {
 
   nearestBox(from: Tile, type: ItemType): { target: Wall; goal: Tile; path: Path } | null {
     const walls = this.storage.walls;
+    const boxes = this.storage.boxes().filter(target => this.storage.accepts(target, type));
+    if (!boxes.length) return null;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
-    for (const target of this.storage.boxes()) {
-      if (!this.storage.accepts(target, type)) continue;
+    for (const target of boxes) {
       const approach = this.approach(from, target, paths);
       if (approach && (!best || approach.path.distance < best.path.distance)) best = { target, ...approach };
     }

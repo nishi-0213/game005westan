@@ -12,6 +12,7 @@ import { nearbyItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES, returnItems } f
 import { Storage } from './storage';
 import { Hauling } from './hauling';
 import type { HaulWorker } from './hauling';
+import { Clearing } from './clearing';
 import { Construction } from './construction';
 import { demolishStructure } from './demolition';
 import { ENVIRONMENT_PROPERTIES, initialEnvironment, nearbySameType } from './environment';
@@ -39,6 +40,17 @@ app.canvas.setAttribute('aria-label', 'れ・こんきすた。32×32マスの�
 document.addEventListener('contextmenu', (event) => event.preventDefault());
 
 const map = new Container();
+// Input is handled by native canvas listeners; no Pixi scene hit testing is needed.
+map.eventMode = 'none';
+function createProgressBar(): { view: Container; fill: Graphics } {
+  const view = new Container();
+  const background = new Graphics().rect(0, 0, TILE_SIZE, 4).fill(0x152019);
+  const fill = new Graphics().rect(0, 0, TILE_SIZE - 2, 2).fill(0xf2c66d);
+  fill.position.set(1, 1);
+  view.addChild(background, fill);
+  view.visible = false;
+  return { view, fill };
+}
 const terrain = new Graphics();
 for (let row = 0; row < MAP_SIZE; row++) {
   for (let column = 0; column < MAP_SIZE; column++) {
@@ -54,11 +66,12 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
 const environmentObjects = initialEnvironment(MAP_SIZE);
+const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
 let selectedEnvironment = new Set<EnvironmentObject>();
 const environmentLayer = new Container();
 const environmentHud = new Container();
 map.addChild(environmentLayer);
-const environmentViews = environmentObjects.map((object) => {
+const environmentViews = new Map(environmentObjects.map((object) => {
   const view = new Container();
   view.position.set((object.column + 0.5) * TILE_SIZE, (object.row + 0.5) * TILE_SIZE);
   const outline = new Graphics().rect(-11, -11, 22, 22).stroke({ color: 0xfff2a3, width: 1.5 });
@@ -72,21 +85,22 @@ const environmentViews = environmentObjects.map((object) => {
     .moveTo(0, -3).lineTo(-3, 3).stroke({ color: 0xf2c66d, width: 2 });
   collectIcon.position.set(view.x, view.y - 16);
   collectIcon.visible = false;
-  const progressBar = new Graphics();
+  const { view: progressBar, fill: progressFill } = createProgressBar();
   progressBar.position.set(object.column * TILE_SIZE, (object.row + 1) * TILE_SIZE + 1);
   progressBar.visible = false;
   view.addChild(outline, shape);
   environmentHud.addChild(collectIcon, progressBar);
   environmentLayer.addChild(view);
-  return { object, view, outline, collectIcon, progressBar, progress: -1 };
-});
+  const entry = { object, view, outline, collectIcon, progressBar, progressFill, progress: -1 };
+  return [object, entry] as const;
+}));
 const walls = new Walls(MAP_SIZE);
 const storage = new Storage(walls);
 const mapItems = initialItems();
 let selectedItems = new Set<(typeof mapItems)[number]>();
 let selectedItem: (typeof mapItems)[number] | null = null;
 const itemLayer = new Container();
-const itemViews: { item: (typeof mapItems)[number]; view: Container; quantity: Text; collectIcon: Graphics }[] = [];
+const itemViews = new Map<(typeof mapItems)[number], { view: Container; quantity: Text; collectIcon: Graphics }>();
 map.addChild(itemLayer);
 function createItemView(item: (typeof mapItems)[number]): void {
   const view = new Container();
@@ -104,7 +118,7 @@ function createItemView(item: (typeof mapItems)[number]): void {
   const collectIcon = new Graphics().moveTo(-3, -6).lineTo(3, -6).moveTo(0, -9).lineTo(0, -3).stroke({ color: 0xf2c66d, width: 2 });
   view.addChild(icon, quantity, collectIcon);
   itemLayer.addChild(view);
-  itemViews.push({ item, view, quantity, collectIcon });
+  itemViews.set(item, { view, quantity, collectIcon });
 }
 for (const item of mapItems) createItemView(item);
 const itemSelection = new Graphics().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2)
@@ -128,11 +142,15 @@ const summaryRows = ITEM_TYPES.map((type) => {
 
 function updateItemSummary(): void {
   let selectionChanged = false;
-  for (const item of selectedItems) if (item.quantity <= 0 || !mapItems.includes(item)) { selectedItems.delete(item); selectionChanged = true; }
+  for (const item of selectedItems) if (item.quantity <= 0) { selectedItems.delete(item); selectionChanged = true; }
   if (selectionChanged) { selectedItem = [...selectedItems][0] ?? null; updateItemSelection(); }
-  for (const item of mapItems) if (!itemViews.some((entry) => entry.item === item)) createItemView(item);
-  for (const { item, view, quantity, collectIcon } of itemViews) {
-    view.visible = item.quantity > 0;
+  for (const item of mapItems) if (item.quantity > 0 && !itemViews.has(item)) createItemView(item);
+  for (const [item, { view, quantity, collectIcon }] of itemViews) {
+    if (item.quantity <= 0) {
+      view.destroy({ children: true });
+      itemViews.delete(item);
+      continue;
+    }
     collectIcon.visible = Boolean(item.collect);
     if (quantity.text !== String(item.quantity)) quantity.text = String(item.quantity);
   }
@@ -147,7 +165,7 @@ function updateItemSummary(): void {
 }
 updateItemSummary();
 
-walls.environmentCannotStop = (tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
+walls.environmentCannotStop = tile => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false;
 const wallLayer = new Container();
 const wallViews = new Map<string, Graphics>();
 map.addChild(wallLayer);
@@ -165,6 +183,8 @@ function updateStoredItemViews(): void {
       const icon = new Graphics().rect(-6, 1, 12, 12).fill(0xffffff);
       const quantity = new Text({ text: '', resolution: RENDER_RESOLUTION * 2, roundPixels: true, style: { fontFamily: 'sans-serif', fontSize: 10, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } } });
       quantity.anchor.set(0.5, 0);
+      quantity.scale.set(1 / map.scale.x);
+      quantity.position.set(0, 13 + 2 / map.scale.y);
       view.addChild(icon, quantity);
       storedItemLayer.addChild(view);
       entry = { view, icon, quantity };
@@ -172,9 +192,11 @@ function updateStoredItemViews(): void {
     }
     const type = ITEM_TYPES.find(type => (area.stored?.[type] ?? 0) > 0);
     entry.view.visible = Boolean(type);
-    if (type) { entry.icon.tint = ITEM_APPEARANCE[type].color; entry.quantity.text = String(area.stored![type]); }
-    entry.quantity.scale.set(1 / map.scale.x);
-    entry.quantity.position.set(0, 13 + 2 / map.scale.y);
+    if (type) {
+      entry.icon.tint = ITEM_APPEARANCE[type].color;
+      const quantity = String(area.stored![type]);
+      if (entry.quantity.text !== quantity) entry.quantity.text = quantity;
+    }
   }
 }
 
@@ -205,11 +227,15 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
   return { view, selection, heldItem, ...builder, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
-const needsClearing = (tile: Tile) => environmentObjects.some((object) => !object.collected && object.column === tile.column && object.row === tile.row);
+const needsClearing = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
+  || (walls.items.get(`${tile.column},${tile.row}`)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
+  || clearing.isClearing(tile);
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
 construction.storage = storage;
 construction.demolish = completeDemolition;
 const hauling = new Hauling(mapItems, storage);
+const clearing = new Clearing(mapItems, hauling);
+hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
@@ -265,7 +291,7 @@ prioritiesWindow.addEventListener('keydown', (event) => {
 });
 const constructionProgressLayer = new Container();
 map.addChild(constructionProgressLayer);
-const constructionProgressViews = new Map<string, { view: Graphics; progress: number }>();
+const constructionProgressViews = new Map<string, { view: Container; fill: Graphics; progress: number }>();
 
 function updateConstructionProgress(): void {
   for (const [key, entry] of constructionProgressViews) {
@@ -275,9 +301,7 @@ function updateConstructionProgress(): void {
     entry.view.visible = building.state === 'planned' && progress > 0 && progress < 1;
     if (!entry.view.visible || entry.progress === progress) continue;
     entry.progress = progress;
-    entry.view.clear()
-      .rect(0, 0, TILE_SIZE, 4).fill(0x152019)
-      .rect(1, 1, (TILE_SIZE - 2) * progress, 2).fill(0xf2c66d);
+    entry.fill.scale.x = progress;
   }
 }
 let selectedPawn: (typeof pawns)[number] | null = null;
@@ -286,6 +310,23 @@ const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
 const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
 const dropInventoryButton = document.querySelector<HTMLButtonElement>('#drop-inventory-button')!;
 const pawnSpecs = document.querySelector<HTMLElement>('#pawn-specs')!;
+const pawnPanelMenus = [...document.querySelectorAll<HTMLElement>('.construction-subtabs, .building-options, .wall-materials')];
+let pawnPanelLayoutDirty = true;
+const invalidatePawnPanelLayout = () => { pawnPanelLayoutDirty = true; };
+const menuResizeObserver = new ResizeObserver(invalidatePawnPanelLayout);
+const menuVisibilityObserver = new MutationObserver(invalidatePawnPanelLayout);
+for (const menu of pawnPanelMenus) {
+  menuResizeObserver.observe(menu);
+  menuVisibilityObserver.observe(menu, { attributes: true, attributeFilter: ['hidden'] });
+}
+window.addEventListener('resize', invalidatePawnPanelLayout);
+
+function setText(element: HTMLElement, text: string): void {
+  if (element.textContent !== text) element.textContent = text;
+}
+function setAttribute(element: HTMLElement, name: string, value: string): void {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
 const pawnSpecsName = document.createElement('h2');
 const pawnSpecsAction = document.createElement('div');
 const pawnSpecsInventory = document.createElement('div');
@@ -319,6 +360,7 @@ const needsMeters = (['満腹感', '健康'] as const).map(label => {
 function selectPawnInfoTab(needs: boolean): void {
   pawnOverview.hidden = needs; pawnNeeds.hidden = !needs;
   overviewTab.setAttribute('aria-pressed', String(!needs)); needsTab.setAttribute('aria-pressed', String(needs));
+  updatePawnPanels();
 }
 overviewTab.addEventListener('click', () => selectPawnInfoTab(false));
 needsTab.addEventListener('click', () => selectPawnInfoTab(true));
@@ -343,7 +385,7 @@ const rosterButtons = pawns.map((pawn, index) => {
     applyCamera();
   });
   pawnRoster.appendChild(button);
-  return { pawn, button };
+  return { pawn, button, portrait, dead: false };
 });
 
 function selectPawn(pawn: (typeof pawns)[number]): void {
@@ -358,24 +400,34 @@ function selectPawn(pawn: (typeof pawns)[number]): void {
 }
 
 function updatePawnPanels(): void {
-  dropInventoryButton.hidden = selectedPawn === null;
-  dropInventoryButton.disabled = Boolean(selectedPawn?.dead) || !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
-  pawnSpecs.hidden = selectedPawn === null;
+  const hidden = selectedPawn === null;
+  const cannotDrop = Boolean(selectedPawn?.dead) || !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
+  if (dropInventoryButton.hidden !== hidden) dropInventoryButton.hidden = hidden;
+  if (dropInventoryButton.disabled !== cannotDrop) dropInventoryButton.disabled = cannotDrop;
+  if (pawnSpecs.hidden !== hidden) pawnSpecs.hidden = hidden;
   if (!selectedPawn) return;
   const action = selectedPawn.dead ? '死亡' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
-  for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) { needsMeters[index].meter.value = value; needsMeters[index].value.textContent = `${Math.round(value)}%`; }
+  if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) {
+    if (needsMeters[index].meter.value !== value) needsMeters[index].meter.value = value;
+    setText(needsMeters[index].value, `${Math.round(value)}%`);
+  }
   const fullName = formatPawnName(selectedPawn.name);
   if (pawnSpecsName.textContent !== fullName) pawnSpecsName.textContent = fullName;
   if (pawnSpecsAction.textContent !== action) pawnSpecsAction.textContent = action;
   const held = selectedPawn.inventory;
-  pawnSpecsItemIcon.hidden = !held?.quantity;
+  if (pawnSpecsItemIcon.hidden !== !held?.quantity) pawnSpecsItemIcon.hidden = !held?.quantity;
   const inventoryLabel = held?.quantity ? `所持：${ITEM_APPEARANCE[held.type].name} × ${held.quantity}` : '所持：なし';
   if (pawnSpecsItemLabel.textContent !== inventoryLabel) pawnSpecsItemLabel.textContent = inventoryLabel;
-  if (held) pawnSpecsItemIcon.style.backgroundColor = `#${ITEM_APPEARANCE[held.type].color.toString(16).padStart(6, '0')}`;
-  const visibleMenus = document.querySelectorAll<HTMLElement>('.construction-subtabs, .building-options, .wall-materials');
-  let top = window.innerHeight - 40;
-  for (const menu of visibleMenus) if (!menu.hidden) top = Math.min(top, menu.getBoundingClientRect().top);
-  pawnSpecs.style.bottom = `${window.innerHeight - top}px`;
+  if (held && pawnSpecsItemIcon.dataset.type !== held.type) {
+    pawnSpecsItemIcon.dataset.type = held.type;
+    pawnSpecsItemIcon.style.backgroundColor = `#${ITEM_APPEARANCE[held.type].color.toString(16).padStart(6, '0')}`;
+  }
+  if (pawnPanelLayoutDirty) {
+    let top = window.innerHeight - 40;
+    for (const menu of pawnPanelMenus) if (!menu.hidden) top = Math.min(top, menu.getBoundingClientRect().top);
+    pawnSpecs.style.bottom = `${window.innerHeight - top}px`;
+    pawnPanelLayoutDirty = false;
+  }
 }
 dropInventoryButton.addEventListener('click', () => {
   if (selectedPawn && !selectedPawn.dead) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
@@ -406,18 +458,24 @@ document.querySelector<HTMLButtonElement>('#close-food-command')!.addEventListen
 foodCommandWindow.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); foodCommandWindow.close(); } });
 
 const storageSettings = document.querySelector<HTMLDialogElement>('#storage-settings')!;
+const storageSettingsFields = ITEM_TYPES.map(type => ({
+  type,
+  quantity: document.querySelector<HTMLElement>(`#stored-${type}`)!,
+  accepted: document.querySelector<HTMLInputElement>(`[data-storage-type="${type}"]`)!,
+}));
 let configuredBox: Wall | null = null;
 function updateStorageSettings(): void {
-  if (!configuredBox) return;
-  for (const type of ITEM_TYPES) {
-    document.querySelector<HTMLElement>(`#stored-${type}`)!.textContent = `：${configuredBox.stored?.[type] ?? 0}`;
-    document.querySelector<HTMLInputElement>(`[data-storage-type="${type}"]`)!.checked = configuredBox.accepted?.[type] !== false;
+  if (!configuredBox || !storageSettings.open) return;
+  for (const entry of storageSettingsFields) {
+    setText(entry.quantity, `：${configuredBox.stored?.[entry.type] ?? 0}`);
+    const accepted = configuredBox.accepted?.[entry.type] !== false;
+    if (entry.accepted.checked !== accepted) entry.accepted.checked = accepted;
   }
 }
 function openStorageSettings(box: Wall): void {
   configuredBox = box;
-  updateStorageSettings();
   if (!storageSettings.open) storageSettings.show();
+  updateStorageSettings();
 }
 for (const input of document.querySelectorAll<HTMLInputElement>('[data-storage-type]')) {
   input.addEventListener('change', () => {
@@ -432,16 +490,21 @@ storageSettings.addEventListener('keydown', event => { if (event.key === 'Escape
 function updateEnvironmentViews(): void {
   let changed = false;
   for (const object of selectedEnvironment) if (object.collected) { selectedEnvironment.delete(object); changed = true; }
-  for (const entry of environmentViews) {
-    entry.view.visible = !entry.object.collected;
+  for (const entry of environmentViews.values()) {
+    if (entry.object.collected) {
+      entry.view.destroy({ children: true });
+      entry.collectIcon.destroy();
+      entry.progressBar.destroy({ children: true });
+      environmentViews.delete(entry.object);
+      continue;
+    }
     entry.outline.visible = selectedEnvironment.has(entry.object);
     entry.collectIcon.visible = entry.object.collect && !entry.object.collected;
     const progress = Math.min(1, entry.object.workSeconds / ENVIRONMENT_PROPERTIES[entry.object.type].seconds);
     entry.progressBar.visible = !entry.object.collected && progress > 0 && progress < 1;
     if (entry.progressBar.visible && entry.progress !== progress) {
       entry.progress = progress;
-      entry.progressBar.clear().rect(0, 0, TILE_SIZE, 4).fill(0x152019)
-        .rect(1, 1, (TILE_SIZE - 2) * progress, 2).fill(0xf2c66d);
+      entry.progressFill.scale.x = progress;
     }
   }
   if (changed) updateItemSelection();
@@ -501,13 +564,14 @@ itemProperties.addEventListener('keydown', (event) => {
 
 function updatePawnModeButton(): void {
   const drafted = selectedPawn?.mode !== 'automatic';
-  pawnModeButton.disabled = selectedPawn === null || Boolean(selectedPawn.dead);
+  const disabled = selectedPawn === null || Boolean(selectedPawn.dead);
+  if (pawnModeButton.disabled !== disabled) pawnModeButton.disabled = disabled;
   updatePawnPanels();
-  for (const entry of rosterButtons) entry.button.setAttribute('aria-pressed', String(entry.pawn === selectedPawn));
-  pawnModeIcon.textContent = drafted ? '⚔' : '⚙';
-  pawnModeLabel.textContent = drafted ? '徴兵' : '自動';
-  pawnModeButton.dataset.mode = drafted ? 'drafted' : 'automatic';
-  pawnModeButton.setAttribute('aria-label', selectedPawn
+  for (const entry of rosterButtons) setAttribute(entry.button, 'aria-pressed', String(entry.pawn === selectedPawn));
+  setText(pawnModeIcon, drafted ? '⚔' : '⚙');
+  setText(pawnModeLabel, drafted ? '徴兵' : '自動');
+  setAttribute(pawnModeButton, 'data-mode', drafted ? 'drafted' : 'automatic');
+  setAttribute(pawnModeButton, 'aria-label', selectedPawn
     ? `ポーンの状態：${drafted ? '徴兵' : '自動'}。${drafted ? '自動' : '徴兵'}へ切り替え`
     : 'ポーンを選択して状態を切り替え');
 }
@@ -675,7 +739,7 @@ function completeDemolition(tile: Tile): boolean {
   const key = `${tile.column},${tile.row}`;
   wallViews.get(key)?.destroy();
   wallViews.delete(key);
-  constructionProgressViews.get(key)?.view.destroy();
+  constructionProgressViews.get(key)?.view.destroy({ children: true });
   constructionProgressViews.delete(key);
   demolitionMarks.get(target)?.destroy();
   demolitionMarks.delete(target);
@@ -699,11 +763,11 @@ function placeConstruction(tile: Tile): void {
   view.alpha = WALL_PLAN_ALPHA;
   wallLayer.addChild(view);
   wallViews.set(`${tile.column},${tile.row}`, view);
-  const progressView = new Graphics();
+  const { view: progressView, fill } = createProgressBar();
   progressView.position.set(tile.column * TILE_SIZE, (tile.row + 1) * TILE_SIZE + 1);
   progressView.visible = false;
   constructionProgressLayer.addChild(progressView);
-  constructionProgressViews.set(`${tile.column},${tile.row}`, { view: progressView, progress: -1 });
+  constructionProgressViews.set(`${tile.column},${tile.row}`, { view: progressView, fill, progress: -1 });
   if (wall.kind === 'storageArea' && !needsClearing(tile)) { walls.complete(tile); view.alpha = 1; }
 }
 
@@ -727,7 +791,10 @@ export function completeConstruction(tile: Tile): boolean {
       || !movementHasSafeExit(movement, blockedAfter, cannotStopAfter);
   })) return false;
   if (!walls.complete(tile)) return false;
-  wallViews.get(`${tile.column},${tile.row}`)!.alpha = 1;
+  const key = `${tile.column},${tile.row}`;
+  wallViews.get(key)!.alpha = 1;
+  constructionProgressViews.get(key)?.view.destroy({ children: true });
+  constructionProgressViews.delete(key);
   return true;
 }
 
@@ -736,12 +803,15 @@ export const completeWall = completeConstruction;
 function removeConstructionPlan(tile: Tile): boolean {
   const removed = walls.removePlan(tile);
   if (!removed) return false;
-  for (const pawn of pawns) if (pawn.job?.target === removed) construction.cancel(pawn);
+  for (const pawn of pawns) {
+    if (pawn.job?.target === removed) construction.cancel(pawn);
+    if (pawn.clearJob?.target === removed) clearing.cancel(pawn);
+  }
   returnItems(mapItems, tile, removed.material, removed.delivered);
   const key = `${tile.column},${tile.row}`;
   wallViews.get(key)?.destroy();
   wallViews.delete(key);
-  constructionProgressViews.get(key)?.view.destroy();
+  constructionProgressViews.get(key)?.view.destroy({ children: true });
   constructionProgressViews.delete(key);
   updateItemSummary();
   return true;
@@ -767,7 +837,7 @@ const MAX_ZOOM = 4;
 function applyCamera(): void {
   const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS * camera.zoom;
   map.scale.set(scale);
-  for (const { quantity } of itemViews) {
+  for (const { quantity } of itemViews.values()) {
     quantity.scale.set(1 / scale);
     quantity.y = 13 + 2 / scale;
   }
@@ -910,7 +980,6 @@ for (const button of speedButtons) {
 }
 
 app.ticker.add((ticker) => {
-  updateItemSummary();
   for (let index = destinationMarkers.length - 1; index >= 0; index--) {
     const marker = destinationMarkers[index];
     marker.ageSeconds += ticker.deltaMS / 1000;
@@ -932,7 +1001,7 @@ app.ticker.add((ticker) => {
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
     for (const pawn of pawns) {
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds);
-      if (!eating) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling);
+      if (!eating) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
   });
@@ -943,8 +1012,10 @@ app.ticker.add((ticker) => {
     pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);
     if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
   }
-  for (const entry of rosterButtons) entry.button.querySelector('svg')!.style.transform = entry.pawn.dead ? 'rotate(90deg)' : '';
-  for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
+  for (const entry of rosterButtons) if (entry.dead !== entry.pawn.dead) {
+    entry.dead = entry.pawn.dead;
+    entry.portrait.style.transform = entry.dead ? 'rotate(90deg)' : '';
+  }
   if (foodCommandWindow.open && (!foodCommand || foodCommand.pawn !== selectedPawn || foodCommand.pawn.dead || foodCommand.source.quantity <= 0)) foodCommandWindow.close();
   updateStorageSettings();
   updateStoredItemViews();

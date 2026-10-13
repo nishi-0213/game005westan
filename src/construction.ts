@@ -78,9 +78,9 @@ export class Construction {
   }
 
   nearestPlan(builder: Builder, material?: ItemType, work: ConstructionWork = 'all'): { target: Wall; goal: Tile; path: Path } | null {
-    if (![...this.walls.items.values()].some((target) => target.state === 'planned' || target.state === 'completed' && target.demolition)) return null;
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
-    const paths = findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
+    let paths: Map<number, Path> | undefined;
+    const sourcesByMaterial = new Map<ItemType, MapItem[]>();
     for (const target of this.walls.items.values()) {
       const recipe = BUILD_RECIPES[target.kind];
       const destroying = target.state === 'completed' && target.demolition;
@@ -89,9 +89,17 @@ export class Construction {
       if (work === 'build' && !ready || work === 'transport' && ready) continue;
       const owner = this.claims.get(target);
       if (owner && owner !== builder) continue;
-      if (!material && !destroying && target.delivered < recipe.materialCount
-        && !(builder.inventory?.type === target.material && builder.inventory.quantity > 0)
-        && !this.sources(target).some((item) => item.type === target.material && item.quantity > 0 && this.sourceApproach(builder.movement.tile, item, paths))) continue;
+      const needsSource = !material && !destroying && target.delivered < recipe.materialCount
+        && !(builder.inventory?.type === target.material && builder.inventory.quantity > 0);
+      let sources: MapItem[] = [];
+      if (needsSource) {
+        if (!sourcesByMaterial.has(target.material)) sourcesByMaterial.set(target.material,
+          this.sources(target).filter(item => item.type === target.material && item.quantity > 0));
+        sources = sourcesByMaterial.get(target.material)!;
+        if (!sources.length) continue;
+      }
+      paths ??= findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
+      if (needsSource && !sources.some(item => this.sourceApproach(builder.movement.tile, item, paths!))) continue;
       const approach = this.approach(builder.movement.tile, target, paths);
       if (approach && (!best || approach.path.distance < best.path.distance)) best = { target, ...approach };
     }

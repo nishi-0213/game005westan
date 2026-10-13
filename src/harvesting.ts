@@ -5,7 +5,7 @@ import type { MapItem } from './items';
 import { returnItems } from './items.ts';
 import type { Tile } from './movement';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
-import { findPaths } from './pathfinding.ts';
+import { findPaths, invalidatePaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import type { Walls } from './walls';
 
@@ -73,6 +73,7 @@ export class Harvesting {
     active.target.workSeconds = Math.min(properties.seconds, active.target.workSeconds + seconds);
     if (active.target.workSeconds >= properties.seconds) {
       active.target.collected = true;
+      invalidatePaths(this.walls.isBlocked);
       returnItems(this.items, { column: active.target.column, row: active.target.row }, properties.material, properties.quantity);
       if (properties.material === 'strawberry') {
         const stack = this.items.find(item => item.type === 'strawberry' && item.column === active.target.column && item.row === active.target.row);
