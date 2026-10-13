@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { Construction } from '../src/construction.ts';
+import { Walls } from '../src/walls.ts';
+import { createMovement, advanceMovement } from '../src/movement.ts';
+import { findPath } from '../src/pathfinding.ts';
+
+const pawn = (column=2,row=2) => ({movement:createMovement({column,row}),mode:'automatic',inventory:null,job:null,retrySeconds:0});
+function scene(items=[],size=8) {
+ const walls=new Walls(size);const engine=new Construction(walls,items,tile=>walls.complete(tile));
+ const tick=(builders,seconds=.05)=>{for(const builder of builders){engine.update(builder,seconds);advanceMovement(builder.movement,seconds,walls.isBlocked,walls.cannotStop);}};
+ return {walls,engine,tick};
+}
+
+test('a wall gathers the right stack, deposits units singly, then builds for a full second',()=>{
+ const items=[{type:'wood',quantity:100,column:3,row:2},{type:'stone',quantity:200,column:4,row:2}];
+ const {walls,tick}=scene(items);const target=walls.plan({column:5,row:2},'wood');const builder=pawn();
+ let sawPickup=false,sawBuilding=false;
+ for(let i=0;i<200&&target.state==='planned';i++){
+  const before=target.delivered;tick([builder]);assert.ok(target.delivered-before<=1);
+  if(builder.inventory){sawPickup=true;assert.equal(builder.inventory.type,'wood');assert.ok(builder.inventory.quantity<=100);}
+  if(target.workSeconds>0){sawBuilding=true;assert.equal(target.delivered,10);}
+  if(target.workSeconds<1)assert.equal(target.state,'planned');
+ }
+ assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
+ assert.equal(builder.inventory.quantity,90);assert.equal(items[0].quantity,0);assert.equal(items[1].quantity,200);
+ assert.ok(sawPickup&&sawBuilding);
+});
+
+test('a barricade consumes five materials and one second',()=>{
+ const {walls,tick}=scene([{type:'stone',quantity:20,column:3,row:2}]);const builder=pawn();
+ const target=walls.plan({column:5,row:2},'stone','barricade');
+ for(let i=0;i<150&&target.state==='planned';i++)tick([builder]);
+ assert.equal(target.state,'completed');assert.equal(target.delivered,5);assert.equal(target.workSeconds,1);
+ assert.equal(builder.inventory.quantity,15);assert.equal(walls.isBlocked(target),false);assert.equal(walls.cannotStop(target),true);
+});
+
+test('an insufficient stack is delivered partially and construction waits for the remainder',()=>{
+ const items=[{type:'wood',quantity:3,column:3,row:2}];const {walls,tick}=scene(items);const builder=pawn();const target=walls.plan({column:5,row:2},'wood');
+ for(let i=0;i<100;i++)tick([builder]);
+ assert.equal(target.delivered,3);assert.equal(target.workSeconds,0);assert.equal(target.state,'planned');
+ items.push({type:'wood',quantity:7,column:4,row:2});
+ for(let i=0;i<150&&target.state==='planned';i++)tick([builder]);
+ assert.equal(target.state,'completed');assert.equal(target.delivered,10);
+});
+
+test('nearest material is selected by shortest traversable route rather than straight-line distance',()=>{
+ const items=[{type:'wood',quantity:10,column:4,row:2},{type:'wood',quantity:10,column:2,row:5}];
+ const {walls,engine}=scene(items);const builder=pawn();
+ for(let r=0;r<6;r++){const tile={column:3,row:r};walls.plan(tile,'stone');walls.complete(tile);}
+ walls.plan({column:1,row:3},'wood');engine.update(builder,.05);
+ assert.equal(builder.job.source,items[1]);
+});
+
+test('a nearer unreachable plan is ignored in favor of a reachable plan',()=>{
+ const {walls,engine}=scene([{type:'wood',quantity:20,column:2,row:3}]);const builder=pawn();
+ for(let r=0;r<8;r++){const tile={column:3,row:r};walls.plan(tile,'stone');walls.complete(tile);}
+ walls.plan({column:4,row:2},'wood');const reachable=walls.plan({column:0,row:6},'wood');engine.update(builder,.05);
+ assert.equal(builder.job.target,reachable);
+});
+
+test('multiple builders reserve distinct targets and do not duplicate material consumption',()=>{
+ const {walls,engine,tick}=scene([{type:'wood',quantity:10,column:1,row:2},{type:'wood',quantity:10,column:5,row:2}]);
+ const first=walls.plan({column:1,row:4},'wood');const second=walls.plan({column:5,row:4},'wood');const builders=[pawn(1,1),pawn(5,1)];
+ for(const b of builders)engine.update(b,.05);
+ assert.notEqual(builders[0].job.target,builders[1].job.target);
+ for(let i=0;i<180;i++)tick(builders);
+ assert.equal(first.state,'completed');assert.equal(second.state,'completed');assert.equal(first.delivered+second.delivered,20);
+});
+
+test('drafted pawns do no work and switching to drafted releases the reservation',()=>{
+ const {walls,engine,tick}=scene([{type:'wood',quantity:10,column:3,row:2}]);const builder=pawn();builder.mode='drafted';walls.plan({column:5,row:2},'wood');
+ tick([builder]);assert.equal(builder.job,null);
+ builder.mode='automatic';tick([builder]);assert.equal(engine.claims.size,1);
+ builder.mode='drafted';tick([builder]);assert.equal(engine.claims.size,0);assert.equal(builder.job,null);
+});
+
+test('shortest routes go around walls, cross barricades, and reject no-stop destinations',()=>{
+ const walls=new Walls(8);walls.plan({column:3,row:2},'wood');walls.complete({column:3,row:2});
+ const path=findPath({column:2,row:2},{column:5,row:2},8,walls.isBlocked,walls.cannotStop);
+ assert.ok(path);assert.ok(!path.tiles.some(t=>t.column===3&&t.row===2));
+ walls.plan({column:4,row:2},'stone','barricade');walls.complete({column:4,row:2});
+ assert.equal(findPath({column:2,row:2},{column:4,row:2},8,walls.isBlocked,walls.cannotStop),null);
+ assert.ok(findPath({column:2,row:2},{column:5,row:2},8,walls.isBlocked,walls.cannotStop));
+});
+
+test('one builder switches material types without losing the leftover stack',()=>{
+ const items=[{type:'wood',quantity:100,column:3,row:2},{type:'stone',quantity:200,column:4,row:2}];
+ const {walls,tick}=scene(items);const builder=pawn();const wood=walls.plan({column:2,row:4},'wood');const stone=walls.plan({column:6,row:4},'stone');
+ for(let i=0;i<300&&(wood.state==='planned'||stone.state==='planned');i++)tick([builder]);
+ assert.equal(wood.state,'completed');assert.equal(stone.state,'completed');
+ const woodRemaining=items.filter(i=>i.type==='wood').reduce((n,i)=>n+i.quantity,0)+(builder.inventory?.type==='wood'?builder.inventory.quantity:0);
+ const stoneRemaining=items.filter(i=>i.type==='stone').reduce((n,i)=>n+i.quantity,0)+(builder.inventory?.type==='stone'?builder.inventory.quantity:0);
+ assert.equal(woodRemaining,90);assert.equal(stoneRemaining,190);
+});
+
+test('construction target is reselected by arrival time after collecting materials',()=>{
+ const {walls,engine,tick}=scene([{type:'wood',quantity:100,column:6,row:2}]);const builder=pawn();
+ const initial=walls.plan({column:2,row:4},'wood');const afterPickup=walls.plan({column:6,row:4},'wood');
+ engine.update(builder,.05);assert.equal(builder.job.target,initial);
+ for(let i=0;i<60&&!builder.inventory;i++)tick([builder]);
+ assert.ok(builder.inventory);assert.equal(builder.job.target,afterPickup);
+});

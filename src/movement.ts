@@ -8,6 +8,7 @@ export interface Movement {
   destination: Tile;
   nextTile: Tile | null;
   progress: number;
+  route?: Tile[];
 }
 
 const TILES_PER_SECOND = 4;
@@ -25,6 +26,7 @@ export function setDestination(movement: Movement, destination: Tile, isBlocked:
   const start = movement.nextTile ?? movement.tile;
   if (cannotStop(start) && !hasSafeExit(start, destination, isBlocked, cannotStop)) return false;
   movement.destination = { ...destination };
+  movement.route = undefined;
   // Finish an active segment before changing direction, so every turn is at a tile center.
   return true;
 }
@@ -41,12 +43,33 @@ function nextStep(tile: Tile, destination: Tile): Tile | null {
 
 export function stopAtNextSafeTile(movement: Movement, cannotStop: TileRule = allowAll): void {
   let stop = movement.nextTile ?? movement.tile;
+  const remaining = movement.route?.slice();
+  const route: Tile[] = [];
   while (cannotStop(stop)) {
-    const next = nextStep(stop, movement.destination);
+    const next = remaining ? remaining.shift() : nextStep(stop, movement.destination);
     if (!next) return;
     stop = next;
+    route.push(next);
   }
   movement.destination = { ...stop };
+  if (movement.route) movement.route = route;
+}
+
+export function setRoute(movement: Movement, route: Tile[]): void {
+  movement.route = route.map((tile) => ({ ...tile }));
+  movement.destination = { ...(route.at(-1) ?? movement.tile) };
+}
+
+export function movementHasSafeExit(movement: Movement, blocked: TileRule, cannotStop: TileRule): boolean {
+  const start = movement.nextTile ?? movement.tile;
+  if (!movement.route) return hasSafeExit(start, movement.destination, blocked, cannotStop);
+  let current = start;
+  for (const next of movement.route) {
+    if (!cannotStop(current)) return !blocked(current);
+    if (blockedStep(current, next, blocked)) return false;
+    current = next;
+  }
+  return !cannotStop(current) && !blocked(current);
 }
 
 function blockedStep(from: Tile, to: Tile, isBlocked: TileRule): boolean {
@@ -68,14 +91,15 @@ export function hasSafeExit(from: Tile, destination: Tile, isBlocked: TileRule, 
 export function advanceMovement(movement: Movement, seconds: number, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): void {
   let remaining = Math.max(0, seconds) * TILES_PER_SECOND;
   while (remaining > 0) {
-    movement.nextTile ??= nextStep(movement.tile, movement.destination);
+    movement.nextTile ??= movement.route ? (movement.route.shift() ?? null) : nextStep(movement.tile, movement.destination);
     if (!movement.nextTile) return;
     const next = movement.nextTile;
     if (blockedStep(movement.tile, next, isBlocked)
-      || !hasSafeExit(next, movement.destination, isBlocked, cannotStop)) {
+      || !movementHasSafeExit(movement, isBlocked, cannotStop)) {
       movement.nextTile = null;
       movement.progress = 0;
       movement.destination = { ...movement.tile };
+      movement.route = undefined;
       return;
     }
     const segmentLength = Math.hypot(

@@ -1,10 +1,12 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
-import { advanceMovement, createMovement, hasSafeExit, renderedPosition, setDestination, stopAtNextSafeTile } from './movement';
+import { advanceMovement, createMovement, movementHasSafeExit, renderedPosition, setDestination, stopAtNextSafeTile } from './movement';
 import type { Tile } from './movement';
 import { dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial } from './walls';
 import { countItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES } from './items';
+import { Construction } from './construction';
+import type { Builder } from './construction';
 
 const MAP_SIZE = 32;
 const TILE_SIZE = 24;
@@ -39,8 +41,9 @@ terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
 const mapItems = initialItems();
 const itemLayer = new Container();
+const itemViews: { item: (typeof mapItems)[number]; view: Container; quantity: Text }[] = [];
 map.addChild(itemLayer);
-for (const item of mapItems) {
+function createItemView(item: (typeof mapItems)[number]): void {
   const view = new Container();
   view.position.set((item.column + 0.5) * TILE_SIZE, item.row * TILE_SIZE);
   const icon = new Graphics().rect(-6, 1, 12, 12).fill(ITEM_APPEARANCE[item.type].color);
@@ -52,7 +55,9 @@ for (const item of mapItems) {
   quantity.position.set(0, 14);
   view.addChild(icon, quantity);
   itemLayer.addChild(view);
+  itemViews.push({ item, view, quantity });
 }
+for (const item of mapItems) createItemView(item);
 
 const itemSummary = document.querySelector<HTMLUListElement>('#item-summary')!;
 const summaryRows = ITEM_TYPES.map((type) => {
@@ -69,6 +74,11 @@ const summaryRows = ITEM_TYPES.map((type) => {
 });
 
 function updateItemSummary(): void {
+  for (const item of mapItems) if (!itemViews.some((entry) => entry.item === item)) createItemView(item);
+  for (const { item, view, quantity } of itemViews) {
+    view.visible = item.quantity > 0;
+    if (quantity.text !== String(item.quantity)) quantity.text = String(item.quantity);
+  }
   const totals = countItems(mapItems);
   for (const entry of summaryRows) {
     if (entry.total === totals[entry.type]) continue;
@@ -104,8 +114,10 @@ const pawns = spawnTiles.map(({ column, row, color }) => {
   view.addChild(body);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
-  return { view, selection, movement: createMovement({ column, row }), mode: 'drafted' as 'drafted' | 'automatic' };
+  const builder: Builder = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0 };
+  return { view, selection, ...builder };
 });
+const construction = new Construction(walls, mapItems, completeConstruction);
 let selectedPawn: (typeof pawns)[number] | null = null;
 const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
 const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
@@ -125,6 +137,7 @@ function updatePawnModeButton(): void {
 pawnModeButton.addEventListener('click', () => {
   if (!selectedPawn) return;
   selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
+  construction.cancel(selectedPawn);
   if (selectedPawn.mode === 'automatic') stopAtNextSafeTile(selectedPawn.movement, walls.cannotStop);
   updatePawnModeButton();
 });
@@ -152,6 +165,12 @@ const constructionChoices = [
   button: document.querySelector<HTMLButtonElement>(choice.buttonId)!,
   materials: document.querySelector<HTMLElement>(choice.materialsId)!,
 }));
+function updateConstructionLabels(): void {
+  for (const choice of constructionChoices) {
+    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
+  }
+}
+updateConstructionLabels();
 
 function stopDrawing(): void {
   if (drawingPointer !== null && app.canvas.hasPointerCapture(drawingPointer)) {
@@ -218,6 +237,7 @@ for (const choice of constructionChoices) {
   for (const button of choice.materials.querySelectorAll<HTMLButtonElement>('button')) {
     button.addEventListener('click', () => {
       constructionMaterials[choice.kind] = button.dataset.material as WallMaterial;
+      updateConstructionLabels();
       for (const option of choice.materials.querySelectorAll('button')) {
         option.setAttribute('aria-pressed', String(option === button));
       }
@@ -241,7 +261,7 @@ function placeConstruction(tile: Tile): void {
   wallViews.set(`${tile.column},${tile.row}`, view);
 }
 
-// Called by the future construction algorithm; construction never completes automatically.
+// Finalize only when no pawn or active route would be trapped by the new structure.
 export function completeConstruction(tile: Tile): boolean {
   const item = walls.items.get(`${tile.column},${tile.row}`);
   if (!item || item.state === 'completed') return false;
@@ -256,9 +276,8 @@ export function completeConstruction(tile: Tile): boolean {
         { column: movement.tile.column, row: movement.nextTile.row },
       );
     }
-    const start = movement.nextTile ?? movement.tile;
     return occupied.some((entry) => entry && sameTile(entry))
-      || !hasSafeExit(start, movement.destination, blockedAfter, cannotStopAfter);
+      || !movementHasSafeExit(movement, blockedAfter, cannotStopAfter);
   })) return false;
   if (!walls.complete(tile)) return false;
   wallViews.get(`${tile.column},${tile.row}`)!.alpha = 1;
@@ -397,10 +416,13 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   for (const pawn of pawns) {
+    construction.update(pawn, ticker.deltaMS / 1000);
     advanceMovement(pawn.movement, ticker.deltaMS / 1000, walls.isBlocked, walls.cannotStop);
     const position = renderedPosition(pawn.movement);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
   }
+  for (const [key, view] of wallViews) if (walls.items.get(key)?.state === 'completed') view.alpha = 1;
+  updateItemSummary();
 });
 
 app.renderer.on('resize', applyCamera);

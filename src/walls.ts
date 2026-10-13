@@ -6,6 +6,8 @@ export interface Wall extends Tile {
   kind: ConstructionKind;
   material: WallMaterial;
   state: 'planned' | 'completed';
+  delivered: number;
+  workSeconds: number;
 }
 
 export const WALL_COLORS: Record<WallMaterial, number> = {
@@ -13,6 +15,10 @@ export const WALL_COLORS: Record<WallMaterial, number> = {
   stone: 0x929292,
 };
 export const WALL_PLAN_ALPHA = 0.7;
+export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; seconds: number } | null> = {
+  wall: { materialCount: 10, seconds: 1 },
+  barricade: { materialCount: 5, seconds: 1 },
+};
 
 export class Walls {
   readonly items = new Map<string, Wall>();
@@ -27,7 +33,7 @@ export class Walls {
       || tile.column < 0 || tile.row < 0 || tile.column >= this.mapSize || tile.row >= this.mapSize) return null;
     const key = `${tile.column},${tile.row}`;
     if (this.items.has(key)) return null;
-    const wall: Wall = { ...tile, material, kind, state: 'planned' };
+    const wall: Wall = { ...tile, material, kind, state: 'planned', delivered: 0, workSeconds: 0 };
     this.items.set(key, wall);
     return wall;
   }
