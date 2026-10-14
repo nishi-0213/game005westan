@@ -3,13 +3,16 @@ import type { ItemType } from './items';
 import type { Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
-export type ConstructionKind = 'wall' | 'barricade' | 'storage' | 'storageArea';
+export type ConstructionKind = 'wall' | 'barricade' | 'storage' | 'storageArea' | 'butcher';
 export interface Wall extends Tile {
   kind: ConstructionKind;
+  orientation?: 0 | 1;
+  butcher?: import('./butchery').ButcherState;
   material: WallMaterial;
   state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
+  storedCorpses?: import('./needs').EatingWorker[];
   stored?: Record<ItemType, number>;
   demolition?: boolean;
   demolitionSeconds?: number;
@@ -26,10 +29,17 @@ export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; se
   barricade: { materialCount: 5, seconds: 1 },
   storage: { materialCount: 30, seconds: 3 },
   storageArea: { materialCount: 0, seconds: 0 },
+  butcher: { materialCount: 30, seconds: 3 },
 };
+
+export function footprint(wall: Pick<Wall, 'column' | 'row' | 'kind' | 'orientation'>): Tile[] {
+  if (wall.kind !== 'butcher') return [{ column: wall.column, row: wall.row }];
+  return [-1, 0, 1].map(offset => ({ column: wall.column + (wall.orientation ? offset : 0), row: wall.row + (wall.orientation ? 0 : offset) }));
+}
 
 export class Walls {
   readonly items = new Map<string, Wall>();
+  private occupied = new Map<string, Wall>();
   readonly mapSize: number;
   environmentCannotStop: (tile: Tile) => boolean = () => false;
 
@@ -38,19 +48,22 @@ export class Walls {
     registerPathCache(this.isBlocked);
   }
 
-  plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall'): Wall | null {
+  plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall', orientation: 0 | 1 = 0): Wall | null {
     if (!Number.isInteger(tile.column) || !Number.isInteger(tile.row)
       || tile.column < 0 || tile.row < 0 || tile.column >= this.mapSize || tile.row >= this.mapSize) return null;
     const key = `${tile.column},${tile.row}`;
-    if (this.items.has(key)) return null;
-    const wall: Wall = { ...tile, material, kind, state: 'planned', delivered: 0, workSeconds: 0 };
-    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, rifle: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, rifle: true }; }
+    const cells = footprint({ ...tile, kind, orientation });
+    if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || this.at(cell))) return null;
+    const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0 };
+    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, rifle: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, rifle: true, meat: true, humanCorpse: true, deerCorpse: true }; }
+    if (kind === 'butcher') { wall.material = 'wood'; wall.butcher = { mode: 'count', remaining: 0, target: 0, seconds: 0 }; }
     this.items.set(key, wall);
+    for (const cell of cells) this.occupied.set(`${cell.column},${cell.row}`, wall);
     return wall;
   }
 
   complete(tile: Tile): boolean {
-    const wall = this.items.get(`${tile.column},${tile.row}`);
+    const wall = this.at(tile);
     if (!wall || wall.state === 'completed') return false;
     wall.state = 'completed';
     invalidatePaths(this.isBlocked);
@@ -59,21 +72,29 @@ export class Walls {
 
   removePlan(tile: Tile): Wall | null {
     const key = `${tile.column},${tile.row}`;
-    const item = this.items.get(key);
+    const item = this.at(tile);
     if (!item || item.state !== 'planned') return null;
     item.state = 'cancelled';
-    this.items.delete(key);
+    this.erase(item);
     invalidatePaths(this.isBlocked);
     return item;
   }
 
+  at(tile: Tile): Wall | undefined { return this.occupied.get(`${tile.column},${tile.row}`) ?? this.items.get(`${tile.column},${tile.row}`); }
+
+  erase(item: Wall): void {
+    this.items.delete(`${item.column},${item.row}`);
+    for (const cell of footprint(item)) this.occupied.delete(`${cell.column},${cell.row}`);
+    invalidatePaths(this.isBlocked);
+  }
+
   isBlocked = (tile: Tile): boolean => {
-    const item = this.items.get(`${tile.column},${tile.row}`);
-    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage');
+    const item = this.at(tile);
+    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher');
   };
 
   cannotStop = (tile: Tile): boolean => {
-    const item = this.items.get(`${tile.column},${tile.row}`);
+    const item = this.at(tile);
     return (item?.state === 'completed' && item.kind === 'barricade') || this.environmentCannotStop(tile);
   };
 }

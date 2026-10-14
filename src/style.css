@@ -304,3 +304,18 @@ canvas { touch-action: none; }
 [data-immediate-haul] { padding: 8px 14px; border: 1px solid #708268; background: #354936; color: #f4e9cc; cursor: pointer; }
 [data-immediate-haul]:disabled { opacity: .5; cursor: default; }
 [data-immediate-haul][hidden] { display: none; }
+
+#station-info { position: fixed; left: 0; bottom: 40px; z-index: 2; width: min(240px,calc(100vw - 2px)); box-sizing: border-box; padding: 12px; border: 1px solid #708268; background: #263529; color: #f4e9cc; font: 14px system-ui,sans-serif; }
+#station-info[hidden] { display:none; }
+#station-info h2 { margin:0 0 12px; font-size:20px; }
+#station-work-button { position:absolute; top:8px; right:8px; }
+#station-work { position:fixed; inset:auto auto 80px 12px; margin:0; z-index:3; padding:16px; border:1px solid #708268; background:#263529; color:#f4e9cc; font:13px system-ui,sans-serif; max-width:calc(100vw - 58px); }
+#station-work h2 { margin:0 28px 16px 0; font-size:18px; }
+#close-station-work { position:absolute; top:4px; right:4px; }
+:is(#station-info,#station-work) button { padding:6px 9px; border:1px solid #708268; background:#354936; color:#f4e9cc; cursor:pointer; }
+.butcher-bill { display:flex; align-items:center; gap:6px; margin:10px 0; }
+#butcher-count { min-width:24px; text-align:center; }
+#butcher-count[data-zero="true"] { color:#ff6778; }
+#meat-target { width:64px; background:#152019; color:#f4e9cc; border:1px solid #708268; padding:5px; }
+#station-work button[aria-pressed="true"] { border-color:#f2c66d; background:#475b3e; }
+.pawn-roster-button[hidden] { display:none; }

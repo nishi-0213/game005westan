@@ -40,7 +40,7 @@ export class PlantGrowth {
     const available: Tile[] = [];
     for (let row = 0; row < this.walls.mapSize; row++) for (let column = 0; column < this.walls.mapSize; column++) {
       const tile = { column, row }, key = `${column},${row}`;
-      if (!occupied.has(key) && !this.walls.items.has(key) && !this.occupied(tile)) available.push(tile);
+      if (!occupied.has(key) && !this.walls.at(tile) && !this.occupied(tile)) available.push(tile);
     }
     let spawned = false;
     for (const type of ['tree', 'wildStrawberry'] as const) {

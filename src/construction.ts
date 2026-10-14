@@ -10,6 +10,10 @@ import type { Storage } from './storage';
 
 export interface Builder {
   movement: Movement;
+  dead?: boolean;
+  butcherJob?: import('./butchery').ButcherJob | null;
+  forcedCorpse?: import('./butchery').Corpse | null;
+  carryingCorpse?: import('./butchery').Corpse | null;
   weapon?: 'unarmed' | 'rifle';
   mode: 'drafted' | 'automatic';
   inventory: { type: ItemType; quantity: number } | null;
@@ -28,6 +32,7 @@ export class Construction {
   readonly claims = new Map<Wall, Builder>();
   readonly finish: (tile: Tile) => boolean;
   storage?: Storage;
+  onCancel?: (worker: Builder) => void;
   demolish?: (tile: Tile) => boolean;
   readonly needsClearing: (tile: Tile) => boolean;
 
@@ -52,6 +57,7 @@ export class Construction {
     builder.job = null;
     builder.retrySeconds = 0;
     stopAtNextSafeTile(builder.movement, this.walls.cannotStop);
+    this.onCancel?.(builder);
   }
 
   requestDrop(builder: Builder): void {
@@ -71,6 +77,7 @@ export class Construction {
         if (column === target.column && row === target.row) continue;
         if (column < 0 || row < 0 || column >= this.walls.mapSize || row >= this.walls.mapSize) continue;
         const goal = { column, row };
+        if (this.walls.at(goal) === target) continue;
         const path = paths ? (paths.get(row * this.walls.mapSize + column) ?? null) : this.path(from, goal);
         if (path && (!best || path.distance < best.path.distance)) best = { goal, path };
       }

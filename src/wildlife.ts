@@ -83,7 +83,7 @@ export class Wildlife {
     for (let row = 0; row < walls.mapSize; row++) for (let column = 0; column < walls.mapSize; column++) {
       if (column !== 0 && row !== 0 && column !== walls.mapSize - 1 && row !== walls.mapSize - 1) continue;
       const tile = { column, row };
-      if (!walls.items.has(`${column},${row}`) && !walls.isBlocked(tile) && !walls.cannotStop(tile) && !occupied(tile)
+      if (!walls.at(tile) && !walls.isBlocked(tile) && !walls.cannotStop(tile) && !occupied(tile)
         && !this.deer.some(deer => sameTile(deer.movement.tile, tile) || sameTile(deer.movement.destination, tile))) candidates.push(tile);
     }
     const count = this.count();

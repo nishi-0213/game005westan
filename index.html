@@ -42,6 +42,7 @@
         <dt data-animal-property hidden>行動</dt><dd id="animal-action" data-animal-property hidden></dd>
         <dt data-animal-property hidden>満腹感</dt><dd id="animal-satiety" data-animal-property hidden></dd>
         <dt data-animal-property hidden>健康</dt><dd id="animal-health" data-animal-property hidden></dd>
+        <dt data-corpse-property hidden>質量</dt><dd id="corpse-mass" data-corpse-property hidden></dd>
         <dt data-animal-property hidden>HP</dt><dd id="animal-hp" data-animal-property hidden></dd>
       </dl>
     </dialog>
@@ -50,15 +51,28 @@
     <dialog id="priorities-window" aria-labelledby="priorities-title">
       <button id="close-priorities" type="button" aria-label="優先順位ウィンドウを閉じる">×</button>
       <h2 id="priorities-title">優先順位</h2>
-      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
+      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">解体</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
     </dialog>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
-      <button class="construction-subtab" type="button">作業所</button>
+      <button id="workshops-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="workshop-options">作業所</button>
       <button id="storage-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="storage-options">保管</button>
       <button id="defense-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="defense-options">防衛</button>
       <button id="demolition-button" class="construction-subtab" type="button" aria-pressed="false">破壊</button>
     </nav>
+    <nav id="workshop-options" class="building-options" aria-label="作業所の選択" hidden>
+      <button id="butcher-button" class="construction-subtab" type="button" aria-pressed="false">解体所（木材）</button>
+    </nav>
+    <nav id="butcher-materials" class="wall-materials" hidden></nav>
+    <section id="station-info" aria-label="解体所のインフォメーション" hidden>
+      <button id="station-work-button" type="button">作業</button><h2>解体所</h2><p id="station-status"></p>
+    </section>
+    <dialog id="station-work" aria-label="解体所の作業一覧">
+      <button id="close-station-work" type="button" aria-label="作業一覧を閉じる">×</button><h2>作業一覧</h2>
+      <div class="butcher-bill"><button id="butcher-once" type="button">解体</button><button id="butcher-minus" type="button">−</button><output id="butcher-count" data-zero="true">0</output><button id="butcher-plus" type="button">＋</button></div>
+      <div class="butcher-bill"><label for="meat-target">アイテム</label><input id="meat-target" type="number" min="0" step="1" value="0" aria-label="目標の肉の個数"/><button id="repeat-until" type="button" aria-pressed="false">まで繰り返す</button></div>
+      <button id="repeat-forever" type="button" aria-pressed="false">無限</button>
+    </dialog>
     <nav id="building-options" class="building-options" aria-label="建物の選択" hidden>
       <button id="wall-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="wall-materials">壁</button>
     </nav>
@@ -87,8 +101,11 @@
       <label><input type="checkbox" data-storage-type="stone" checked />石材 <span id="stored-stone">0</span></label>
       <label><input type="checkbox" data-storage-type="strawberry" checked />苺 <span id="stored-strawberry">0</span></label>
       <label><input type="checkbox" data-storage-type="rifle" checked />ライフル <span id="stored-rifle">0</span></label>
+      <label><input type="checkbox" data-storage-type="meat" checked />肉 <span id="stored-meat">0</span></label>
+      <label><input type="checkbox" data-storage-type="humanCorpse" checked />人間の死体 <span id="stored-humanCorpse">0</span></label>
+      <label><input type="checkbox" data-storage-type="deerCorpse" checked />鹿の死体 <span id="stored-deerCorpse">0</span></label>
     </dialog>
-    <dialog id="food-command" aria-label="苺の操作">
+    <dialog id="food-command" aria-label="食料の操作">
       <button id="close-food-command" type="button" aria-label="苺の操作を閉じる">×</button>
       <button id="eat-now-button" type="button">今すぐ食べる</button>
       <button type="button" data-immediate-haul hidden>今すぐ運搬</button>

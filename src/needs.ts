@@ -2,6 +2,7 @@ import type { Construction } from './construction';
 import type { HarvestWorker, Harvesting } from './harvesting';
 import type { HaulWorker, Hauling } from './hauling';
 import type { MapItem } from './items';
+import { foodNutrition } from './items.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -11,6 +12,11 @@ export interface Needs { satiety: number; health: number }
 export type EatingWorker = HarvestWorker & HaulWorker & {
   needs: Needs;
   hp?: number;
+  consumed?: boolean;
+  collectCorpse?: boolean;
+  corpseStorage?: import('./walls').Wall;
+  corpseCarrier?: { movement: import('./movement').Movement };
+  corpseStation?: Tile;
   dead?: boolean;
   deadPosition?: Tile;
   eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number } | null;
@@ -78,18 +84,18 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     return false;
   }
   if (!worker.eatJob) {
-    if (worker.inventory?.type === 'strawberry' && worker.inventory.quantity > 0) {
+    if (worker.inventory && foodNutrition(worker.inventory.type) > 0 && worker.inventory.quantity > 0) {
       const held = worker.inventory;
       interruptWork(worker, construction, harvesting, hauling);
       const goal = { ...worker.movement.destination };
-      const source: MapItem = { ...goal, type: 'strawberry',
+      const source: MapItem = { ...goal, type: held.type,
         get quantity() { return worker.inventory === held ? held.quantity : 0; },
         set quantity(value: number) { held.quantity = value; if (!value && worker.inventory === held) worker.inventory = null; },
       };
       worker.eatJob = { source, goal };
       return true;
     }
-    const sources = [...construction.items.filter(item => item.type === 'strawberry' && item.collect && item.quantity > 0), ...(construction.storage?.sources('strawberry') ?? [])];
+    const sources = [...construction.items.filter(item => foodNutrition(item.type) > 0 && item.collect && item.quantity > 0), ...(construction.storage?.sources('strawberry') ?? []), ...(construction.storage?.sources('meat') ?? [])];
     if (!sources.length) return false;
     const walls = construction.walls;
     const from = worker.movement.nextTile ?? worker.movement.tile;
@@ -111,15 +117,15 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   if (!sameTile(worker.movement.tile, job.goal)) { worker.eatJob = null; return false; }
   job.eatingSeconds = Math.min(EATING_SECONDS, (job.eatingSeconds ?? 0) + elapsed);
   if (job.eatingSeconds < EATING_SECONDS) return true;
-  const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / STRAWBERRY_SATIETY)));
+  const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));
   job.source.quantity -= quantity;
-  worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * STRAWBERRY_SATIETY);
+  worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * foodNutrition(job.source.type));
   worker.eatJob = null;
   return true;
 }
 
 export function requestEat(worker: EatingWorker, source: MapItem, construction: Construction, harvesting: Harvesting, hauling: Hauling): boolean {
-  if (worker.dead || source.type !== 'strawberry' || source.quantity <= 0) return false;
+  if (worker.dead || foodNutrition(source.type) <= 0 || source.quantity <= 0) return false;
   const walls = construction.walls;
   const from = worker.movement.nextTile ?? worker.movement.tile;
   const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);

@@ -10,10 +10,14 @@ import { attackRangeEdges } from './attack-range';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
+import type { EatingWorker } from './needs';
+import type { Corpse } from './butchery';
+import type { MapItem } from './items';
+import { Butchery, adjustButcherCount, corpsePosition, corpseItemType } from './butchery';
 import type { Tile } from './movement';
-import { BUILD_RECIPES, dragTiles, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
+import { BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
-import { nearbyItems, initialItems, ITEM_APPEARANCE, ITEM_TYPES, returnItems } from './items';
+import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems } from './items';
 import { Storage } from './storage';
 import { Hauling } from './hauling';
 import type { HaulWorker } from './hauling';
@@ -214,9 +218,15 @@ function updateStoredItemViews(): void {
   }
 }
 
+const corpseHud = new Container();
+map.addChild(corpseHud);
+function createCorpseIcon(): Graphics {
+  const icon=new Graphics().moveTo(-3,-6).lineTo(3,-6).moveTo(0,-9).lineTo(0,-3).stroke({color:0xf2c66d,width:2});
+  icon.visible=false;corpseHud.addChild(icon);return icon;
+}
 const deerLayer = new Container();
 map.addChild(deerLayer);
-const deerViews = new Map<Deer, { view: Container; selection: Graphics; food: Graphics }>();
+const deerViews = new Map<Deer, { view: Container; selection: Graphics; food: Graphics; corpseIcon: Graphics }>();
 function updateDeerViews(): void {
   for (const deer of wildlife.deer) {
     let entry = deerViews.get(deer);
@@ -231,17 +241,21 @@ function updateDeerViews(): void {
       const food = new Graphics().circle(10, -5, 2).fill(ITEM_APPEARANCE.strawberry.color);
       view.addChild(selection, body, food);
       deerLayer.addChild(view);
-      entry = { view, selection, food };
+      entry = { view, selection, food, corpseIcon:createCorpseIcon() };
       deerViews.set(deer, entry);
     }
-    const position = deer.deadPosition ?? renderedPosition(deer.movement);
+    const position = deer.dead ? corpsePosition(deer) : renderedPosition(deer.movement);
     entry.view.position.set((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
     entry.view.rotation = deer.dead ? Math.PI / 2 : 0;
     entry.selection.visible = selectedDeerSet.has(deer);
     entry.food.visible = Boolean(deer.eatJob);
+    entry.view.visible = !deer.consumed && !deer.corpseStorage;
+    entry.corpseIcon.visible = Boolean(deer.dead && deer.collectCorpse && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && !deer.consumed);
+    entry.corpseIcon.position.set(entry.view.x,entry.view.y-8);
   }
   for (const [deer, entry] of deerViews) if (deer.departed) {
     entry.view.destroy({ children: true });
+    entry.corpseIcon.destroy();
     deerViews.delete(deer);
     if (selectedDeerSet.delete(deer)) refreshSelection();
   }
@@ -283,11 +297,15 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, weaponView, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
-const needsClearing = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
-  || (walls.items.get(`${tile.column},${tile.row}`)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
+const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
+  || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
   || clearing.isClearing(tile);
+const needsClearing = (tile: Tile): boolean => {
+  const building = walls.at(tile);
+  return (building ? footprint(building) : [tile]).some(needsClearingCell);
+};
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
 construction.storage = storage;
 construction.demolish = completeDemolition;
@@ -307,6 +325,26 @@ for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
 wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
 wildlife.onDepart = deer => pawnOccupancy.untrack(deer.movement);
 const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
+const butchery = new Butchery(construction, hauling, () => [...pawns, ...wildlife.deer], () => pawns);
+construction.onCancel = worker => { if (!worker.dead && (worker.butcherJob || worker.carryingCorpse)) butchery.cancel(worker); };
+butchery.onPickup = corpse => {
+  pawnOccupancy.untrack(corpse.movement);
+  const human = pawns.find(pawn => pawn === corpse);
+  let changed = human ? selectedPawns.delete(human) : selectedDeerSet.delete(corpse as Deer);
+  if (changed) refreshSelection();
+};
+butchery.onDrop = corpse => pawnOccupancy.track(corpse.movement);
+butchery.onConsume = corpse => {
+  pawnOccupancy.untrack(corpse.movement);
+  const index = pawns.findIndex(pawn => pawn === corpse);
+  if (index >= 0) {
+    pawns[index].view.visible = false;
+    rosterButtons[index].button.hidden = true;
+    (prioritiesRows.children[index] as HTMLElement).hidden = true;
+    selectedPawns.delete(pawns[index]);
+  } else { (corpse as Deer).departed = true; selectedDeerSet.delete(corpse as Deer); }
+  refreshSelection();
+};
 const plantGrowth = new PlantGrowth(environmentObjects, walls,
   tile => pawnOccupies(tile) || mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row),
   object => {
@@ -335,7 +373,7 @@ for (const [index, pawn] of pawns.entries()) {
   identity.append(createPawnPortrait(index), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
-  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['free', '自由']] as const) {
+  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
@@ -380,6 +418,7 @@ function updateConstructionProgress(): void {
     entry.fill.scale.x = progress;
   }
 }
+let selectedStation: Wall | null = null;
 let selectedPawn: (typeof pawns)[number] | null = null;
 const selectedPawns = new Set<(typeof pawns)[number]>();
 const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
@@ -409,6 +448,7 @@ const pawnSpecsAction = document.createElement('div');
 const pawnSpecsFaction = document.createElement('div');
 const pawnSpecsHp = document.createElement('div');
 const pawnSpecsWeapon = document.createElement('div');
+const pawnCorpseMass = document.createElement('div');
 pawnSpecsWeapon.id = 'pawn-weapon';
 pawnSpecsHp.id = 'pawn-hp';
 const pawnSpecsInventory = document.createElement('div');
@@ -428,7 +468,7 @@ needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute
 pawnSpecsTabs.append(overviewTab, needsTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
-pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnSpecsInventory);
+pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory);
 const pawnNeeds = document.createElement('div');
 pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
 const needsMeters = (['満腹感', '健康'] as const).map(label => {
@@ -471,7 +511,7 @@ const rosterButtons = pawns.map((pawn, index) => {
 });
 
 function clearSelection(): void {
-  selectedPawn = null; selectedDeer = null; selectedItem = null; infoFocus = null;
+  selectedStation = null; selectedPawn = null; selectedDeer = null; selectedItem = null; infoFocus = null;
   selectedPawns.clear(); selectedDeerSet.clear(); selectedItems.clear(); selectedEnvironment.clear();
 }
 
@@ -485,6 +525,12 @@ function refreshSelection(): void {
   for (const [deer, entry] of deerViews) entry.selection.visible = selectedDeerSet.has(deer);
   updateItemSelection();
   updatePawnModeButton();
+  if (stationWorkWindow.open && workStation !== selectedStation) stationWorkWindow.close();
+  updateStationInfo();
+}
+
+function selectedCorpses(): EatingWorker[] {
+  return [...selectedPawns,...selectedDeerSet].filter(pawn=>pawn.dead&&!pawn.consumed&&!pawn.corpseCarrier&&!pawn.corpseStation&&!pawn.corpseStorage);
 }
 
 function controlledSelection() {
@@ -507,6 +553,8 @@ function updatePawnPanels(): void {
   if (pawnSpecs.hidden !== hidden) pawnSpecs.hidden = hidden;
   if (!selectedPawn) return;
   setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
+  pawnCorpseMass.hidden=!selectedPawn.dead;
+  if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
   setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? '攻撃中' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
@@ -566,17 +614,17 @@ function updateObjectProperties(): void {
 }
 
 const haulCommandWindow = document.querySelector<HTMLDialogElement>('#haul-command')!;
-let haulCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
+let haulCommand: { pawn: (typeof pawns)[number]; source: MapItem | Corpse } | null = null;
 const immediateHaulButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-immediate-haul]')];
-function prepareHaulCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number]): void {
+function prepareHaulCommand(pawn: (typeof pawns)[number], source: MapItem | Corpse): void {
   haulCommand = { pawn, source };
   for (const button of immediateHaulButtons) {
-    button.hidden = pawn.mode !== 'automatic' || !mapItems.includes(source);
-    button.disabled = !button.hidden && !hauling.canRequest(pawn, source);
+    button.hidden = pawn.mode !== 'automatic' || ('type' in source && !mapItems.includes(source));
+    button.disabled = !button.hidden && !('type' in source ? hauling.canRequest(pawn, source) : butchery.canRequest(pawn, source));
     button.title = button.disabled ? '運搬できる経路と、このアイテムを受け入れる保管場所が必要です。' : '';
   }
 }
-function openHaulCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+function openHaulCommand(pawn: (typeof pawns)[number], source: MapItem | Corpse, event: MouseEvent): void {
   prepareHaulCommand(pawn, source);
   equipmentCommandWindow.close(); foodCommandWindow.close();
   haulCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
@@ -584,7 +632,7 @@ function openHaulCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)
   if (!haulCommandWindow.open) haulCommandWindow.show();
 }
 for (const button of immediateHaulButtons) button.addEventListener('click', () => {
-  if (haulCommand && haulCommand.pawn === selectedPawn) hauling.request(haulCommand.pawn, haulCommand.source);
+  if (haulCommand && haulCommand.pawn === selectedPawn) { const {pawn,source}=haulCommand; if('type' in source)hauling.request(pawn,source);else butchery.request(pawn,source); }
   haulCommandWindow.close(); equipmentCommandWindow.close(); foodCommandWindow.close();
 });
 document.querySelector<HTMLButtonElement>('#close-haul-command')!.addEventListener('click', () => haulCommandWindow.close());
@@ -645,7 +693,7 @@ function openStorageSettings(box: Wall): void {
 for (const input of document.querySelectorAll<HTMLInputElement>('[data-storage-type]')) {
   input.addEventListener('change', () => {
     if (!configuredBox) return;
-    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true, rifle: true };
+    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true, rifle: true, meat: true, humanCorpse: true, deerCorpse: true };
     configuredBox.accepted[input.dataset.storageType as (typeof ITEM_TYPES)[number]] = input.checked;
   });
 }
@@ -682,8 +730,10 @@ collectionButton.addEventListener('click', () => {
 });
 
 acquisitionButton.addEventListener('click', () => {
-  const collect = ![...selectedItems].every(item => item.collect);
+  const corpses=selectedCorpses();
+  const collect = !([...selectedItems].every(item => item.collect)&&corpses.every(corpse=>corpse.collectCorpse));
   for (const item of selectedItems) item.collect = collect;
+  for (const corpse of corpses) corpse.collectCorpse=collect;
   updateItemSelection();
 });
 
@@ -695,8 +745,9 @@ function updateItemSelection(): void {
   const hasSelection = infoFocus !== null;
   itemInfoButton.hidden = !hasSelection;
   itemInfoButton.setAttribute('aria-label', infoFocus === 'deer' ? '動物のインフォメーション' : infoFocus === 'environment' ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
-  acquisitionButton.hidden = !selectedItems.size;
-  const acquire = selectedItems.size > 0 && [...selectedItems].every(item => item.collect);
+  const corpses=selectedCorpses();
+  acquisitionButton.hidden = !selectedItems.size&&!corpses.length;
+  const acquire = (selectedItems.size > 0||corpses.length>0) && [...selectedItems].every(item => item.collect)&&corpses.every(corpse=>corpse.collectCorpse);
   acquisitionButton.textContent = (environment ? '取得：' : '') + (acquire ? '取得' : '無視');
   acquisitionButton.setAttribute('aria-pressed', String(acquire));
   collectionButton.hidden = !environment;
@@ -705,6 +756,8 @@ function updateItemSelection(): void {
   for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = infoFocus !== 'item';
   for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = infoFocus !== 'environment';
   for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = infoFocus !== 'deer';
+  for (const element of document.querySelectorAll<HTMLElement>('[data-corpse-property]')) element.hidden=!(infoFocus==='deer'&&selectedDeer?.dead);
+  if(selectedDeer?.dead)setText(document.querySelector<HTMLElement>('#corpse-mass')!,`${ITEM_APPEARANCE.deerCorpse.massKg}kg`);
   for (const element of document.querySelectorAll<HTMLElement>('[data-weapon-property]')) element.hidden = infoFocus !== 'item' || selectedItem?.type !== 'rifle';
   itemSelection.visible = selectedItems.size > 0;
   itemSelection.clear();
@@ -787,12 +840,14 @@ let selectedConstruction: ConstructionKind | null = null;
 let demolitionSelected = false;
 const demolitionButton = document.querySelector<HTMLButtonElement>('#demolition-button')!;
 const demolitionMarks = new Map<Wall, Graphics>();
-const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood' };
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood' };
+let stationOrientation: 0 | 1 = 0;
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
 const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
 const constructionChoices = [
+  { kind: 'butcher' as const, tabId: '#workshops-tab', optionsId: '#workshop-options', buttonId: '#butcher-button', materialsId: '#butcher-materials' },
   { kind: 'wall' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#wall-button', materialsId: '#wall-materials' },
   { kind: 'storageArea' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-area-button', materialsId: '#storage-area-materials' },
   { kind: 'storage' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-button', materialsId: '#storage-materials' },
@@ -807,7 +862,7 @@ const constructionChoices = [
 function updateConstructionLabels(): void {
   for (const choice of constructionChoices) {
     if (choice.kind === 'storageArea') { choice.button.textContent = '保管エリア'; continue; }
-    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'storage' ? '保管箱' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
+    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
   }
 }
 updateConstructionLabels();
@@ -828,6 +883,8 @@ function selectConstruction(kind: ConstructionKind | null): void {
   app.canvas.style.cursor = kind ? 'crosshair' : '';
   stopDrawing();
   cancelSelectionDrag();
+  stationPreview.visible = kind === 'butcher';
+  drawStationPreview();
   if (kind) {
     clearSelection();
     updateItemSelection();
@@ -874,7 +931,7 @@ for (const choice of constructionChoices) {
   });
   choice.button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    if (choice.kind === 'storage' || choice.kind === 'storageArea') return;
+    if (choice.kind === 'storage' || choice.kind === 'storageArea' || choice.kind === 'butcher') return;
     const opening = choice.materials.hidden;
     hideMaterials();
     choice.materials.hidden = !opening;
@@ -908,7 +965,7 @@ demolitionButton.addEventListener('click', () => {
 });
 
 function markDemolition(tile: Tile): void {
-  const target = walls.items.get(`${tile.column},${tile.row}`);
+  const target = walls.at(tile);
   if (!target || target.state !== 'completed' || (target.kind !== 'wall' && target.kind !== 'storage') || target.demolition) return;
   target.demolition = true;
   const mark = new Graphics().moveTo(4, 4).lineTo(TILE_SIZE - 4, TILE_SIZE - 4)
@@ -928,20 +985,35 @@ function completeDemolition(tile: Tile): boolean {
   constructionProgressViews.delete(key);
   demolitionMarks.get(target)?.destroy();
   demolitionMarks.delete(target);
+  for (const corpse of target.storedCorpses ?? []) {
+    corpse.corpseStorage=undefined;
+    const carrier={movement:createMovement(target),mode:'automatic' as const,inventory:null,job:null,retrySeconds:0,carryingCorpse:corpse};
+    carrier.movement.stopBlocked=tile=>pawnOccupancy.occupied(tile);
+    corpse.corpseCarrier=carrier;
+    if(!butchery.dropCorpse(carrier)){corpse.corpseCarrier=undefined;corpse.deadPosition={column:target.column,row:target.row};corpse.movement.tile={...corpse.deadPosition};corpse.movement.destination={...corpse.deadPosition};pawnOccupancy.track(corpse.movement);}
+  }
+  target.storedCorpses=[];
   if (configuredBox === target) { configuredBox = null; storageSettings.close(); }
   return true;
 }
 
 function placeConstruction(tile: Tile): void {
   if (!selectedConstruction) return;
-  const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction);
+  const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction, stationOrientation);
   if (!wall) return;
-  const environment = environmentObjects.find((object) => !object.collected && object.column === tile.column && object.row === tile.row);
-  if (environment) environment.collect = true;
+  for (const cell of footprint(wall)) {
+    const environment = environmentByTile.get(`${cell.column},${cell.row}`);
+    if (environment && !environment.collected) environment.collect = true;
+  }
   const lowerHalf = wall.kind === 'barricade';
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
     .fill(WALL_COLORS[wall.material]);
+  if (wall.kind === 'butcher') {
+    view.clear();
+    for (const cell of footprint(wall)) view.rect((cell.column-tile.column)*TILE_SIZE, (cell.row-tile.row)*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+    view.fill(0x9c7953).rect(2,2,TILE_SIZE-4,TILE_SIZE-4).fill(0xb1a091).stroke({color:0x43392f,width:2});
+  }
   if (wall.kind === 'storageArea') view.clear().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2).fill({ color: 0xd7b97d, alpha: 0.15 }).stroke({ color: 0xd7b97d, width: 1 });
   if (wall.kind === 'storage') view.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).stroke({ color: 0xd7b97d, width: 2 }).moveTo(2, 8).lineTo(TILE_SIZE - 2, 8).stroke({ color: 0xd7b97d, width: 1 }).rect(10, 7, 4, 5).fill(0xd7b97d);
   view.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
@@ -958,15 +1030,15 @@ function placeConstruction(tile: Tile): void {
 
 // Finalize only when no pawn or active route would be trapped by the new structure.
 export function completeConstruction(tile: Tile): boolean {
-  const item = walls.items.get(`${tile.column},${tile.row}`);
+  const item = walls.at(tile);
   if (!item || item.state === 'completed') return false;
   if (needsClearing(tile)) return false;
-  const sameTile = (entry: Tile): boolean => entry.column === tile.column && entry.row === tile.row;
-  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage') && sameTile(entry));
+  const sameTile = (entry: Tile): boolean => footprint(item).some(cell => entry.column === cell.column && entry.row === cell.row);
+  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher') && sameTile(entry));
   const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
-  if ([...pawns, ...wildlife.deer].some(({ movement }) => {
+  if ([...pawns, ...wildlife.deer].filter(pawn => !pawn.consumed && !pawn.corpseCarrier && !pawn.corpseStation && !pawn.corpseStorage).some(({ movement }) => {
     const occupied = [movement.tile, movement.nextTile, movement.destination];
-    if ((item.kind === 'wall' || item.kind === 'storage') && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
+    if ((item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher') && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
       occupied.push(
         { column: movement.nextTile.column, row: movement.tile.row },
         { column: movement.tile.column, row: movement.nextTile.row },
@@ -992,8 +1064,8 @@ function removeConstructionPlan(tile: Tile): boolean {
     if (pawn.job?.target === removed) construction.cancel(pawn);
     if (pawn.clearJob?.target === removed) clearing.cancel(pawn);
   }
-  returnItems(mapItems, tile, removed.material, removed.delivered);
-  const key = `${tile.column},${tile.row}`;
+  returnItems(mapItems, removed, removed.material, removed.delivered);
+  const key = `${removed.column},${removed.row}`;
   wallViews.get(key)?.destroy();
   wallViews.delete(key);
   constructionProgressViews.get(key)?.view.destroy({ children: true });
@@ -1034,6 +1106,7 @@ function applyCamera(): void {
 }
 
 window.addEventListener('keydown', (event) => {
+  if (event.code === 'KeyR' && selectedConstruction === 'butcher' && !event.repeat && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); stationOrientation = stationOrientation ? 0 : 1; drawStationPreview(); }
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) {
     event.preventDefault();
     cameraKeys.add(event.code);
@@ -1075,7 +1148,8 @@ function drawWalls(event: PointerEvent): void {
     previousDragTile = null;
     return;
   }
-  for (const entry of dragTiles(previousDragTile ?? tile, tile)) placeConstruction(entry);
+  if (selectedConstruction === 'butcher') { if (!previousDragTile) placeConstruction(tile); }
+  else for (const entry of dragTiles(previousDragTile ?? tile, tile)) placeConstruction(entry);
   previousDragTile = tile;
 }
 
@@ -1094,9 +1168,11 @@ function cancelSelectionDrag(): void {
 
 function hitSelection(event: MouseEvent) {
   const { x, y } = mapPosition(event);
-  const pawn = [...pawns].reverse().find(({ view }) => Math.abs(view.x - x) <= TILE_SIZE * .45 && Math.abs(view.y - y) <= TILE_SIZE * .45);
+  const building = walls.at({column:Math.floor(x/TILE_SIZE),row:Math.floor(y/TILE_SIZE)});
+  if (building?.kind === 'butcher' && building.state === 'completed') return {kind:'station' as const,value:building};
+  const pawn = [...pawns].reverse().find(({ view, consumed, corpseCarrier, corpseStation, corpseStorage }) => !consumed && !corpseCarrier && !corpseStation && !corpseStorage && Math.abs(view.x - x) <= TILE_SIZE * .45 && Math.abs(view.y - y) <= TILE_SIZE * .45);
   if (pawn) return { kind: 'pawn' as const, value: pawn };
-  const deer = [...deerViews].reverse().find(([, { view }]) => Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0];
+  const deer = [...deerViews].reverse().find(([deer, { view }]) => !deer.consumed && !deer.corpseCarrier && !deer.corpseStation && Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0];
   if (deer) return { kind: 'deer' as const, value: deer };
   const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
   if (walls.isBlocked(tile)) return null;
@@ -1109,7 +1185,8 @@ function hitSelection(event: MouseEvent) {
 function selectHit(event: MouseEvent, additive: boolean, nearby = false): void {
   const hit = hitSelection(event);
   if (!additive) clearSelection();
-  if (hit?.kind === 'pawn') { selectedPawns.add(hit.value); selectedPawn = hit.value; }
+  if (hit?.kind === 'station') { clearSelection(); selectedStation = hit.value; pawnPanelLayoutDirty=true; }
+  else if (hit?.kind === 'pawn') { selectedPawns.add(hit.value); selectedPawn = hit.value; }
   else if (hit?.kind === 'deer') { selectedDeerSet.add(hit.value); selectedDeer = hit.value; infoFocus = 'deer'; }
   else if (hit?.kind === 'item') {
     for (const item of nearby ? nearbyItems(mapItems, hit.value) : [hit.value]) selectedItems.add(item);
@@ -1151,8 +1228,8 @@ function finishSelection(event: PointerEvent): void {
       return x >= Math.min(drag.start.x, drag.end.x) && x <= Math.max(drag.start.x, drag.end.x)
         && y >= Math.min(drag.start.y, drag.end.y) && y <= Math.max(drag.start.y, drag.end.y);
     };
-    for (const pawn of pawns) if (inside(pawn.view)) selectedPawns.add(pawn);
-    for (const [deer, { view }] of deerViews) if (inside(view)) selectedDeerSet.add(deer);
+    for (const pawn of pawns) if (!pawn.consumed && !pawn.corpseCarrier && !pawn.corpseStation && !pawn.corpseStorage && inside(pawn.view)) selectedPawns.add(pawn);
+    for (const [deer, { view }] of deerViews) if (!deer.consumed && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && inside(view)) selectedDeerSet.add(deer);
     refreshSelection();
   }
   cancelSelectionDrag();
@@ -1177,18 +1254,19 @@ app.canvas.addEventListener('pointerdown', (event) => {
       let commanded = false;
       for (const pawn of controlledSelection()) if (combat.requestAttack(pawn, target)) { pawn.manualMove = false; commanded = true; }
       if (commanded) { showAttackCommand(target); return; }
+      if (target.dead && !target.consumed && selectedPawn?.mode==='automatic' && !selectedPawn.dead && isPlayerControlled(selectedPawn)) { openHaulCommand(selectedPawn,target,event);return; }
     }
     if (selectedPawn && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
       const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
       const source = [...mapItems].reverse().find(item => item.type === 'rifle' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
-        ?? (walls.items.get(`${tile.column},${tile.row}`)?.kind === 'storageArea' ? storage.sources('rifle').find(item => item.column === tile.column && item.row === tile.row) : undefined);
+        ?? (walls.at(tile)?.kind === 'storageArea' ? storage.sources('rifle').find(item => item.column === tile.column && item.row === tile.row) : undefined);
       if (source) { openEquipmentCommand(selectedPawn, source, event); return; }
     }
   }
   if (event.button === 2 && selectedPawn && isPlayerControlled(selectedPawn) && !selectedPawn.dead) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
-    const source = [...mapItems].reverse().find(item => item.type === 'strawberry' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
-      ?? (walls.items.get(`${tile.column},${tile.row}`)?.kind === 'storageArea' ? storage.sources('strawberry').find(item => item.column === tile.column && item.row === tile.row) : undefined);
+    const source = [...mapItems].reverse().find(item => foodNutrition(item.type) > 0 && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
+      ?? (walls.at(tile)?.kind === 'storageArea' ? [...storage.sources('strawberry'), ...storage.sources('meat')].find(item => item.column === tile.column && item.row === tile.row) : undefined);
     if (source) { openFoodCommand(selectedPawn, source, event); return; }
   }
   if (event.button === 2 && selectedPawn?.mode === 'automatic' && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
@@ -1229,6 +1307,7 @@ app.canvas.addEventListener('dblclick', event => {
   if (!selectedConstruction && !demolitionSelected) selectHit(event, event.shiftKey, true);
 });
 app.canvas.addEventListener('pointermove', event => {
+  if (selectedConstruction === 'butcher') { stationPreviewPoint = mapPosition(event); drawStationPreview(); }
   if (drawingPointer === event.pointerId && selectedConstruction) drawWalls(event);
   else updateSelectionDrag(event);
 });
@@ -1295,6 +1374,57 @@ function updateAttackRanges(): void {
   }
 }
 
+const stationPreview = new Graphics();
+stationPreview.eventMode = 'none'; stationPreview.visible = false; map.addChild(stationPreview);
+let stationPreviewPoint = {x:MAP_PIXELS/2,y:MAP_PIXELS/2};
+function drawStationPreview(): void {
+  stationPreview.clear();
+  if (selectedConstruction !== 'butcher') { stationPreview.visible = false; return; }
+  stationPreview.visible = true;
+  const center = {column:Math.floor(stationPreviewPoint.x/TILE_SIZE),row:Math.floor(stationPreviewPoint.y/TILE_SIZE),kind:'butcher' as const,orientation:stationOrientation};
+  const cells = footprint(center);
+  const valid = cells.every(cell => cell.column>=0&&cell.row>=0&&cell.column<MAP_SIZE&&cell.row<MAP_SIZE&&!walls.at(cell));
+  for (const cell of cells) stationPreview.rect(cell.column*TILE_SIZE,cell.row*TILE_SIZE,TILE_SIZE,TILE_SIZE);
+  stationPreview.fill({color:valid?0xfff2a3:0xdc3548,alpha:.15}).stroke({color:valid?0xfff2a3:0xdc3548,width:1});
+}
+const stationInfo = document.querySelector<HTMLElement>('#station-info')!;
+const stationStatus = document.querySelector<HTMLElement>('#station-status')!;
+const stationWorkWindow = document.querySelector<HTMLDialogElement>('#station-work')!;
+let workStation: Wall | null = null;
+const billCount = document.querySelector<HTMLElement>('#butcher-count')!;
+const meatTarget = document.querySelector<HTMLInputElement>('#meat-target')!;
+function updateStationInfo(): void {
+  stationInfo.hidden = !selectedStation;
+  if (selectedStation && pawnPanelLayoutDirty) {
+    let top = window.innerHeight-40;
+    for (const menu of pawnPanelMenus) if (!menu.hidden) top=Math.min(top,menu.getBoundingClientRect().top);
+    stationInfo.style.bottom = `${window.innerHeight-top}px`;
+    pawnPanelLayoutDirty=false;
+  }
+  if (selectedStation) {
+    const state=selectedStation.butcher!;
+    setText(stationStatus,state.corpse?`解体進捗：${Math.round(state.seconds/5*100)}%`:'死体なし');
+  }
+  if (stationWorkWindow.open && workStation?.butcher) {
+    const state=workStation.butcher;
+    setText(billCount,state.mode==='forever'?'∞':state.mode==='until'?`肉 ${butchery.meatStock()} / ${state.target}`:String(state.remaining));
+    setAttribute(billCount,'data-zero',String(state.mode==='count'&&state.remaining===0));
+    setAttribute(document.querySelector<HTMLElement>('#repeat-until')!,'aria-pressed',String(state.mode==='until'));
+    setAttribute(document.querySelector<HTMLElement>('#repeat-forever')!,'aria-pressed',String(state.mode==='forever'));
+  }
+}
+document.querySelector<HTMLButtonElement>('#station-work-button')!.addEventListener('click',()=>{
+  if (!selectedStation) return;
+  workStation=selectedStation; meatTarget.value=String(workStation.butcher!.target);
+  if (!stationWorkWindow.open) stationWorkWindow.show(); updateStationInfo();
+});
+for (const [selector,amount] of [['#butcher-once',1],['#butcher-plus',1],['#butcher-minus',-1]] as const) document.querySelector<HTMLButtonElement>(selector)!.addEventListener('click',()=>{if(workStation?.butcher){adjustButcherCount(workStation.butcher,amount);updateStationInfo();}});
+document.querySelector<HTMLButtonElement>('#repeat-until')!.addEventListener('click',()=>{if(workStation?.butcher){workStation.butcher.target=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(Number(meatTarget.value)||0)));workStation.butcher.mode='until';updateStationInfo();}});
+meatTarget.addEventListener('change',()=>{if(workStation?.butcher)workStation.butcher.target=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(Number(meatTarget.value)||0)));});
+document.querySelector<HTMLButtonElement>('#repeat-forever')!.addEventListener('click',()=>{if(workStation?.butcher){workStation.butcher.mode='forever';updateStationInfo();}});
+document.querySelector<HTMLButtonElement>('#close-station-work')!.addEventListener('click',()=>stationWorkWindow.close());
+stationWorkWindow.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();stationWorkWindow.close();}});
+
 const simulationClock = new SimulationClock();
 const speedButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-game-speed]')];
 for (const button of speedButtons) {
@@ -1326,10 +1456,12 @@ app.ticker.add((ticker) => {
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
     plantGrowth.update(seconds);
     for (const pawn of pawns) {
-      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource);
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse);
+      if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
       const commanding = combat.update(pawn, seconds, pawns);
-      if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
-      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
+      if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');
+      else if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
+      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     wildlife.update(seconds, pawnOccupies);
@@ -1339,7 +1471,10 @@ app.ticker.add((ticker) => {
   updateMovementPaths();
   updateAttackRanges();
   for (const pawn of pawns) {
-    const position = pawn.deadPosition ?? renderedPosition(pawn.movement);
+    const position = pawn.dead ? corpsePosition(pawn) : renderedPosition(pawn.movement);
+    pawn.view.visible = !pawn.consumed && !pawn.corpseStorage;
+    pawn.corpseIcon.visible = Boolean(pawn.dead&&pawn.collectCorpse&&!pawn.consumed&&!pawn.corpseCarrier&&!pawn.corpseStation&&!pawn.corpseStorage);
+    pawn.corpseIcon.position.set(pawn.view.x,pawn.view.y-8);
     pawn.view.rotation = pawn.dead ? Math.PI / 2 : 0;
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     pawn.weaponView.visible = pawn.weapon === 'rifle';
@@ -1352,7 +1487,7 @@ app.ticker.add((ticker) => {
   }
   if (foodCommandWindow.open && (!foodCommand || foodCommand.pawn !== selectedPawn || foodCommand.pawn.dead || foodCommand.source.quantity <= 0)) foodCommandWindow.close();
   if (equipmentCommandWindow.open && (!equipmentCommand || equipmentCommand.pawn !== selectedPawn || equipmentCommand.pawn.dead || equipmentCommand.source.quantity <= 0)) equipmentCommandWindow.close();
-  if (haulCommandWindow.open && (!haulCommand || haulCommand.pawn !== selectedPawn || haulCommand.pawn.dead || haulCommand.pawn.mode !== 'automatic' || haulCommand.source.quantity <= 0)) haulCommandWindow.close();
+  if (haulCommandWindow.open && (!haulCommand || haulCommand.pawn !== selectedPawn || haulCommand.pawn.dead || haulCommand.pawn.mode !== 'automatic' || ('type' in haulCommand.source ? haulCommand.source.quantity<=0 : haulCommand.source.consumed))) haulCommandWindow.close();
   updateStorageSettings();
   updateStoredItemViews();
   updateConstructionProgress();
@@ -1361,6 +1496,7 @@ app.ticker.add((ticker) => {
   updateObjectProperties();
   updatePawnModeButton();
   updateItemSummary();
+  updateStationInfo();
 });
 
 app.renderer.on('resize', applyCamera);
