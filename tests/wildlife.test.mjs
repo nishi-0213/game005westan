@@ -108,6 +108,7 @@ test('deer cannot exit through an enclosure and retry once an edge becomes reach
 test('starvation and death release a deer harvest claim and prevent further actions', () => {
   const s = scene(); s.berry(); s.deer.needs.satiety = 19; s.tick(0);
   s.deer.needs.satiety = 0; s.deer.needs.health = 1; s.tick(1);
+  assert.equal(s.deer.dead, undefined); assert.equal(s.deer.hp, 100); s.tick(10);
   assert.equal(s.deer.dead, true); assert.equal(deerAction(s.deer), '死亡');
   assert.equal(s.harvesting.claims.size, 0);
   const tile = { ...s.deer.movement.tile }; s.tick(100); assert.deepEqual(s.deer.movement.tile, tile);

@@ -1,7 +1,7 @@
 import type { Clearing, ClearanceJob } from './clearing';
 import type { Builder } from './construction';
 import type { ItemType, MapItem } from './items';
-import { ITEM_APPEARANCE, PAWN_CARRY_LIMIT_KG } from './items.ts';
+import { carryCapacity } from './items.ts';
 import type { Movement, Tile } from './movement';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -96,7 +96,7 @@ export class Hauling {
     if (!sameTile(movement.tile, active.goal)) { this.cancel(worker); return; }
     if (active.phase === 'pickup') {
       const source = active.source!;
-      const quantity = Math.min(source.quantity, this.storage.capacity(active.target, source.type), Math.floor(PAWN_CARRY_LIMIT_KG / ITEM_APPEARANCE[source.type].massKg));
+      const quantity = Math.min(source.quantity, this.storage.capacity(active.target, source.type), carryCapacity(worker, source.type));
       worker.inventory = { type: source.type, quantity };
       source.quantity -= quantity;
       this.claims.delete(source);

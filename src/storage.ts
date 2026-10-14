@@ -30,14 +30,14 @@ export class Storage {
   }
 
   totals(): Record<ItemType, number> {
-    const totals = { wood: 0, stone: 0, strawberry: 0 };
+    const totals = { wood: 0, stone: 0, strawberry: 0, rifle: 0 };
     for (const box of this.boxes()) for (const type of ITEM_TYPES) totals[type] += box.stored?.[type] ?? 0;
     return totals;
   }
 
   deposit(box: Wall, type: ItemType, quantity: number): number {
     if (!this.accepts(box, type) || quantity <= 0) return 0;
-    box.stored ??= { wood: 0, stone: 0, strawberry: 0 };
+    box.stored ??= { wood: 0, stone: 0, strawberry: 0, rifle: 0 };
     const deposited = Math.min(quantity, this.capacity(box, type));
     box.stored[type] = (box.stored[type] ?? 0) + deposited;
     return deposited;

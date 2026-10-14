@@ -1,5 +1,5 @@
 import type { MapItem, ItemType } from './items';
-import { ITEM_APPEARANCE, PAWN_CARRY_LIMIT_KG, returnItems } from './items.ts';
+import { carryCapacity, returnItems } from './items.ts';
 import { findPath, findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
@@ -10,6 +10,7 @@ import type { Storage } from './storage';
 
 export interface Builder {
   movement: Movement;
+  weapon?: 'unarmed' | 'rifle';
   mode: 'drafted' | 'automatic';
   inventory: { type: ItemType; quantity: number } | null;
   job: { target: Wall; phase: 'gather' | 'deliver' | 'build' | 'demolish'; source?: MapItem; goal: Tile } | null;
@@ -170,7 +171,7 @@ export class Construction {
     if (job.phase === 'gather') {
       const source = job.source!;
       if (source.quantity <= 0) { this.cancel(builder); return; }
-      const quantity = Math.min(source.quantity, Math.floor(PAWN_CARRY_LIMIT_KG / ITEM_APPEARANCE[source.type].massKg));
+      const quantity = Math.min(source.quantity, carryCapacity(builder, source.type));
       builder.inventory = { type: source.type, quantity };
       source.quantity -= quantity;
       if (!this.assignDelivery(builder, work)) this.cancel(builder);

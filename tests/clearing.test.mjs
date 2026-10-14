@@ -28,7 +28,7 @@ test('stone relocation takes repeated20kg trips and preserves every item and acq
  const s=scene([{column:3,row:3,type:'stone',quantity:8,collect:true}]);let max=0;for(let i=0;i<150;i++){s.tick();max=Math.max(max,(s.worker.inventory?.quantity??0)*4);}assert.equal(max,20);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items).stone,8);assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.collect));
 });
 test('existing carried material is dropped safely before lifting a different kind of obstructing item',()=>{
- const s=scene([{column:3,row:3,type:'stone',quantity:2}]);s.worker.inventory={type:'wood',quantity:7};s.tick(100);assert.equal(s.plan.state,'completed');assert.deepEqual(countItems(s.items),{wood:7,stone:2,strawberry:0});
+ const s=scene([{column:3,row:3,type:'stone',quantity:2}]);s.worker.inventory={type:'wood',quantity:7};s.tick(100);assert.equal(s.plan.state,'completed');assert.deepEqual(countItems(s.items),{wood:7,stone:2,strawberry:0,rifle:0});
 });
 test('no safe reachable placement means no pickup and no construction',()=>{
  const s=scene([{column:3,row:3,type:'wood',quantity:5}]);for(let r=0;r<10;r++)for(let c=0;c<10;c++)if(c!==3||r!==3)s.walls.plan({column:c,row:r},'wood');s.tick(20);assert.equal(s.items[0].quantity,5);assert.equal(s.worker.inventory,null);assert.equal(s.plan.workSeconds,0);

@@ -44,7 +44,7 @@ export class Walls {
     const key = `${tile.column},${tile.row}`;
     if (this.items.has(key)) return null;
     const wall: Wall = { ...tile, material, kind, state: 'planned', delivered: 0, workSeconds: 0 };
-    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true }; }
+    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, rifle: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, rifle: true }; }
     this.items.set(key, wall);
     return wall;
   }

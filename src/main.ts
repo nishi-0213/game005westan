@@ -3,6 +3,8 @@ import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
 import { advancePathMovement } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
+import { Combat, WEAPONS, ATTACK_INTERVAL } from './combat';
+import type { CombatPawn, Weapon } from './combat';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
@@ -249,6 +251,8 @@ const spawnTiles = [
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
 const pawnNames = generatePawnNames(spawnTiles.length);
+const movementPathLayer = new Container();
+map.addChild(movementPathLayer);
 const pawns = spawnTiles.map(({ column, row, color }, index) => {
   const view = new Container();
   const selection = new Graphics()
@@ -265,10 +269,15 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   const heldItem = new Graphics().rect(4, 0, 6, 6).fill(0xffffff);
   heldItem.visible = false;
   view.addChild(heldItem);
+  const weaponView = new Graphics().rect(-9, 1, 15, 3).fill(0x46515b).rect(-10, 0, 5, 5).fill(0x916039).rect(0, 3, 3, 4).fill(0x46515b);
+  weaponView.visible = false;
+  view.addChild(weaponView);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
   const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
-  return { view, selection, heldItem, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  const movementPath = new Graphics();
+  movementPathLayer.addChild(movementPath);
+  return { view, selection, heldItem, weaponView, weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearing = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.items.get(`${tile.column},${tile.row}`)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -281,6 +290,7 @@ const clearing = new Clearing(mapItems, hauling);
 hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 const wildlife = new Wildlife(construction, harvesting, hauling);
+const combat = new Combat(construction, harvesting, hauling);
 const pawnOccupancy = new PawnOccupancy();
 for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
 wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
@@ -386,6 +396,10 @@ function setAttribute(element: HTMLElement, name: string, value: string): void {
 const pawnSpecsName = document.createElement('h2');
 const pawnSpecsAction = document.createElement('div');
 const pawnSpecsFaction = document.createElement('div');
+const pawnSpecsHp = document.createElement('div');
+const pawnSpecsWeapon = document.createElement('div');
+pawnSpecsWeapon.id = 'pawn-weapon';
+pawnSpecsHp.id = 'pawn-hp';
 const pawnSpecsInventory = document.createElement('div');
 pawnSpecsInventory.className = 'pawn-specs-inventory';
 const pawnSpecsItemIcon = document.createElement('span');
@@ -403,7 +417,7 @@ needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute
 pawnSpecsTabs.append(overviewTab, needsTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
-pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsInventory);
+pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnSpecsInventory);
 const pawnNeeds = document.createElement('div');
 pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
 const needsMeters = (['満腹感', '健康'] as const).map(label => {
@@ -482,7 +496,9 @@ function updatePawnPanels(): void {
   if (pawnSpecs.hidden !== hidden) pawnSpecs.hidden = hidden;
   if (!selectedPawn) return;
   setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
-  const action = selectedPawn.dead ? '死亡' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
+  setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
+  setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
+  const action = selectedPawn.dead ? '死亡' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? '攻撃中' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) {
     if (needsMeters[index].meter.value !== value) needsMeters[index].meter.value = value;
     setText(needsMeters[index].value, `${Math.round(value)}%`);
@@ -506,7 +522,7 @@ function updatePawnPanels(): void {
   }
 }
 dropInventoryButton.addEventListener('click', () => {
-  for (const pawn of controlledSelection()) if (pawn.inventory?.quantity) { hauling.cancel(pawn); harvesting.cancel(pawn); construction.requestDrop(pawn); }
+  for (const pawn of controlledSelection()) if (pawn.inventory?.quantity) { combat.cancel(pawn); pawn.manualMove = false; hauling.cancel(pawn); harvesting.cancel(pawn); construction.requestDrop(pawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
@@ -532,9 +548,24 @@ function updateObjectProperties(): void {
     setText(animalFaction, FACTIONS[selectedDeer.faction]);
     setText(animalAction, deerAction(selectedDeer));
     setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
-    setText(animalHp, `${Math.round(selectedDeer.needs.health)}%`);
+    setText(animalHp, `${Math.round(selectedDeer.hp ?? 100)}%`);
   }
 }
+
+const equipmentCommandWindow = document.querySelector<HTMLDialogElement>('#equipment-command')!;
+let equipmentCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
+function openEquipmentCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  equipmentCommand = { pawn, source };
+  equipmentCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
+  equipmentCommandWindow.style.top = `${Math.max(0, Math.min(event.clientY, window.innerHeight - 80))}px`;
+  if (!equipmentCommandWindow.open) equipmentCommandWindow.show();
+}
+document.querySelector<HTMLButtonElement>('#equip-button')!.addEventListener('click', () => {
+  if (equipmentCommand && combat.requestEquip(equipmentCommand.pawn, equipmentCommand.source)) equipmentCommand.pawn.manualMove = false;
+  equipmentCommandWindow.close();
+});
+document.querySelector<HTMLButtonElement>('#close-equipment-command')!.addEventListener('click', () => equipmentCommandWindow.close());
+equipmentCommandWindow.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); equipmentCommandWindow.close(); } });
 
 const foodCommandWindow = document.querySelector<HTMLDialogElement>('#food-command')!;
 let foodCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
@@ -545,7 +576,7 @@ function openFoodCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)
   if (!foodCommandWindow.open) foodCommandWindow.show();
 }
 document.querySelector<HTMLButtonElement>('#eat-now-button')!.addEventListener('click', () => {
-  if (foodCommand) requestEat(foodCommand.pawn, foodCommand.source, construction, harvesting, hauling);
+  if (foodCommand && requestEat(foodCommand.pawn, foodCommand.source, construction, harvesting, hauling)) { combat.cancel(foodCommand.pawn); foodCommand.pawn.manualMove = false; }
   foodCommandWindow.close();
 });
 document.querySelector<HTMLButtonElement>('#close-food-command')!.addEventListener('click', () => foodCommandWindow.close());
@@ -574,7 +605,7 @@ function openStorageSettings(box: Wall): void {
 for (const input of document.querySelectorAll<HTMLInputElement>('[data-storage-type]')) {
   input.addEventListener('change', () => {
     if (!configuredBox) return;
-    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true };
+    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true, rifle: true };
     configuredBox.accepted[input.dataset.storageType as (typeof ITEM_TYPES)[number]] = input.checked;
   });
 }
@@ -618,6 +649,7 @@ acquisitionButton.addEventListener('click', () => {
 
 function updateItemSelection(): void {
   foodCommandWindow.close();
+  equipmentCommandWindow.close();
   const environment = [...selectedEnvironment][0];
   const hasSelection = infoFocus !== null;
   itemInfoButton.hidden = !hasSelection;
@@ -632,6 +664,7 @@ function updateItemSelection(): void {
   for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = infoFocus !== 'item';
   for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = infoFocus !== 'environment';
   for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = infoFocus !== 'deer';
+  for (const element of document.querySelectorAll<HTMLElement>('[data-weapon-property]')) element.hidden = infoFocus !== 'item' || selectedItem?.type !== 'rifle';
   itemSelection.visible = selectedItems.size > 0;
   itemSelection.clear();
   for (const item of selectedItems) itemSelection.rect(item.column * TILE_SIZE + 1, item.row * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
@@ -642,6 +675,12 @@ function updateItemSelection(): void {
 
     itemPropertiesName.textContent = properties.name;
     itemPropertiesMass.textContent = `${properties.massKg}kg`;
+    if (selectedItem.type === 'rifle') {
+      setText(document.querySelector<HTMLElement>('#weapon-range')!, '半径16マス');
+      setText(document.querySelector<HTMLElement>('#weapon-damage')!, '40% / HIT');
+      setText(document.querySelector<HTMLElement>('#weapon-accuracy')!, '10%');
+      setText(document.querySelector<HTMLElement>('#weapon-interval')!, `${ATTACK_INTERVAL}秒`);
+    }
   } else if (infoFocus === 'environment' && environment) {
     const properties = ENVIRONMENT_PROPERTIES[environment.type];
     itemPropertiesName.textContent = properties.name;
@@ -653,7 +692,7 @@ function updateItemSelection(): void {
     animalFaction.textContent = FACTIONS[selectedDeer.faction];
     animalAction.textContent = deerAction(selectedDeer);
     animalSatiety.textContent = `${Math.round(selectedDeer.needs.satiety)}%`;
-    animalHp.textContent = `${Math.round(selectedDeer.needs.health)}%`;
+    animalHp.textContent = `${Math.round(selectedDeer.hp ?? 100)}%`;
   } else itemProperties.close();
   updateEnvironmentViews();
 }
@@ -687,6 +726,8 @@ pawnModeButton.addEventListener('click', () => {
   const mode = controlled.every(pawn => pawn.mode === 'drafted') ? 'automatic' : 'drafted';
   for (const pawn of controlled) {
     pawn.mode = mode;
+    pawn.manualMove = false;
+    combat.cancel(pawn);
     hauling.cancel(pawn); construction.cancel(pawn); harvesting.cancel(pawn);
     if (mode === 'automatic') stopAtNextSafeTile(pawn.movement, walls.cannotStop);
   }
@@ -1087,6 +1128,22 @@ app.canvas.addEventListener('pointerdown', (event) => {
     if (selectedConstruction) { selectConstruction(null); hideMaterials(); }
     return;
   }
+  if (event.button === 2) {
+    const hit = hitSelection(event);
+    const target = hit?.kind === 'pawn' || hit?.kind === 'deer' ? hit.value : null;
+    if (target) {
+      let commanded = false;
+      for (const pawn of controlledSelection()) if (combat.requestAttack(pawn, target)) { pawn.manualMove = false; commanded = true; }
+      if (commanded) showAttackCommand(target);
+      return;
+    }
+    if (selectedPawn && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
+      const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
+      const source = [...mapItems].reverse().find(item => item.type === 'rifle' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
+        ?? (walls.items.get(`${tile.column},${tile.row}`)?.kind === 'storageArea' ? storage.sources('rifle').find(item => item.column === tile.column && item.row === tile.row) : undefined);
+      if (source) { openEquipmentCommand(selectedPawn, source, event); return; }
+    }
+  }
   if (event.button === 2 && selectedPawn && isPlayerControlled(selectedPawn) && !selectedPawn.dead) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const source = [...mapItems].reverse().find(item => item.type === 'strawberry' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
@@ -1117,7 +1174,9 @@ app.canvas.addEventListener('pointerdown', (event) => {
   } else if (event.button === 2) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const movements = controlledSelection().filter(pawn => pawn.mode === 'drafted').map(pawn => pawn.movement);
+    const previousRoutes = new Map(movements.map(movement => [movement, movement.route]));
     for (const goal of commandGroup(movements, tile, MAP_SIZE, walls.isBlocked, walls.cannotStop, pawnOccupancy)) showDestination(goal.column, goal.row);
+    for (const pawn of selectedPawns) if (previousRoutes.has(pawn.movement) && pawn.movement.route !== previousRoutes.get(pawn.movement)) { pawn.manualMove = true; combat.cancel(pawn); pawn.eatJob = null; }
   }
 });
 app.canvas.addEventListener('dblclick', event => {
@@ -1130,6 +1189,37 @@ app.canvas.addEventListener('pointermove', event => {
 app.canvas.addEventListener('pointerup', event => { finishSelection(event); stopDrawing(); });
 for (const eventName of ['pointercancel', 'lostpointercapture'] as const) {
   app.canvas.addEventListener(eventName, () => { stopDrawing(); cancelSelectionDrag(); });
+}
+
+function showAttackCommand(target: CombatPawn): void {
+  const position = target.deadPosition ?? renderedPosition(target.movement);
+  const icon = new Graphics()
+    .moveTo(-7, -8).lineTo(6, 6).moveTo(7, -8).lineTo(-6, 6).stroke({ color: 0xffffff, width: 2.5 })
+    .moveTo(2, 7).lineTo(7, 2).moveTo(-2, 7).lineTo(-7, 2).stroke({ color: 0xf2c66d, width: 2 })
+    .moveTo(5, 5).lineTo(9, 9).moveTo(-5, 5).lineTo(-9, 9).stroke({ color: 0x916039, width: 3 });
+  icon.position.set((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
+  destinationMarkerLayer.addChild(icon);
+  destinationMarkers.push({ view: icon, ageSeconds: 0 });
+}
+
+function updateMovementPaths(): void {
+  for (const pawn of pawns) {
+    const movement = pawn.movement;
+    const moving = movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row;
+    if (!pawn.manualMove || pawn.mode !== 'drafted' || pawn.dead || !moving || pawn.eatJob || pawn.attackJob || pawn.equipJob) {
+      if (pawn.pathSignature) { pawn.movementPath.clear(); pawn.pathSignature = ''; }
+      if (!moving || pawn.dead || pawn.mode !== 'drafted') pawn.manualMove = false;
+      continue;
+    }
+    const position = renderedPosition(movement);
+    const tiles = [position, ...(movement.nextTile ? [movement.nextTile] : []), ...(movement.route ?? [])];
+    const signature = tiles.map(tile => `${tile.column},${tile.row}`).join(';');
+    if (signature === pawn.pathSignature) continue;
+    pawn.pathSignature = signature;
+    pawn.movementPath.clear().moveTo((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
+    for (const tile of tiles.slice(1)) pawn.movementPath.lineTo((tile.column + .5) * TILE_SIZE, (tile.row + .5) * TILE_SIZE);
+    pawn.movementPath.stroke({ color: 0xffffff, width: 1.5, alpha: .85 });
+  }
 }
 
 const simulationClock = new SimulationClock();
@@ -1163,17 +1253,20 @@ app.ticker.add((ticker) => {
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
     plantGrowth.update(seconds);
     for (const pawn of pawns) {
-      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds);
-      if (!eating) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob);
+      const commanding = combat.update(pawn, seconds);
+      if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     wildlife.update(seconds, pawnOccupies);
     for (const deer of wildlife.deer) if (!deer.dead) advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
   });
+  updateMovementPaths();
   for (const pawn of pawns) {
     const position = pawn.deadPosition ?? renderedPosition(pawn.movement);
     pawn.view.rotation = pawn.dead ? Math.PI / 2 : 0;
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
+    pawn.weaponView.visible = pawn.weapon === 'rifle';
     pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);
     if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
   }
@@ -1182,6 +1275,7 @@ app.ticker.add((ticker) => {
     entry.portrait.style.transform = entry.dead ? 'rotate(90deg)' : '';
   }
   if (foodCommandWindow.open && (!foodCommand || foodCommand.pawn !== selectedPawn || foodCommand.pawn.dead || foodCommand.source.quantity <= 0)) foodCommandWindow.close();
+  if (equipmentCommandWindow.open && (!equipmentCommand || equipmentCommand.pawn !== selectedPawn || equipmentCommand.pawn.dead || equipmentCommand.source.quantity <= 0)) equipmentCommandWindow.close();
   updateStorageSettings();
   updateStoredItemViews();
   updateConstructionProgress();

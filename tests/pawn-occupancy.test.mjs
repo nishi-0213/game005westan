@@ -142,7 +142,7 @@ test('a pawn dying while passing another pawn leaves its body in an unoccupied c
   const s=scene(), a=s.worker(2,2), b=s.worker(3,2);
   commandMove(a.movement,tile(5,2),12,s.walls.isBlocked,s.walls.cannotStop);
   s.move(a,.3);assert.deepEqual(a.movement.tile,b.movement.tile);
-  a.needs.satiety=0;a.needs.health=.01;
+  a.needs.satiety=0;a.needs.health=.01;a.hp=.5;
   updateNeeds(a,s.construction,s.harvesting,s.hauling,.1);
   assert.equal(a.dead,true);
   assert.notDeepEqual(a.movement.tile,b.movement.tile);

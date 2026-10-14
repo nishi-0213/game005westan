@@ -10,6 +10,7 @@ import type { Path } from './pathfinding';
 export interface Needs { satiety: number; health: number }
 export type EatingWorker = HarvestWorker & HaulWorker & {
   needs: Needs;
+  hp?: number;
   dead?: boolean;
   deadPosition?: Tile;
   eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number } | null;
@@ -25,39 +26,48 @@ function interruptWork(worker: EatingWorker, construction: Construction, harvest
   construction.cancel(worker); harvesting.cancel(worker); hauling.cancel(worker);
 }
 
+export function killPawn(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling): void {
+  if (worker.dead) return;
+  worker.hp = 0;
+  worker.deadPosition = renderedPosition(worker.movement);
+  let restingTile = worker.movement.tile;
+  if (worker.movement.stopBlocked?.(restingTile)
+    || worker.movement.nextTile && worker.movement.stopBlocked?.(worker.movement.nextTile)) {
+    // A pawn dying during a crossing must not leave a body on another pawn.
+    const walls = construction.walls;
+    const paths = findPaths(worker.movement.nextTile ?? restingTile, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
+    let nearestDistance = Infinity;
+    for (const index of paths.keys()) {
+      const tile = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
+      const distance = Math.hypot(tile.column - worker.deadPosition.column, tile.row - worker.deadPosition.row);
+      if (distance < nearestDistance) { nearestDistance = distance; restingTile = tile; }
+    }
+    worker.deadPosition = { ...restingTile };
+  }
+  worker.dead = true;
+  interruptWork(worker, construction, harvesting, hauling);
+  worker.eatJob = null;
+  worker.dropRequested = false;
+  worker.movement.tile = { ...restingTile };
+  worker.movement.nextTile = null;
+  worker.movement.progress = 0;
+  worker.movement.destination = { ...worker.movement.tile };
+  worker.movement.route = [];
+  worker.movement.changed?.();
+}
+
 export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true): boolean {
   if (worker.dead) return true;
   const elapsed = Math.max(0, seconds);
   const previousSatiety = worker.needs.satiety;
   worker.needs.satiety = Math.max(0, previousSatiety - elapsed * SATIETY_LOSS_PER_SECOND);
   const starvingSeconds = Math.max(0, elapsed - previousSatiety / SATIETY_LOSS_PER_SECOND);
-  worker.needs.health = Math.max(0, worker.needs.health - starvingSeconds);
-  if (worker.needs.health <= 0) {
-    worker.deadPosition = renderedPosition(worker.movement);
-    let restingTile = worker.movement.tile;
-    if (worker.movement.stopBlocked?.(restingTile)
-      || worker.movement.nextTile && worker.movement.stopBlocked?.(worker.movement.nextTile)) {
-      // A pawn dying during a crossing must not leave a body on another pawn.
-      const walls = construction.walls;
-      const paths = findPaths(worker.movement.nextTile ?? restingTile, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
-      let nearestDistance = Infinity;
-      for (const index of paths.keys()) {
-        const tile = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
-        const distance = Math.hypot(tile.column - worker.deadPosition.column, tile.row - worker.deadPosition.row);
-        if (distance < nearestDistance) { nearestDistance = distance; restingTile = tile; }
-      }
-      worker.deadPosition = { ...restingTile };
-    }
-    worker.dead = true;
-    interruptWork(worker, construction, harvesting, hauling);
-    worker.eatJob = null;
-    worker.dropRequested = false;
-    worker.movement.tile = { ...restingTile };
-    worker.movement.nextTile = null;
-    worker.movement.progress = 0;
-    worker.movement.destination = { ...worker.movement.tile };
-    worker.movement.route = [];
-    worker.movement.changed?.();
+  const previousHealth = worker.needs.health;
+  worker.needs.health = Math.max(0, previousHealth - starvingSeconds);
+  const unhealthySeconds = previousHealth <= 0 ? elapsed : Math.max(0, starvingSeconds - previousHealth);
+  worker.hp = Math.max(0, (worker.hp ?? 100) - unhealthySeconds * 10);
+  if (worker.hp <= 0) {
+    killPawn(worker, construction, harvesting, hauling);
     return true;
   }
   if (worker.dropRequested) { worker.eatJob = null; return false; }

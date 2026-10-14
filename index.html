@@ -31,6 +31,10 @@
       <h2 id="item-properties-name"></h2>
       <dl>
         <dt data-item-property>質量</dt><dd id="item-properties-mass" data-item-property></dd>
+        <dt data-weapon-property hidden>射程</dt><dd id="weapon-range" data-weapon-property hidden></dd>
+        <dt data-weapon-property hidden>ダメージ</dt><dd id="weapon-damage" data-weapon-property hidden></dd>
+        <dt data-weapon-property hidden>基礎命中率</dt><dd id="weapon-accuracy" data-weapon-property hidden></dd>
+        <dt data-weapon-property hidden>攻撃間隔</dt><dd id="weapon-interval" data-weapon-property hidden></dd>
         <dt data-environment-property hidden>収集速度</dt><dd id="environment-harvest-speed" data-environment-property hidden></dd>
         <dt data-environment-property hidden>収集量</dt><dd id="environment-harvest-quantity" data-environment-property hidden></dd>
         <dt data-environment-property hidden>HP</dt><dd id="environment-hp" data-environment-property hidden></dd>
@@ -81,10 +85,15 @@
       <label><input type="checkbox" data-storage-type="wood" checked />木材 <span id="stored-wood">0</span></label>
       <label><input type="checkbox" data-storage-type="stone" checked />石材 <span id="stored-stone">0</span></label>
       <label><input type="checkbox" data-storage-type="strawberry" checked />苺 <span id="stored-strawberry">0</span></label>
+      <label><input type="checkbox" data-storage-type="rifle" checked />ライフル <span id="stored-rifle">0</span></label>
     </dialog>
     <dialog id="food-command" aria-label="苺の操作">
       <button id="close-food-command" type="button" aria-label="苺の操作を閉じる">×</button>
       <button id="eat-now-button" type="button">今すぐ食べる</button>
+    </dialog>
+    <dialog id="equipment-command" aria-label="武器の操作">
+      <button id="close-equipment-command" type="button" aria-label="武器の操作を閉じる">×</button>
+      <button id="equip-button" type="button">装備する</button>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -10,7 +10,7 @@ export function demolishStructure(walls: Walls, items: MapItem[], tile: Tile): W
   if (!target || target.state !== 'completed' || !target.demolition || (target.kind !== 'wall' && target.kind !== 'storage')) return null;
   returnItems(items, tile, target.material, Math.floor(BUILD_RECIPES[target.kind]!.materialCount / 2));
   for (const type of ITEM_TYPES) returnItems(items, tile, type, target.stored?.[type] ?? 0);
-  target.stored = { wood: 0, stone: 0, strawberry: 0 };
+  target.stored = { wood: 0, stone: 0, strawberry: 0, rifle: 0 };
   target.state = 'cancelled';
   walls.items.delete(`${tile.column},${tile.row}`);
   invalidatePaths(walls.isBlocked);

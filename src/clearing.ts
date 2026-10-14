@@ -1,7 +1,7 @@
 import type { Builder } from './construction';
 import type { Hauling } from './hauling';
 import type { ItemType, MapItem } from './items';
-import { ITEM_APPEARANCE, PAWN_CARRY_LIMIT_KG, returnItems } from './items.ts';
+import { carryCapacity, returnItems } from './items.ts';
 import type { Tile } from './movement';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -123,7 +123,7 @@ export class Clearing {
       if (source.quantity <= 0 || !sameTile(source, job.target)) { this.cancel(worker); return; }
       const place = this.nearbyPlace(movement.tile, job.target, source.type, worker);
       if (!place) { this.cancel(worker); return; }
-      const quantity = Math.min(source.quantity, Math.floor(PAWN_CARRY_LIMIT_KG / ITEM_APPEARANCE[source.type].massKg));
+      const quantity = Math.min(source.quantity, carryCapacity(worker, source.type));
       source.quantity -= quantity;
       worker.inventory = { type: source.type, quantity };
       this.assignDrop(worker, job.target, Boolean(source.collect));
