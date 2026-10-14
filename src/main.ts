@@ -5,6 +5,8 @@ import { advancePathMovement } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { Combat, WEAPONS, ATTACK_INTERVAL } from './combat';
 import type { CombatPawn, Weapon } from './combat';
+import { AttackEffects } from './attack-effects';
+import { attackRangeEdges } from './attack-range';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
@@ -251,6 +253,8 @@ const spawnTiles = [
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
 const pawnNames = generatePawnNames(spawnTiles.length);
+const attackRangeLayer = new Container();
+map.addChild(attackRangeLayer);
 const movementPathLayer = new Container();
 map.addChild(movementPathLayer);
 const pawns = spawnTiles.map(({ column, row, color }, index) => {
@@ -275,9 +279,11 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
   const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
+  const attackRange = new Graphics();
+  attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, weaponView, attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearing = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.items.get(`${tile.column},${tile.row}`)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -538,6 +544,7 @@ const animalFaction = document.querySelector<HTMLElement>('#animal-faction')!;
 const animalAction = document.querySelector<HTMLElement>('#animal-action')!;
 const animalSatiety = document.querySelector<HTMLElement>('#animal-satiety')!;
 const animalHp = document.querySelector<HTMLElement>('#animal-hp')!;
+const animalHealth = document.querySelector<HTMLElement>('#animal-health')!;
 function updateObjectProperties(): void {
   if (!itemProperties.open) return;
   const environment = selectedEnvironment.values().next().value;
@@ -549,6 +556,7 @@ function updateObjectProperties(): void {
     setText(animalAction, deerAction(selectedDeer));
     setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
     setText(animalHp, `${Math.round(selectedDeer.hp ?? 100)}%`);
+    setText(animalHealth, `${Math.round(selectedDeer.needs.health)}%`);
   }
 }
 
@@ -693,6 +701,7 @@ function updateItemSelection(): void {
     animalAction.textContent = deerAction(selectedDeer);
     animalSatiety.textContent = `${Math.round(selectedDeer.needs.satiety)}%`;
     animalHp.textContent = `${Math.round(selectedDeer.hp ?? 100)}%`;
+    animalHealth.textContent = `${Math.round(selectedDeer.needs.health)}%`;
   } else itemProperties.close();
   updateEnvironmentViews();
 }
@@ -1222,6 +1231,33 @@ function updateMovementPaths(): void {
   }
 }
 
+const attackEffects = new AttackEffects(TILE_SIZE);
+map.addChild(attackEffects.view);
+combat.onAttack = event => {
+  attackEffects.show(event);
+  const pawn = pawns.find(pawn => pawn === event.attacker);
+  if (pawn && event.weapon === 'rifle') pawn.weaponView.rotation = Math.atan2(event.to.row - event.from.row, event.to.column - event.from.column);
+  if ('kind' in event.target && event.target.kind === 'deer') wildlife.flee(event.target as Deer, event.from);
+};
+
+function updateAttackRanges(): void {
+  for (const pawn of pawns) {
+    const visible = selectedPawns.has(pawn) && !pawn.dead && WEAPONS[pawn.weapon].range >= 1;
+    pawn.attackRange.visible = visible;
+    if (!visible) continue;
+    const tile = pawn.movement.tile;
+    const signature = `${pawn.weapon}:${tile.column},${tile.row}`;
+    if (signature === pawn.rangeSignature) continue;
+    pawn.rangeSignature = signature;
+    pawn.attackRange.clear();
+    for (const edge of attackRangeEdges(tile, pawn.weapon, MAP_SIZE)) {
+      pawn.attackRange.moveTo(edge.from.column * TILE_SIZE, edge.from.row * TILE_SIZE)
+        .lineTo(edge.to.column * TILE_SIZE, edge.to.row * TILE_SIZE);
+    }
+    pawn.attackRange.stroke({ color: 0xffffff, width: 1, alpha: .65 });
+  }
+}
+
 const simulationClock = new SimulationClock();
 const speedButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-game-speed]')];
 for (const button of speedButtons) {
@@ -1254,14 +1290,16 @@ app.ticker.add((ticker) => {
     plantGrowth.update(seconds);
     for (const pawn of pawns) {
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob);
-      const commanding = combat.update(pawn, seconds);
+      const commanding = combat.update(pawn, seconds, pawns);
       if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     wildlife.update(seconds, pawnOccupies);
+    attackEffects.update(seconds);
     for (const deer of wildlife.deer) if (!deer.dead) advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
   });
   updateMovementPaths();
+  updateAttackRanges();
   for (const pawn of pawns) {
     const position = pawn.deadPosition ?? renderedPosition(pawn.movement);
     pawn.view.rotation = pawn.dead ? Math.PI / 2 : 0;

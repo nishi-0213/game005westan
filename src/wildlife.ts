@@ -22,7 +22,9 @@ export interface Deer extends EatingWorker, FactionMember {
   exitGoal?: Tile;
   outsideGoal?: Tile;
   decisionSeconds: number;
+  fleeGoal?: Tile;
 }
+export const DEER_FLEE_DISTANCE = 8;
 const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row === b.row;
 const berries = (object: EnvironmentObject): boolean => object.type === 'wildStrawberry' && harvestYield(object) > 0;
 export function createDeer(tile: Tile, id: number): Deer {
@@ -33,6 +35,7 @@ export function createDeer(tile: Tile, id: number): Deer {
 
 export function deerAction(deer: Deer): string {
   if (deer.dead) return '死亡';
+  if (deer.fleeGoal) return '逃走中';
   if (deer.leaving) return 'マップ外へ移動中';
   if (deer.eatJob) return '食事中';
   if (deer.harvestJob) return deer.movement.nextTile || !sameTile(deer.movement.tile, deer.movement.destination) ? '収集へ移動中' : '収集中';
@@ -94,10 +97,43 @@ export class Wildlife {
 
   markForExit(deer: Deer): void {
     if (deer.dead || deer.departed || deer.leaving) return;
+    if (deer.fleeGoal) { deer.leaving = true; return; }
     this.harvesting.cancel(deer);
     deer.eatJob = null;
     deer.leaving = true;
     deer.decisionSeconds = 0;
+  }
+
+  flee(deer: Deer, attacker: Tile): boolean {
+    if (deer.dead || deer.departed) return false;
+    const walls = this.construction.walls;
+    const start = deer.movement.nextTile ?? deer.movement.tile;
+    let dc = start.column - attacker.column, dr = start.row - attacker.row;
+    if (!dc && !dr) { dc = 1; dr = 0; }
+    const length = Math.hypot(dc, dr);
+    const desired = { column: start.column + dc / length * DEER_FLEE_DISTANCE, row: start.row + dr / length * DEER_FLEE_DISTANCE };
+    const paths = findPaths(start, walls.mapSize, walls.isBlocked, walls.cannotStop, deer.movement);
+    let best: { goal: Tile; path: Path; error: number } | null = null;
+    let lateral: { goal: Tile; path: Path; error: number; radialError: number } | null = null;
+    for (const [index, path] of paths) {
+      const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
+      const projection = (goal.column - start.column) * dc + (goal.row - start.row) * dr;
+      const distance = Math.hypot(goal.column - start.column, goal.row - start.row);
+      if (projection < 0 || !distance || distance > DEER_FLEE_DISTANCE + 1e-9) continue;
+      const error = Math.hypot(goal.column - desired.column, goal.row - desired.row);
+      if (projection === 0) {
+        const radialError = Math.abs(DEER_FLEE_DISTANCE - distance);
+        if (!lateral || radialError < lateral.radialError || radialError === lateral.radialError && error < lateral.error) lateral = { goal, path, error, radialError };
+        continue;
+      }
+      if (!best || error < best.error || error === best.error && path.distance < best.path.distance) best = { goal, path, error };
+    }
+    best ??= lateral;
+    if (!best) return false;
+    this.harvesting.cancel(deer); this.hauling.cancel(deer); this.construction.cancel(deer);
+    deer.eatJob = null; deer.freeSeconds = 0;
+    deer.fleeGoal = best.goal;
+    return setRoute(deer.movement, best.path.tiles);
   }
 
   updateDeer(deer: Deer, seconds: number): void {
@@ -105,6 +141,11 @@ export class Wildlife {
     const walls = this.construction.walls;
     const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, false);
     if (deer.dead) return;
+    if (deer.fleeGoal) {
+      if (deer.movement.nextTile || !sameTile(deer.movement.tile, deer.movement.destination)) return;
+      deer.fleeGoal = undefined;
+      deer.freeSeconds = 0;
+    }
     if (deer.leaving) {
       this.updateExit(deer, seconds);
       return;
