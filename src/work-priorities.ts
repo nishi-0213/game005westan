@@ -4,8 +4,8 @@ import type { HarvestWorker } from './harvesting';
 import type { Harvesting } from './harvesting';
 import type { Construction } from './construction';
 import { isBuildingPhase } from './construction.ts';
-import { findPaths } from './pathfinding.ts';
-import { setRoute, stopAtNextSafeTile } from './movement.ts';
+import { stopAtNextSafeTile } from './movement.ts';
+import { updateRoaming } from './roaming.ts';
 
 export interface WorkPriorities { construction: number; harvesting: number; hauling?: number; free?: number }
 export type AutonomousWorker = HarvestWorker & HaulWorker & { priorities: WorkPriorities; dead?: boolean; freeSeconds?: number; freeActive?: boolean; decisionSeconds?: number; prioritySignature?: string; workTask?: string; transportTask?: 'clear' | 'deliver' | 'store' };
@@ -57,17 +57,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
     if (worker.harvestJob) harvesting.cancel(worker);
     if (worker.haulJob || worker.clearJob) hauling?.cancel(worker);
     worker.freeActive = true;
-    worker.freeSeconds = (worker.freeSeconds ?? 0) + freeElapsedSeconds;
-    const movement = worker.movement;
-    if (worker.freeSeconds >= 5 && !movement.nextTile && movement.tile.column === movement.destination.column && movement.tile.row === movement.destination.row) {
-      worker.freeSeconds %= 5;
-      const paths = findPaths(movement.tile, construction.walls.mapSize, construction.walls.isBlocked, construction.walls.cannotStop);
-      const nearby = [...paths.keys()].filter(index => {
-        const column = index % construction.walls.mapSize, row = Math.floor(index / construction.walls.mapSize);
-        return (column !== movement.tile.column || row !== movement.tile.row) && Math.abs(column - movement.tile.column) <= 3 && Math.abs(row - movement.tile.row) <= 3;
-      });
-      if (nearby.length) setRoute(movement, paths.get(nearby[Math.floor(random() * nearby.length)])!.tiles);
-    }
+    updateRoaming(worker, construction.walls, freeElapsedSeconds, random);
     return;
   }
   if (wasFree) stopAtNextSafeTile(worker.movement, construction.walls.cannotStop);

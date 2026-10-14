@@ -25,7 +25,7 @@ test('ignored items on a plan are relocated before building even with higher con
  assert.equal(s.plan.state,'completed');assert.deepEqual(countItems(s.items),totals);assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.column!==3||i.row!==3));assert.equal(s.worker.inventory,null);
 });
 test('stone relocation takes repeated20kg trips and preserves every item and acquisition flag',()=>{
- const s=scene([{column:3,row:3,type:'stone',quantity:8,collect:true}]);let max=0;for(let i=0;i<150;i++){s.tick();max=Math.max(max,(s.worker.inventory?.quantity??0)*10);}assert.equal(max,20);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items).stone,8);assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.collect));
+ const s=scene([{column:3,row:3,type:'stone',quantity:8,collect:true}]);let max=0;for(let i=0;i<150;i++){s.tick();max=Math.max(max,(s.worker.inventory?.quantity??0)*4);}assert.equal(max,20);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items).stone,8);assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.collect));
 });
 test('existing carried material is dropped safely before lifting a different kind of obstructing item',()=>{
  const s=scene([{column:3,row:3,type:'stone',quantity:2}]);s.worker.inventory={type:'wood',quantity:7};s.tick(100);assert.equal(s.plan.state,'completed');assert.deepEqual(countItems(s.items),{wood:7,stone:2,strawberry:0});

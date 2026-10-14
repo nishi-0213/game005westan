@@ -7,6 +7,7 @@ export interface EnvironmentObject extends Tile {
   collect: boolean;
   collected: boolean;
   workSeconds: number;
+  hp: number;
   clusterId?: number;
 }
 export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; material: ItemType; quantity: number; seconds: number }> = {
@@ -14,6 +15,15 @@ export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; mat
   wildStrawberry: { name: '野苺', material: 'strawberry', quantity: 5, seconds: 1 },
   rock: { name: '岩', material: 'stone', quantity: 8, seconds: 5 },
 };
+
+export function createEnvironment(type: EnvironmentType, tile: Tile): EnvironmentObject {
+  return { ...tile, type, collect: false, collected: false, workSeconds: 0, hp: type === 'rock' ? 100 : 1 };
+}
+
+export function harvestYield(object: EnvironmentObject): number {
+  const hp = Math.max(0, Math.min(100, object.hp ?? 100));
+  return Math.floor(ENVIRONMENT_PROPERTIES[object.type].quantity * hp / 100 + 1e-9);
+}
 
 export function initialEnvironment(size: number, random: () => number = Math.random): EnvironmentObject[] {
   const available: Tile[] = [];
@@ -47,7 +57,7 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
     if (!chain) continue;
     for (const tile of chain) {
       rockTiles.add(key(tile));
-      result.push({ ...tile, type: 'rock', clusterId, collect: false, collected: false, workSeconds: 0 });
+      result.push({ ...createEnvironment('rock', tile), clusterId });
     }
   }
   // Smooth value noise defines forest density; weighted sampling keeps sparse trees outside dense patches.
@@ -65,13 +75,13 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
   const trees = available.filter(tile => !rockTiles.has(key(tile))).map(tile => ({
     tile, score: -Math.log(Math.max(0.000001, random())) / (0.001 + density(tile) ** 6),
   })).sort((a, b) => a.score - b.score).slice(0, 24);
-  for (const { tile } of trees) result.push({ ...tile, type: 'tree', collect: false, collected: false, workSeconds: 0 });
+  for (const { tile } of trees) result.push(createEnvironment('tree', tile));
   const occupied = new Set(result.map(key));
   const berries = available.filter(tile => !occupied.has(key(tile)));
   for (let i = 0; i < 16 && berries.length; i++) {
     const index = Math.floor(random() * berries.length);
     const tile = berries.splice(index, 1)[0];
-    result.push({ ...tile, type: 'wildStrawberry', collect: false, collected: false, workSeconds: 0 });
+    result.push(createEnvironment('wildStrawberry', tile));
   }
   return result;
 }

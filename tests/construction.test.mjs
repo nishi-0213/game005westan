@@ -32,7 +32,7 @@ test('a barricade consumes five materials and one second',()=>{
  const target=walls.plan({column:5,row:2},'stone','barricade');
  for(let i=0;i<150&&target.state==='planned';i++)tick([builder]);
  assert.equal(target.state,'completed');assert.equal(target.delivered,5);assert.equal(target.workSeconds,1);
- assert.equal(builder.inventory.quantity,1);assert.equal(walls.isBlocked(target),false);assert.equal(walls.cannotStop(target),true);
+ assert.equal(builder.inventory,null);assert.equal(walls.isBlocked(target),false);assert.equal(walls.cannotStop(target),true);
 });
 
 test('an insufficient stack is delivered partially and construction waits for the remainder',()=>{
@@ -128,7 +128,7 @@ test('removing a plan stops its assigned builder and prevents completion',()=>{
 });
 
 test('pickup obeys the 20kg limit for wood and stone',()=>{
- for(const [type,limit] of [['wood',20],['stone',2]]){
+ for(const [type,limit] of [['wood',20],['stone',5]]){
   const items=[{type,quantity:100,column:3,row:2}];const {walls,tick}=scene(items);walls.plan({column:5,row:2},type);const builder=pawn();
   for(let i=0;i<100&&!builder.inventory;i++)tick([builder]);
   assert.equal(builder.inventory.quantity,limit);assert.equal(items[0].quantity,100-limit);

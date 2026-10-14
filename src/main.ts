@@ -15,8 +15,13 @@ import type { HaulWorker } from './hauling';
 import { Clearing } from './clearing';
 import { Construction } from './construction';
 import { demolishStructure } from './demolition';
-import { ENVIRONMENT_PROPERTIES, initialEnvironment, nearbySameType } from './environment';
+import { ENVIRONMENT_PROPERTIES, harvestYield, initialEnvironment, nearbySameType } from './environment';
 import type { EnvironmentObject } from './environment';
+import { PlantGrowth } from './plant-growth';
+import { Wildlife, deerAction } from './wildlife';
+import type { Deer } from './wildlife';
+import { FACTIONS, isPlayerControlled } from './factions';
+import type { Faction } from './factions';
 import { Harvesting } from './harvesting';
 import type { HarvestWorker } from './harvesting';
 import { formatPawnName, generatePawnNames } from './pawn-names';
@@ -68,10 +73,11 @@ map.addChild(terrain);
 const environmentObjects = initialEnvironment(MAP_SIZE);
 const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
 let selectedEnvironment = new Set<EnvironmentObject>();
+let selectedDeer: Deer | null = null;
 const environmentLayer = new Container();
 const environmentHud = new Container();
 map.addChild(environmentLayer);
-const environmentViews = new Map(environmentObjects.map((object) => {
+function createEnvironmentView(object: EnvironmentObject) {
   const view = new Container();
   view.position.set((object.column + 0.5) * TILE_SIZE, (object.row + 0.5) * TILE_SIZE);
   const outline = new Graphics().rect(-11, -11, 22, 22).stroke({ color: 0xfff2a3, width: 1.5 });
@@ -80,6 +86,7 @@ const environmentViews = new Map(environmentObjects.map((object) => {
   if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x8fba7a);
   else if (object.type === 'wildStrawberry') shape.ellipse(0, 3, 9, 5).fill(0x8fba7a).circle(-4, 1, 3).circle(3, -1, 3).circle(1, 5, 3).fill(0xe75b70);
   else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
+  if (object.type !== 'rock') shape.scale.set(.35 + .65 * object.hp / 100);
   const collectIcon = new Graphics()
     .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
     .moveTo(0, -3).lineTo(-3, 3).stroke({ color: 0xf2c66d, width: 2 });
@@ -91,9 +98,9 @@ const environmentViews = new Map(environmentObjects.map((object) => {
   view.addChild(outline, shape);
   environmentHud.addChild(collectIcon, progressBar);
   environmentLayer.addChild(view);
-  const entry = { object, view, outline, collectIcon, progressBar, progressFill, progress: -1 };
-  return [object, entry] as const;
-}));
+  return { object, view, shape, outline, collectIcon, progressBar, progressFill, progress: -1 };
+}
+const environmentViews = new Map(environmentObjects.map(object => [object, createEnvironmentView(object)]));
 const walls = new Walls(MAP_SIZE);
 const storage = new Storage(walls);
 const mapItems = initialItems();
@@ -200,6 +207,39 @@ function updateStoredItemViews(): void {
   }
 }
 
+const deerLayer = new Container();
+map.addChild(deerLayer);
+const deerViews = new Map<Deer, { view: Container; selection: Graphics; food: Graphics }>();
+function updateDeerViews(): void {
+  for (const deer of wildlife.deer) {
+    let entry = deerViews.get(deer);
+    if (!entry) {
+      const view = new Container();
+      const selection = new Graphics().ellipse(0, 1, 11, 9).stroke({ color: 0xfff2a3, width: 1.5 });
+      const body = new Graphics().ellipse(0, 7, 10, 3).fill({ color: 0x17261c, alpha: .5 })
+        .rect(-6, 1, 2, 7).rect(4, 1, 2, 7).fill(0x725036)
+        .ellipse(-1, 0, 8, 4).ellipse(6, -4, 3, 5).circle(8, -7, 3).fill(0xc79868)
+        .moveTo(7, -9).lineTo(6, -14).moveTo(6, -12).lineTo(3, -14)
+        .moveTo(9, -9).lineTo(10, -14).moveTo(10, -12).lineTo(13, -14).stroke({ color: 0xe1c6a3, width: 1.3 });
+      const food = new Graphics().circle(10, -5, 2).fill(ITEM_APPEARANCE.strawberry.color);
+      view.addChild(selection, body, food);
+      deerLayer.addChild(view);
+      entry = { view, selection, food };
+      deerViews.set(deer, entry);
+    }
+    const position = deer.deadPosition ?? renderedPosition(deer.movement);
+    entry.view.position.set((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
+    entry.view.rotation = deer.dead ? Math.PI / 2 : 0;
+    entry.selection.visible = deer === selectedDeer;
+    entry.food.visible = Boolean(deer.eatJob);
+  }
+  for (const [deer, entry] of deerViews) if (deer.departed) {
+    entry.view.destroy({ children: true });
+    deerViews.delete(deer);
+    if (selectedDeer === deer) { selectedDeer = null; updateItemSelection(); }
+  }
+}
+
 const spawnTiles = [
   { column: 15, row: 15, color: 0xf2c66d },
   { column: 16, row: 15, color: 0x82c6dc },
@@ -225,7 +265,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
   const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
-  return { view, selection, heldItem, ...builder, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearing = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.items.get(`${tile.column},${tile.row}`)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -237,6 +277,15 @@ const hauling = new Hauling(mapItems, storage);
 const clearing = new Clearing(mapItems, hauling);
 hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
+const wildlife = new Wildlife(construction, harvesting, hauling);
+const pawnOccupies = (tile: Tile): boolean => [...pawns, ...wildlife.deer].some(pawn =>
+  [pawn.movement.tile, pawn.movement.nextTile, pawn.movement.destination].some(position => position?.column === tile.column && position?.row === tile.row));
+const plantGrowth = new PlantGrowth(environmentObjects, walls,
+  tile => pawnOccupies(tile) || mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row),
+  object => {
+    environmentByTile.set(`${object.column},${object.row}`, object);
+    environmentViews.set(object, createEnvironmentView(object));
+  });
 map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
 const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
@@ -329,6 +378,7 @@ function setAttribute(element: HTMLElement, name: string, value: string): void {
 }
 const pawnSpecsName = document.createElement('h2');
 const pawnSpecsAction = document.createElement('div');
+const pawnSpecsFaction = document.createElement('div');
 const pawnSpecsInventory = document.createElement('div');
 pawnSpecsInventory.className = 'pawn-specs-inventory';
 const pawnSpecsItemIcon = document.createElement('span');
@@ -346,7 +396,7 @@ needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute
 pawnSpecsTabs.append(overviewTab, needsTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
-pawnOverview.append(pawnSpecsName, pawnSpecsAction, pawnSpecsInventory);
+pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsInventory);
 const pawnNeeds = document.createElement('div');
 pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
 const needsMeters = (['満腹感', '健康'] as const).map(label => {
@@ -391,6 +441,7 @@ const rosterButtons = pawns.map((pawn, index) => {
 function selectPawn(pawn: (typeof pawns)[number]): void {
   selectConstruction(null);
   selectedPawn = pawn;
+  selectedDeer = null;
   selectedItem = null;
   selectedItems.clear();
   selectedEnvironment.clear();
@@ -401,11 +452,12 @@ function selectPawn(pawn: (typeof pawns)[number]): void {
 
 function updatePawnPanels(): void {
   const hidden = selectedPawn === null;
-  const cannotDrop = Boolean(selectedPawn?.dead) || !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
+  const cannotDrop = Boolean(selectedPawn?.dead) || Boolean(selectedPawn && !isPlayerControlled(selectedPawn)) || !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
   if (dropInventoryButton.hidden !== hidden) dropInventoryButton.hidden = hidden;
   if (dropInventoryButton.disabled !== cannotDrop) dropInventoryButton.disabled = cannotDrop;
   if (pawnSpecs.hidden !== hidden) pawnSpecs.hidden = hidden;
   if (!selectedPawn) return;
+  setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) {
     if (needsMeters[index].meter.value !== value) needsMeters[index].meter.value = value;
@@ -430,7 +482,7 @@ function updatePawnPanels(): void {
   }
 }
 dropInventoryButton.addEventListener('click', () => {
-  if (selectedPawn && !selectedPawn.dead) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
+  if (selectedPawn && isPlayerControlled(selectedPawn) && !selectedPawn.dead) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
@@ -441,6 +493,24 @@ const acquisitionButton = document.querySelector<HTMLButtonElement>('#acquisitio
 const collectionButton = document.querySelector<HTMLButtonElement>('#collection-button')!;
 const harvestSpeed = document.querySelector<HTMLElement>('#environment-harvest-speed')!;
 const harvestQuantity = document.querySelector<HTMLElement>('#environment-harvest-quantity')!;
+const environmentHp = document.querySelector<HTMLElement>('#environment-hp')!;
+const animalFaction = document.querySelector<HTMLElement>('#animal-faction')!;
+const animalAction = document.querySelector<HTMLElement>('#animal-action')!;
+const animalSatiety = document.querySelector<HTMLElement>('#animal-satiety')!;
+const animalHp = document.querySelector<HTMLElement>('#animal-hp')!;
+function updateObjectProperties(): void {
+  if (!itemProperties.open) return;
+  const environment = selectedEnvironment.values().next().value;
+  if (environment) {
+    setText(environmentHp, `${Math.round(environment.hp)}%`);
+    setText(harvestQuantity, String(harvestYield(environment)));
+  } else if (selectedDeer) {
+    setText(animalFaction, FACTIONS[selectedDeer.faction]);
+    setText(animalAction, deerAction(selectedDeer));
+    setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
+    setText(animalHp, `${Math.round(selectedDeer.needs.health)}%`);
+  }
+}
 
 const foodCommandWindow = document.querySelector<HTMLDialogElement>('#food-command')!;
 let foodCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
@@ -499,6 +569,7 @@ function updateEnvironmentViews(): void {
       continue;
     }
     entry.outline.visible = selectedEnvironment.has(entry.object);
+    if (entry.object.type !== 'rock') entry.shape.scale.set(.35 + .65 * entry.object.hp / 100);
     entry.collectIcon.visible = entry.object.collect && !entry.object.collected;
     const progress = Math.min(1, entry.object.workSeconds / ENVIRONMENT_PROPERTIES[entry.object.type].seconds);
     entry.progressBar.visible = !entry.object.collected && progress > 0 && progress < 1;
@@ -524,9 +595,9 @@ acquisitionButton.addEventListener('click', () => {
 function updateItemSelection(): void {
   foodCommandWindow.close();
   const environment = [...selectedEnvironment][0];
-  const hasSelection = selectedItem !== null || Boolean(environment);
+  const hasSelection = selectedItem !== null || Boolean(environment) || selectedDeer !== null;
   itemInfoButton.hidden = !hasSelection;
-  itemInfoButton.setAttribute('aria-label', environment ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
+  itemInfoButton.setAttribute('aria-label', selectedDeer ? '動物のインフォメーション' : environment ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
   acquisitionButton.hidden = !selectedItems.size;
   const acquire = selectedItems.size > 0 && [...selectedItems].every(item => item.collect);
   acquisitionButton.textContent = acquire ? '取得' : '無視';
@@ -536,6 +607,7 @@ function updateItemSelection(): void {
   collectionButton.setAttribute('aria-pressed', String(Boolean(environment) && [...selectedEnvironment].every((object) => object.collect)));
   for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = !selectedItem;
   for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = !environment;
+  for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = !selectedDeer;
   itemSelection.visible = selectedItems.size > 0;
   itemSelection.clear();
   for (const item of selectedItems) itemSelection.rect(item.column * TILE_SIZE + 1, item.row * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
@@ -550,12 +622,19 @@ function updateItemSelection(): void {
     const properties = ENVIRONMENT_PROPERTIES[environment.type];
     itemPropertiesName.textContent = properties.name;
     harvestSpeed.textContent = `${properties.seconds}s`;
-    harvestQuantity.textContent = String(properties.quantity);
+    harvestQuantity.textContent = String(harvestYield(environment));
+    environmentHp.textContent = `${Math.round(environment.hp)}%`;
+  } else if (selectedDeer) {
+    itemPropertiesName.textContent = '鹿';
+    animalFaction.textContent = FACTIONS[selectedDeer.faction];
+    animalAction.textContent = deerAction(selectedDeer);
+    animalSatiety.textContent = `${Math.round(selectedDeer.needs.satiety)}%`;
+    animalHp.textContent = `${Math.round(selectedDeer.needs.health)}%`;
   } else itemProperties.close();
   updateEnvironmentViews();
 }
 itemInfoButton.addEventListener('click', () => {
-  if ((selectedItem || selectedEnvironment.size) && !itemProperties.open) itemProperties.show();
+  if ((selectedItem || selectedEnvironment.size || selectedDeer) && !itemProperties.open) { itemProperties.show(); updateObjectProperties(); }
 });
 document.querySelector<HTMLButtonElement>('#close-item-properties')!.addEventListener('click', () => itemProperties.close());
 itemProperties.addEventListener('keydown', (event) => {
@@ -564,7 +643,7 @@ itemProperties.addEventListener('keydown', (event) => {
 
 function updatePawnModeButton(): void {
   const drafted = selectedPawn?.mode !== 'automatic';
-  const disabled = selectedPawn === null || Boolean(selectedPawn.dead);
+  const disabled = selectedPawn === null || !isPlayerControlled(selectedPawn) || Boolean(selectedPawn.dead);
   if (pawnModeButton.disabled !== disabled) pawnModeButton.disabled = disabled;
   updatePawnPanels();
   for (const entry of rosterButtons) setAttribute(entry.button, 'aria-pressed', String(entry.pawn === selectedPawn));
@@ -577,7 +656,7 @@ function updatePawnModeButton(): void {
 }
 
 pawnModeButton.addEventListener('click', () => {
-  if (!selectedPawn || selectedPawn.dead) return;
+  if (!selectedPawn || !isPlayerControlled(selectedPawn) || selectedPawn.dead) return;
   selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
   hauling.cancel(selectedPawn);
   construction.cancel(selectedPawn);
@@ -639,6 +718,7 @@ function selectConstruction(kind: ConstructionKind | null): void {
   stopDrawing();
   if (kind) {
     selectedPawn = null;
+    selectedDeer = null;
     selectedItem = null;
     selectedItems.clear();
     selectedEnvironment.clear();
@@ -710,6 +790,7 @@ demolitionButton.addEventListener('click', () => {
   closeConstructionOptions();
   if (enabled) {
     selectedPawn = null;
+    selectedDeer = null;
     selectedItem = null;
     selectedItems.clear();
     selectedEnvironment.clear();
@@ -779,7 +860,7 @@ export function completeConstruction(tile: Tile): boolean {
   const sameTile = (entry: Tile): boolean => entry.column === tile.column && entry.row === tile.row;
   const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage') && sameTile(entry));
   const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
-  if (pawns.some(({ movement }) => {
+  if ([...pawns, ...wildlife.deer].some(({ movement }) => {
     const occupied = [movement.tile, movement.nextTile, movement.destination];
     if ((item.kind === 'wall' || item.kind === 'storage') && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
       occupied.push(
@@ -905,7 +986,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     if (selectedConstruction) { selectConstruction(null); hideMaterials(); }
     return;
   }
-  if (event.button === 2 && selectedPawn && !selectedPawn.dead) {
+  if (event.button === 2 && selectedPawn && isPlayerControlled(selectedPawn) && !selectedPawn.dead) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const source = [...mapItems].reverse().find(item => item.type === 'strawberry' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
       ?? (walls.items.get(`${tile.column},${tile.row}`)?.kind === 'storageArea' ? storage.sources('strawberry').find(item => item.column === tile.column && item.row === tile.row) : undefined);
@@ -933,18 +1014,20 @@ app.canvas.addEventListener('pointerdown', (event) => {
       Math.abs(view.x - x) <= TILE_SIZE * 0.45 && Math.abs(view.y - y) <= TILE_SIZE * 0.45,
     );
     selectedPawn = clickedPawn ?? null;
+    selectedDeer = clickedPawn ? null : [...deerViews].reverse().find(([, { view }]) =>
+      Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0] ?? null;
     const column = Math.floor(x / TILE_SIZE);
     const row = Math.floor(y / TILE_SIZE);
-    selectedItem = clickedPawn || walls.isBlocked({ column, row }) ? null
+    selectedItem = clickedPawn || selectedDeer || walls.isBlocked({ column, row }) ? null
       : [...mapItems].reverse().find((item) => item.quantity > 0 && item.column === column && item.row === row) ?? null;
     selectedItems = new Set(selectedItem ? [selectedItem] : []);
-    const environment = !clickedPawn && !selectedItem && !walls.isBlocked({ column, row })
+    const environment = !clickedPawn && !selectedDeer && !selectedItem && !walls.isBlocked({ column, row })
       ? environmentObjects.find((object) => !object.collected && object.column === column && object.row === row) : undefined;
     selectedEnvironment = new Set(environment ? [environment] : []);
     updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
     updatePawnModeButton();
-  } else if (event.button === 2 && selectedPawn?.mode === 'drafted' && !selectedPawn.dead) {
+  } else if (event.button === 2 && selectedPawn?.mode === 'drafted' && isPlayerControlled(selectedPawn) && !selectedPawn.dead) {
     const column = Math.floor(x / TILE_SIZE);
     const row = Math.floor(y / TILE_SIZE);
     if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE
@@ -954,7 +1037,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
   }
 });
 app.canvas.addEventListener('dblclick', (event) => {
-  if (selectedConstruction || demolitionSelected) return;
+  if (selectedConstruction || demolitionSelected || selectedDeer) return;
   const { x, y } = mapPosition(event);
   const column = Math.floor(x / TILE_SIZE), row = Math.floor(y / TILE_SIZE);
   if (selectedItem && !selectedPawn) { selectedItems = new Set(nearbyItems(mapItems, selectedItem)); updateItemSelection(); return; }
@@ -999,11 +1082,14 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    plantGrowth.update(seconds);
     for (const pawn of pawns) {
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds);
       if (!eating) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
+    wildlife.update(seconds, pawnOccupies);
+    for (const deer of wildlife.deer) if (!deer.dead) advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
   });
   for (const pawn of pawns) {
     const position = pawn.deadPosition ?? renderedPosition(pawn.movement);
@@ -1021,6 +1107,8 @@ app.ticker.add((ticker) => {
   updateStoredItemViews();
   updateConstructionProgress();
   updateEnvironmentViews();
+  updateDeerViews();
+  updateObjectProperties();
   updatePawnModeButton();
   updateItemSummary();
 });
