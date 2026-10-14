@@ -891,6 +891,7 @@ pawnModeButton.addEventListener('click', () => {
   const mode = controlled.every(pawn => pawn.mode === 'drafted') ? 'automatic' : 'drafted';
   for (const pawn of controlled) {
     pawn.mode = mode;
+    if(mode==='drafted'&&pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
     pawn.manualMove = false;
     combat.cancel(pawn);
     hauling.cancel(pawn); construction.cancel(pawn); harvesting.cancel(pawn);

@@ -77,6 +77,10 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     return true;
   }
   if (worker.dropRequested) { worker.eatJob = null; return false; }
+  if(worker.mode==='drafted'){
+    if(worker.eatJob&&!worker.eatJob.manual){worker.eatJob=null;stopAtNextSafeTile(worker.movement,construction.walls.cannotStop);}
+    if(!worker.eatJob)return false;
+  }
   if (!worker.eatJob && (!automaticFood || worker.needs.satiety > FOOD_THRESHOLD)) return false;
   if (worker.eatJob && (worker.eatJob.source.quantity <= 0 || !worker.eatJob.manual && construction.items.includes(worker.eatJob.source) && !worker.eatJob.source.collect)) {
     worker.eatJob = null;
