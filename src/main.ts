@@ -13,7 +13,7 @@ import { initialNeeds, requestEat, updateNeeds } from './needs';
 import type { EatingWorker } from './needs';
 import type { Corpse } from './butchery';
 import type { MapItem } from './items';
-import { Butchery, adjustButcherCount, corpsePosition, corpseItemType } from './butchery';
+import { Butchery, BUTCHER_SECONDS, adjustButcherCount, corpsePosition, corpseItemType } from './butchery';
 import type { Tile } from './movement';
 import { BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
@@ -426,6 +426,21 @@ prioritiesWindow.addEventListener('keydown', (event) => {
 const constructionProgressLayer = new Container();
 map.addChild(constructionProgressLayer);
 const constructionProgressViews = new Map<string, { view: Container; fill: Graphics; progress: number }>();
+const butcherProgressViews = new Map<Wall,{view:Container;fill:Graphics}>();
+function updateButcherProgress(): void {
+  for(const station of walls.items.values()) {
+    const state=station.butcher;
+    if(station.state!=='completed'||!state?.corpse||state.seconds<=0||state.seconds>=BUTCHER_SECONDS)continue;
+    let entry=butcherProgressViews.get(station);
+    if(!entry){entry=createProgressBar();entry.view.position.set(station.column*TILE_SIZE,(station.row+1)*TILE_SIZE+1);constructionProgressLayer.addChild(entry.view);butcherProgressViews.set(station,entry);}
+    entry.view.visible=true;entry.fill.scale.x=state.seconds/BUTCHER_SECONDS;
+  }
+  for(const [station,entry] of butcherProgressViews) {
+    const state=station.butcher;
+    if(walls.at(station)!==station||!state?.corpse||state.seconds<=0||state.seconds>=BUTCHER_SECONDS){entry.view.destroy({children:true});butcherProgressViews.delete(station);}
+  }
+}
+
 
 function updateConstructionProgress(): void {
   for (const [key, entry] of constructionProgressViews) {
@@ -1522,6 +1537,7 @@ app.ticker.add((ticker) => {
   updateStorageSettings();
   updateStoredItemViews();
   updateConstructionProgress();
+  updateButcherProgress();
   updateEnvironmentViews();
   updateDeerViews();
   updateObjectProperties();

@@ -64,7 +64,7 @@ test('yield scales withHP and truncates fractions; early harvesting produces the
     harvesting.update(worker, 0); harvesting.update(worker, 4);
     assert.equal(object.collected, true);
     assert.equal(items.reduce((sum, item) => sum + item.quantity, 0), expected);
-    if (type === 'wildStrawberry' && expected > 0) assert.equal(items[0].collect, true);
+    if (expected > 0) assert.equal(items[0].collect, true);
   }
 });
 

@@ -39,7 +39,7 @@ for(const [type,seconds,quantity,material] of [['tree',4,12,'wood'],['rock',5,8,
   const target=object(type,3,2),items=[],walls=new Walls(8),engine=new Harvesting([target],items,walls),worker=pawn();
   engine.update(worker,0);assert.ok(worker.harvestJob);
   engine.update(worker,seconds-.1);assert.equal(items.length,0);assert.equal(target.collected,false);
-  engine.update(worker,.2);assert.equal(target.collected,true);assert.deepEqual(items,[{type:material,quantity,column:3,row:2,...(material==='strawberry'?{collect:true}:{})}]);assert.equal(worker.inventory,null);
+  engine.update(worker,.2);assert.equal(target.collected,true);assert.deepEqual(items,[{type:material,quantity,column:3,row:2,collect:true}]);assert.equal(worker.inventory,null);
   engine.update(worker,20);assert.equal(items[0].quantity,quantity);
  });
 }

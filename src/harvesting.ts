@@ -76,8 +76,8 @@ export class Harvesting {
       active.target.collected = true;
       invalidatePaths(this.walls.isBlocked);
       returnItems(this.items, { column: active.target.column, row: active.target.row }, properties.material, harvestYield(active.target));
-      if (properties.material === 'strawberry') {
-        const stack = this.items.find(item => item.type === 'strawberry' && item.column === active.target.column && item.row === active.target.row);
+      {
+        const stack = this.items.find(item => item.type === properties.material && item.column === active.target.column && item.row === active.target.row);
         if (stack) stack.collect = true;
       }
       this.cancel(worker);
