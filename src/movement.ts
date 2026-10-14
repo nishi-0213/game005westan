@@ -9,6 +9,9 @@ export interface Movement {
   nextTile: Tile | null;
   progress: number;
   route?: Tile[];
+  stopBlocked?: (tile: Tile) => boolean;
+  reservationBlocked?: (tile: Tile) => boolean;
+  changed?: () => void;
 }
 
 const TILES_PER_SECOND = 4;
@@ -21,12 +24,13 @@ type TileRule = (tile: Tile) => boolean;
 const allowAll: TileRule = () => false;
 
 export function setDestination(movement: Movement, destination: Tile, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): boolean {
-  if (isBlocked(destination) || cannotStop(destination)) return false;
+  if (isBlocked(destination) || cannotStop(destination) || movement.stopBlocked?.(destination)) return false;
   // When already crossing a barricade, reject orders that would strand the pawn there.
   const start = movement.nextTile ?? movement.tile;
   if (cannotStop(start) && !hasSafeExit(start, destination, isBlocked, cannotStop)) return false;
   movement.destination = { ...destination };
   movement.route = undefined;
+  movement.changed?.();
   // Finish an active segment before changing direction, so every turn is at a tile center.
   return true;
 }
@@ -45,7 +49,7 @@ export function stopAtNextSafeTile(movement: Movement, cannotStop: TileRule = al
   let stop = movement.nextTile ?? movement.tile;
   const remaining = movement.route?.slice();
   const route: Tile[] = [];
-  while (cannotStop(stop)) {
+  while (cannotStop(stop) || movement.stopBlocked?.(stop)) {
     const next = remaining ? remaining.shift() : nextStep(stop, movement.destination);
     if (!next) return;
     stop = next;
@@ -53,11 +57,16 @@ export function stopAtNextSafeTile(movement: Movement, cannotStop: TileRule = al
   }
   movement.destination = { ...stop };
   if (movement.route) movement.route = route;
+  movement.changed?.();
 }
 
-export function setRoute(movement: Movement, route: Tile[]): void {
+export function setRoute(movement: Movement, route: Tile[]): boolean {
+  const destination = route.at(-1) ?? movement.nextTile ?? movement.tile;
+  if (movement.stopBlocked?.(destination)) return false;
   movement.route = route.map((tile) => ({ ...tile }));
-  movement.destination = { ...(route.at(-1) ?? movement.nextTile ?? movement.tile) };
+  movement.destination = { ...destination };
+  movement.changed?.();
+  return true;
 }
 
 export function movementHasSafeExit(movement: Movement, blocked: TileRule, cannotStop: TileRule): boolean {
@@ -89,6 +98,11 @@ export function hasSafeExit(from: Tile, destination: Tile, isBlocked: TileRule, 
 }
 
 export function advanceMovement(movement: Movement, seconds: number, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): void {
+  try { advanceSegments(movement, seconds, isBlocked, cannotStop); }
+  finally { movement.changed?.(); }
+}
+
+function advanceSegments(movement: Movement, seconds: number, isBlocked: TileRule, cannotStop: TileRule): void {
   let remaining = Math.max(0, seconds) * TILES_PER_SECOND;
   while (remaining > 0) {
     movement.nextTile ??= movement.route ? (movement.route.shift() ?? null) : nextStep(movement.tile, movement.destination);

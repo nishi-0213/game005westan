@@ -45,6 +45,8 @@ export class Wildlife {
   readonly harvesting: Harvesting;
   readonly hauling: Hauling;
   readonly random: () => number;
+  onSpawn?: (deer: Deer) => void;
+  onDepart?: (deer: Deer) => void;
   private nextId = 1;
   private spawnSeconds = 0;
   private exitSeconds: number;
@@ -69,7 +71,7 @@ export class Wildlife {
     for (let index = this.deer.length - 1; index >= 0; index--) {
       const deer = this.deer[index];
       this.updateDeer(deer, seconds);
-      if (deer.departed) this.deer.splice(index, 1);
+      if (deer.departed) { this.onDepart?.(deer); this.deer.splice(index, 1); }
     }
   }
 
@@ -84,7 +86,9 @@ export class Wildlife {
     const count = this.count();
     for (let i = 0; i < count && candidates.length; i++) {
       const tile = candidates.splice(Math.floor(this.random() * candidates.length), 1)[0];
-      this.deer.push(createDeer(tile, this.nextId++));
+      const deer = createDeer(tile, this.nextId++);
+      this.deer.push(deer);
+      this.onSpawn?.(deer);
     }
   }
 
@@ -162,7 +166,7 @@ export class Wildlife {
     deer.decisionSeconds -= seconds;
     if (deer.decisionSeconds > 0) return;
     deer.decisionSeconds = .25;
-    const paths = findPaths(movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop);
+    const paths = findPaths(movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, movement);
     let best: { goal: Tile; path: Path } | undefined;
     for (const [index, path] of paths) {
       const column = index % walls.mapSize, row = Math.floor(index / walls.mapSize);

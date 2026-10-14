@@ -34,7 +34,7 @@ export class Harvesting {
 
   findWork(worker: HarvestWorker, eligible = markedForHarvest): { target: EnvironmentObject; goal: Tile; path: Path } | null {
     if (!this.objects.some(target => eligible(target) && !target.collected && !this.claims.has(target))) return null;
-      const paths = findPaths(worker.movement.nextTile ?? worker.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
+      const paths = findPaths(worker.movement.nextTile ?? worker.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, worker.movement);
       let best: { target: EnvironmentObject; goal: Tile; path: Path } | null = null;
       for (const target of this.objects) {
         if (!eligible(target) || target.collected || this.claims.has(target) || this.walls.isBlocked(target)) continue;

@@ -34,14 +34,30 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   worker.needs.health = Math.max(0, worker.needs.health - starvingSeconds);
   if (worker.needs.health <= 0) {
     worker.deadPosition = renderedPosition(worker.movement);
+    let restingTile = worker.movement.tile;
+    if (worker.movement.stopBlocked?.(restingTile)
+      || worker.movement.nextTile && worker.movement.stopBlocked?.(worker.movement.nextTile)) {
+      // A pawn dying during a crossing must not leave a body on another pawn.
+      const walls = construction.walls;
+      const paths = findPaths(worker.movement.nextTile ?? restingTile, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
+      let nearestDistance = Infinity;
+      for (const index of paths.keys()) {
+        const tile = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
+        const distance = Math.hypot(tile.column - worker.deadPosition.column, tile.row - worker.deadPosition.row);
+        if (distance < nearestDistance) { nearestDistance = distance; restingTile = tile; }
+      }
+      worker.deadPosition = { ...restingTile };
+    }
     worker.dead = true;
     interruptWork(worker, construction, harvesting, hauling);
     worker.eatJob = null;
     worker.dropRequested = false;
+    worker.movement.tile = { ...restingTile };
     worker.movement.nextTile = null;
     worker.movement.progress = 0;
     worker.movement.destination = { ...worker.movement.tile };
     worker.movement.route = [];
+    worker.movement.changed?.();
     return true;
   }
   if (worker.dropRequested) { worker.eatJob = null; return false; }
@@ -67,7 +83,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     if (!sources.length) return false;
     const walls = construction.walls;
     const from = worker.movement.nextTile ?? worker.movement.tile;
-    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
+    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     let best: { source: MapItem; goal: Tile; path: Path } | null = null;
     for (const source of sources) {
       let approach = construction.sourceApproach(from, source, paths);
@@ -96,7 +112,7 @@ export function requestEat(worker: EatingWorker, source: MapItem, construction: 
   if (worker.dead || source.type !== 'strawberry' || source.quantity <= 0) return false;
   const walls = construction.walls;
   const from = worker.movement.nextTile ?? worker.movement.tile;
-  const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
+  const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
   let approach = construction.sourceApproach(from, source, paths);
   if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
   if (!approach) return false;

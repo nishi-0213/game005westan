@@ -98,7 +98,7 @@ export class Construction {
         sources = sourcesByMaterial.get(target.material)!;
         if (!sources.length) continue;
       }
-      paths ??= findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
+      paths ??= findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, builder.movement);
       if (needsSource && !sources.some(item => this.sourceApproach(builder.movement.tile, item, paths!))) continue;
       const approach = this.approach(builder.movement.tile, target, paths);
       if (approach && (!best || approach.path.distance < best.path.distance)) best = { target, ...approach };
@@ -153,7 +153,7 @@ export class Construction {
         builder.inventory = null;
       }
       let source: { item: MapItem; path: Path; goal: Tile } | null = null;
-      const paths = findPaths(movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop);
+      const paths = findPaths(movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, builder.movement);
       for (const item of this.sources(plan.target)) {
         if (item.quantity <= 0 || item.type !== plan.target.material) continue;
         const approach = this.sourceApproach(movement.tile, item, paths);

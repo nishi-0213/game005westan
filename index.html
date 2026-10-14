@@ -13,6 +13,7 @@
       <button type="button" data-game-speed="3" aria-pressed="false">3倍</button>
     </nav>
     <nav id="pawn-roster" aria-label="ポーン一覧"></nav>
+    <nav id="selection-actions" aria-label="選択対象の操作">
     <button id="pawn-mode-button" type="button" aria-label="ポーンを選択して状態を切り替え" disabled>
       <span id="pawn-mode-icon" aria-hidden="true">⚔</span>
       <span id="pawn-mode-label">徴兵</span>
@@ -20,10 +21,11 @@
     <button id="drop-inventory-button" type="button" hidden disabled>
       <span aria-hidden="true">↓</span><span>地面に置く</span>
     </button>
-    <section id="pawn-specs" aria-label="ポーンのスペック" hidden></section>
     <button id="item-info-button" type="button" aria-label="アイテムのインフォメーション" aria-controls="item-properties" hidden>?</button>
     <button id="acquisition-button" type="button" aria-pressed="false" hidden>無視</button>
     <button id="collection-button" type="button" aria-pressed="false" hidden>無視</button>
+    </nav>
+    <section id="pawn-specs" aria-label="ポーンのスペック" hidden></section>
     <dialog id="item-properties" aria-labelledby="item-properties-name">
       <button id="close-item-properties" type="button" aria-label="プロパティウィンドウを閉じる">×</button>
       <h2 id="item-properties-name"></h2>

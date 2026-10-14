@@ -2,7 +2,7 @@ import type { Clearing, ClearanceJob } from './clearing';
 import type { Builder } from './construction';
 import type { ItemType, MapItem } from './items';
 import { ITEM_APPEARANCE, PAWN_CARRY_LIMIT_KG } from './items.ts';
-import type { Tile } from './movement';
+import type { Movement, Tile } from './movement';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
@@ -43,11 +43,11 @@ export class Hauling {
     return best;
   }
 
-  nearestBox(from: Tile, type: ItemType): { target: Wall; goal: Tile; path: Path } | null {
+  nearestBox(from: Tile, type: ItemType, movement?: Movement): { target: Wall; goal: Tile; path: Path } | null {
     const walls = this.storage.walls;
     const boxes = this.storage.boxes().filter(target => this.storage.accepts(target, type));
     if (!boxes.length) return null;
-    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
+    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, movement);
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
     for (const target of boxes) {
       const approach = this.approach(from, target, paths);
@@ -58,10 +58,10 @@ export class Hauling {
 
   findWork(worker: HaulWorker): { source?: MapItem; target: Wall; goal: Tile; path: Path } | null {
     const from = worker.movement.nextTile ?? worker.movement.tile;
-    if (worker.inventory?.quantity) return this.nearestBox(from, worker.inventory.type);
+    if (worker.inventory?.quantity) return this.nearestBox(from, worker.inventory.type, worker.movement);
     if (!this.storage.boxes().length || !this.items.some(source => source.collect && source.quantity > 0 && !this.claims.has(source))) return null;
     const walls = this.storage.walls;
-    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
+    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     let best: { source: MapItem; target: Wall; goal: Tile; path: Path } | null = null;
     for (const source of this.items) {
       if (!source.collect || source.quantity <= 0 || this.claims.has(source)) continue;
@@ -69,7 +69,7 @@ export class Hauling {
       // Harvested/dropped items may share a non-stopping object or a storage box tile.
       const approach = path ? { goal: source, path } : (!walls.isBlocked(source) || walls.items.get(`${source.column},${source.row}`)?.kind === 'storage') ? this.approach(from, source, paths) : null;
       if (!approach || (best && approach.path.distance >= best.path.distance)) continue;
-      const box = this.nearestBox(approach.goal, source.type);
+      const box = this.nearestBox(approach.goal, source.type, worker.movement);
       if (box) best = { source, target: box.target, ...approach };
     }
     return best;
@@ -100,7 +100,7 @@ export class Hauling {
       worker.inventory = { type: source.type, quantity };
       source.quantity -= quantity;
       this.claims.delete(source);
-      const box = this.nearestBox(movement.tile, source.type);
+      const box = this.nearestBox(movement.tile, source.type, movement);
       if (!box) { this.cancel(worker); return; }
       worker.haulJob = { target: box.target, phase: 'deposit', goal: box.goal };
       setRoute(movement, box.path.tiles);

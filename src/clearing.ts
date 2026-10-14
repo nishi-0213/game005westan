@@ -40,7 +40,7 @@ export class Clearing {
 
   nearbyPlace(from: Tile, origin: Tile, type: ItemType, worker: ClearWorker): { goal: Tile; path: Path } | null {
     const walls = this.hauling.storage.walls;
-    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
+    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     for (let radius = 1; radius < walls.mapSize; radius++) {
       let best: { goal: Tile; path: Path } | null = null;
       for (let row = Math.max(0, origin.row - radius); row <= Math.min(walls.mapSize - 1, origin.row + radius); row++) {
@@ -69,7 +69,7 @@ export class Clearing {
       if (!target || target.state !== 'planned' || this.claims.has(target) && this.claims.get(target) !== worker) continue;
       // A live environment object is cleared through harvesting before the item is approached.
       if (walls.cannotStop(source)) continue;
-      paths ??= findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop);
+      paths ??= findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
       const path = paths.get(source.row * walls.mapSize + source.column);
       if (!path || best && path.distance >= best.path.distance) continue;
       if (!this.nearbyPlace(source, target, worker.inventory?.type ?? source.type, worker)) continue;

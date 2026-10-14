@@ -287,3 +287,10 @@ canvas { display: block; width: 100%; height: 100%; }
 #time-controls button[aria-pressed="true"] { background: #475b3e; border-color: #f2c66d; }
 #time-controls button:focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
 @media (max-width: 600px) { #time-controls { top: 94px; } }
+
+#selection-actions { position: fixed; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: row-reverse; flex-wrap: wrap; max-width: calc(100vw - 192px); }
+#selection-actions > button { position: static; flex-shrink: 0; }
+@media (max-width: 650px) {
+  #selection-actions { bottom: 40px; max-width: 100vw; }
+}
+canvas { touch-action: none; }

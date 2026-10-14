@@ -1,7 +1,8 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
-import { advancePathMovement, commandMove } from './pathfinding';
+import { advancePathMovement } from './pathfinding';
+import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
@@ -74,6 +75,8 @@ const environmentObjects = initialEnvironment(MAP_SIZE);
 const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
 let selectedEnvironment = new Set<EnvironmentObject>();
 let selectedDeer: Deer | null = null;
+const selectedDeerSet = new Set<Deer>();
+let infoFocus: 'item' | 'environment' | 'deer' | null = null;
 const environmentLayer = new Container();
 const environmentHud = new Container();
 map.addChild(environmentLayer);
@@ -150,7 +153,7 @@ const summaryRows = ITEM_TYPES.map((type) => {
 function updateItemSummary(): void {
   let selectionChanged = false;
   for (const item of selectedItems) if (item.quantity <= 0) { selectedItems.delete(item); selectionChanged = true; }
-  if (selectionChanged) { selectedItem = [...selectedItems][0] ?? null; updateItemSelection(); }
+  if (selectionChanged) refreshSelection();
   for (const item of mapItems) if (item.quantity > 0 && !itemViews.has(item)) createItemView(item);
   for (const [item, { view, quantity, collectIcon }] of itemViews) {
     if (item.quantity <= 0) {
@@ -230,13 +233,13 @@ function updateDeerViews(): void {
     const position = deer.deadPosition ?? renderedPosition(deer.movement);
     entry.view.position.set((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
     entry.view.rotation = deer.dead ? Math.PI / 2 : 0;
-    entry.selection.visible = deer === selectedDeer;
+    entry.selection.visible = selectedDeerSet.has(deer);
     entry.food.visible = Boolean(deer.eatJob);
   }
   for (const [deer, entry] of deerViews) if (deer.departed) {
     entry.view.destroy({ children: true });
     deerViews.delete(deer);
-    if (selectedDeer === deer) { selectedDeer = null; updateItemSelection(); }
+    if (selectedDeerSet.delete(deer)) refreshSelection();
   }
 }
 
@@ -278,8 +281,11 @@ const clearing = new Clearing(mapItems, hauling);
 hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 const wildlife = new Wildlife(construction, harvesting, hauling);
-const pawnOccupies = (tile: Tile): boolean => [...pawns, ...wildlife.deer].some(pawn =>
-  [pawn.movement.tile, pawn.movement.nextTile, pawn.movement.destination].some(position => position?.column === tile.column && position?.row === tile.row));
+const pawnOccupancy = new PawnOccupancy();
+for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
+wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
+wildlife.onDepart = deer => pawnOccupancy.untrack(deer.movement);
+const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
 const plantGrowth = new PlantGrowth(environmentObjects, walls,
   tile => pawnOccupies(tile) || mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row),
   object => {
@@ -354,6 +360,7 @@ function updateConstructionProgress(): void {
   }
 }
 let selectedPawn: (typeof pawns)[number] | null = null;
+const selectedPawns = new Set<(typeof pawns)[number]>();
 const pawnModeButton = document.querySelector<HTMLButtonElement>('#pawn-mode-button')!;
 const pawnModeIcon = document.querySelector<HTMLElement>('#pawn-mode-icon')!;
 const pawnModeLabel = document.querySelector<HTMLElement>('#pawn-mode-label')!;
@@ -427,9 +434,9 @@ const rosterButtons = pawns.map((pawn, index) => {
   const label = document.createElement('span');
   label.textContent = pawn.name.nickname || pawn.name.givenName;
   button.append(portrait, label);
-  button.addEventListener('click', () => selectPawn(pawn));
-  button.addEventListener('dblclick', () => {
-    selectPawn(pawn);
+  button.addEventListener('click', event => selectPawn(pawn, event.shiftKey));
+  button.addEventListener('dblclick', event => {
+    selectPawn(pawn, event.shiftKey);
     camera.x = pawn.view.x;
     camera.y = pawn.view.y;
     applyCamera();
@@ -438,21 +445,38 @@ const rosterButtons = pawns.map((pawn, index) => {
   return { pawn, button, portrait, dead: false };
 });
 
-function selectPawn(pawn: (typeof pawns)[number]): void {
-  selectConstruction(null);
-  selectedPawn = pawn;
-  selectedDeer = null;
-  selectedItem = null;
-  selectedItems.clear();
-  selectedEnvironment.clear();
-  for (const entry of pawns) entry.selection.visible = entry === pawn;
+function clearSelection(): void {
+  selectedPawn = null; selectedDeer = null; selectedItem = null; infoFocus = null;
+  selectedPawns.clear(); selectedDeerSet.clear(); selectedItems.clear(); selectedEnvironment.clear();
+}
+
+function refreshSelection(): void {
+  if (!selectedPawn || !selectedPawns.has(selectedPawn)) selectedPawn = selectedPawns.values().next().value ?? null;
+  if (!selectedDeer || !selectedDeerSet.has(selectedDeer)) selectedDeer = selectedDeerSet.values().next().value ?? null;
+  if (!selectedItem || !selectedItems.has(selectedItem)) selectedItem = selectedItems.values().next().value ?? null;
+  if (infoFocus === 'item' && !selectedItem || infoFocus === 'environment' && !selectedEnvironment.size || infoFocus === 'deer' && !selectedDeer) infoFocus = null;
+  infoFocus ??= selectedItem ? 'item' : selectedEnvironment.size ? 'environment' : selectedDeer ? 'deer' : null;
+  for (const pawn of pawns) pawn.selection.visible = selectedPawns.has(pawn);
+  for (const [deer, entry] of deerViews) entry.selection.visible = selectedDeerSet.has(deer);
   updateItemSelection();
   updatePawnModeButton();
 }
 
+function controlledSelection() {
+  return [...selectedPawns].filter(pawn => isPlayerControlled(pawn) && !pawn.dead);
+}
+
+function selectPawn(pawn: (typeof pawns)[number], additive = false): void {
+  selectConstruction(null);
+  if (!additive) clearSelection();
+  selectedPawn = pawn;
+  selectedPawns.add(pawn);
+  refreshSelection();
+}
+
 function updatePawnPanels(): void {
   const hidden = selectedPawn === null;
-  const cannotDrop = Boolean(selectedPawn?.dead) || Boolean(selectedPawn && !isPlayerControlled(selectedPawn)) || !selectedPawn?.inventory?.quantity || Boolean(selectedPawn.dropRequested);
+  const cannotDrop = !controlledSelection().some(pawn => pawn.inventory?.quantity && !pawn.dropRequested);
   if (dropInventoryButton.hidden !== hidden) dropInventoryButton.hidden = hidden;
   if (dropInventoryButton.disabled !== cannotDrop) dropInventoryButton.disabled = cannotDrop;
   if (pawnSpecs.hidden !== hidden) pawnSpecs.hidden = hidden;
@@ -482,7 +506,7 @@ function updatePawnPanels(): void {
   }
 }
 dropInventoryButton.addEventListener('click', () => {
-  if (selectedPawn && isPlayerControlled(selectedPawn) && !selectedPawn.dead) { hauling.cancel(selectedPawn); harvesting.cancel(selectedPawn); construction.requestDrop(selectedPawn); }
+  for (const pawn of controlledSelection()) if (pawn.inventory?.quantity) { hauling.cancel(pawn); harvesting.cancel(pawn); construction.requestDrop(pawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
@@ -501,10 +525,10 @@ const animalHp = document.querySelector<HTMLElement>('#animal-hp')!;
 function updateObjectProperties(): void {
   if (!itemProperties.open) return;
   const environment = selectedEnvironment.values().next().value;
-  if (environment) {
+  if (infoFocus === 'environment' && environment) {
     setText(environmentHp, `${Math.round(environment.hp)}%`);
     setText(harvestQuantity, String(harvestYield(environment)));
-  } else if (selectedDeer) {
+  } else if (infoFocus === 'deer' && selectedDeer) {
     setText(animalFaction, FACTIONS[selectedDeer.faction]);
     setText(animalAction, deerAction(selectedDeer));
     setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
@@ -578,7 +602,7 @@ function updateEnvironmentViews(): void {
       entry.progressFill.scale.x = progress;
     }
   }
-  if (changed) updateItemSelection();
+  if (changed) refreshSelection();
 }
 collectionButton.addEventListener('click', () => {
   const collect = ![...selectedEnvironment].every((object) => object.collect);
@@ -595,36 +619,36 @@ acquisitionButton.addEventListener('click', () => {
 function updateItemSelection(): void {
   foodCommandWindow.close();
   const environment = [...selectedEnvironment][0];
-  const hasSelection = selectedItem !== null || Boolean(environment) || selectedDeer !== null;
+  const hasSelection = infoFocus !== null;
   itemInfoButton.hidden = !hasSelection;
-  itemInfoButton.setAttribute('aria-label', selectedDeer ? '動物のインフォメーション' : environment ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
+  itemInfoButton.setAttribute('aria-label', infoFocus === 'deer' ? '動物のインフォメーション' : infoFocus === 'environment' ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
   acquisitionButton.hidden = !selectedItems.size;
   const acquire = selectedItems.size > 0 && [...selectedItems].every(item => item.collect);
-  acquisitionButton.textContent = acquire ? '取得' : '無視';
+  acquisitionButton.textContent = (environment ? '取得：' : '') + (acquire ? '取得' : '無視');
   acquisitionButton.setAttribute('aria-pressed', String(acquire));
   collectionButton.hidden = !environment;
-  collectionButton.textContent = [...selectedEnvironment].every((object) => object.collect) ? '収集' : '無視';
+  collectionButton.textContent = (selectedItems.size ? '収集：' : '') + ([...selectedEnvironment].every(object => object.collect) ? '収集' : '無視');
   collectionButton.setAttribute('aria-pressed', String(Boolean(environment) && [...selectedEnvironment].every((object) => object.collect)));
-  for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = !selectedItem;
-  for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = !environment;
-  for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = !selectedDeer;
+  for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = infoFocus !== 'item';
+  for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = infoFocus !== 'environment';
+  for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = infoFocus !== 'deer';
   itemSelection.visible = selectedItems.size > 0;
   itemSelection.clear();
   for (const item of selectedItems) itemSelection.rect(item.column * TILE_SIZE + 1, item.row * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
   if (selectedItems.size) itemSelection.stroke({ color: 0xfff2a3, width: 1.5 });
-  pawnModeButton.hidden = hasSelection;
-  if (selectedItem) {
+  pawnModeButton.hidden = !selectedPawns.size && hasSelection;
+  if (infoFocus === 'item' && selectedItem) {
     const properties = ITEM_APPEARANCE[selectedItem.type];
 
     itemPropertiesName.textContent = properties.name;
     itemPropertiesMass.textContent = `${properties.massKg}kg`;
-  } else if (environment) {
+  } else if (infoFocus === 'environment' && environment) {
     const properties = ENVIRONMENT_PROPERTIES[environment.type];
     itemPropertiesName.textContent = properties.name;
     harvestSpeed.textContent = `${properties.seconds}s`;
     harvestQuantity.textContent = String(harvestYield(environment));
     environmentHp.textContent = `${Math.round(environment.hp)}%`;
-  } else if (selectedDeer) {
+  } else if (infoFocus === 'deer' && selectedDeer) {
     itemPropertiesName.textContent = '鹿';
     animalFaction.textContent = FACTIONS[selectedDeer.faction];
     animalAction.textContent = deerAction(selectedDeer);
@@ -642,26 +666,30 @@ itemProperties.addEventListener('keydown', (event) => {
 });
 
 function updatePawnModeButton(): void {
-  const drafted = selectedPawn?.mode !== 'automatic';
-  const disabled = selectedPawn === null || !isPlayerControlled(selectedPawn) || Boolean(selectedPawn.dead);
+  const controlled = controlledSelection();
+  const drafted = !controlled.length || controlled.every(pawn => pawn.mode === 'drafted');
+  const mixed = controlled.some(pawn => pawn.mode === 'drafted') && controlled.some(pawn => pawn.mode === 'automatic');
+  const label = mixed ? '混在' : drafted ? '徴兵' : '自動';
+  const disabled = !controlled.length;
   if (pawnModeButton.disabled !== disabled) pawnModeButton.disabled = disabled;
   updatePawnPanels();
-  for (const entry of rosterButtons) setAttribute(entry.button, 'aria-pressed', String(entry.pawn === selectedPawn));
+  for (const entry of rosterButtons) setAttribute(entry.button, 'aria-pressed', String(selectedPawns.has(entry.pawn)));
   setText(pawnModeIcon, drafted ? '⚔' : '⚙');
-  setText(pawnModeLabel, drafted ? '徴兵' : '自動');
+  setText(pawnModeLabel, label);
   setAttribute(pawnModeButton, 'data-mode', drafted ? 'drafted' : 'automatic');
   setAttribute(pawnModeButton, 'aria-label', selectedPawn
-    ? `ポーンの状態：${drafted ? '徴兵' : '自動'}。${drafted ? '自動' : '徴兵'}へ切り替え`
+    ? `ポーンの状態：${label}。${drafted ? '自動' : '徴兵'}へ切り替え`
     : 'ポーンを選択して状態を切り替え');
 }
 
 pawnModeButton.addEventListener('click', () => {
-  if (!selectedPawn || !isPlayerControlled(selectedPawn) || selectedPawn.dead) return;
-  selectedPawn.mode = selectedPawn.mode === 'drafted' ? 'automatic' : 'drafted';
-  hauling.cancel(selectedPawn);
-  construction.cancel(selectedPawn);
-  harvesting.cancel(selectedPawn);
-  if (selectedPawn.mode === 'automatic') stopAtNextSafeTile(selectedPawn.movement, walls.cannotStop);
+  const controlled = controlledSelection();
+  const mode = controlled.every(pawn => pawn.mode === 'drafted') ? 'automatic' : 'drafted';
+  for (const pawn of controlled) {
+    pawn.mode = mode;
+    hauling.cancel(pawn); construction.cancel(pawn); harvesting.cancel(pawn);
+    if (mode === 'automatic') stopAtNextSafeTile(pawn.movement, walls.cannotStop);
+  }
   updatePawnModeButton();
 });
 updatePawnModeButton();
@@ -716,12 +744,9 @@ function selectConstruction(kind: ConstructionKind | null): void {
   for (const choice of constructionChoices) choice.button.setAttribute('aria-pressed', String(choice.kind === kind));
   app.canvas.style.cursor = kind ? 'crosshair' : '';
   stopDrawing();
+  cancelSelectionDrag();
   if (kind) {
-    selectedPawn = null;
-    selectedDeer = null;
-    selectedItem = null;
-    selectedItems.clear();
-    selectedEnvironment.clear();
+    clearSelection();
     updateItemSelection();
     for (const pawn of pawns) pawn.selection.visible = false;
     updatePawnModeButton();
@@ -789,11 +814,7 @@ demolitionButton.addEventListener('click', () => {
   const enabled = !demolitionSelected;
   closeConstructionOptions();
   if (enabled) {
-    selectedPawn = null;
-    selectedDeer = null;
-    selectedItem = null;
-    selectedItems.clear();
-    selectedEnvironment.clear();
+    clearSelection();
     for (const pawn of pawns) pawn.selection.visible = false;
     updateItemSelection();
     updatePawnModeButton();
@@ -936,9 +957,9 @@ window.addEventListener('keydown', (event) => {
   }
 });
 window.addEventListener('keyup', (event) => cameraKeys.delete(event.code));
-window.addEventListener('blur', () => { cameraKeys.clear(); stopDrawing(); });
+window.addEventListener('blur', () => { cameraKeys.clear(); stopDrawing(); cancelSelectionDrag(); });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) cameraKeys.clear();
+  if (document.hidden) { cameraKeys.clear(); stopDrawing(); cancelSelectionDrag(); }
 });
 
 app.canvas.addEventListener('wheel', (event) => {
@@ -975,7 +996,87 @@ function drawWalls(event: PointerEvent): void {
   previousDragTile = tile;
 }
 
+type Point = { x: number; y: number };
+let selectionDrag: { pointerId: number; start: Point; end: Point; additive: boolean; dragged: boolean } | null = null;
+const selectionBox = new Graphics();
+selectionBox.eventMode = 'none';
+app.stage.addChild(selectionBox);
+
+function cancelSelectionDrag(): void {
+  const pointerId = selectionDrag?.pointerId;
+  selectionDrag = null;
+  selectionBox.clear();
+  if (pointerId !== undefined && app.canvas.hasPointerCapture(pointerId)) app.canvas.releasePointerCapture(pointerId);
+}
+
+function hitSelection(event: MouseEvent) {
+  const { x, y } = mapPosition(event);
+  const pawn = [...pawns].reverse().find(({ view }) => Math.abs(view.x - x) <= TILE_SIZE * .45 && Math.abs(view.y - y) <= TILE_SIZE * .45);
+  if (pawn) return { kind: 'pawn' as const, value: pawn };
+  const deer = [...deerViews].reverse().find(([, { view }]) => Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0];
+  if (deer) return { kind: 'deer' as const, value: deer };
+  const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
+  if (walls.isBlocked(tile)) return null;
+  const item = [...mapItems].reverse().find(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row);
+  if (item) return { kind: 'item' as const, value: item };
+  const environment = environmentByTile.get(`${tile.column},${tile.row}`);
+  return environment && !environment.collected ? { kind: 'environment' as const, value: environment } : null;
+}
+
+function selectHit(event: MouseEvent, additive: boolean, nearby = false): void {
+  const hit = hitSelection(event);
+  if (!additive) clearSelection();
+  if (hit?.kind === 'pawn') { selectedPawns.add(hit.value); selectedPawn = hit.value; }
+  else if (hit?.kind === 'deer') { selectedDeerSet.add(hit.value); selectedDeer = hit.value; infoFocus = 'deer'; }
+  else if (hit?.kind === 'item') {
+    for (const item of nearby ? nearbyItems(mapItems, hit.value) : [hit.value]) selectedItems.add(item);
+    selectedItem = hit.value; infoFocus = 'item';
+  } else if (hit?.kind === 'environment') {
+    for (const object of nearby ? nearbySameType(environmentObjects, hit.value) : [hit.value]) selectedEnvironment.add(object);
+    // The most recently selected object is shown in the information window.
+    selectedEnvironment.delete(hit.value); selectedEnvironment = new Set([hit.value, ...selectedEnvironment]);
+    infoFocus = 'environment';
+  }
+  refreshSelection();
+}
+
+function updateSelectionDrag(event: PointerEvent): void {
+  const drag = selectionDrag;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  drag.end = { x: event.clientX, y: event.clientY };
+  drag.dragged ||= Math.hypot(drag.end.x - drag.start.x, drag.end.y - drag.start.y) >= 4;
+  if (!drag.dragged) return;
+  const bounds = app.canvas.getBoundingClientRect();
+  const x = (Math.min(drag.start.x, drag.end.x) - bounds.left) * app.screen.width / bounds.width;
+  const y = (Math.min(drag.start.y, drag.end.y) - bounds.top) * app.screen.height / bounds.height;
+  const width = Math.abs(drag.start.x - drag.end.x) * app.screen.width / bounds.width;
+  const height = Math.abs(drag.start.y - drag.end.y) * app.screen.height / bounds.height;
+  selectionBox.clear().rect(x, y, width, height).fill({ color: 0xfff2a3, alpha: .12 }).stroke({ color: 0xfff2a3, width: 1 });
+}
+
+function finishSelection(event: PointerEvent): void {
+  if (selectionDrag?.pointerId !== event.pointerId || event.button !== 0) return;
+  updateSelectionDrag(event);
+  const drag = selectionDrag!;
+  if (!drag.dragged) selectHit(event, drag.additive);
+  else {
+    if (!drag.additive) clearSelection();
+    const bounds = app.canvas.getBoundingClientRect();
+    const inside = (view: Container) => {
+      const x = bounds.left + (map.x + view.x * map.scale.x) * bounds.width / app.screen.width;
+      const y = bounds.top + (map.y + view.y * map.scale.y) * bounds.height / app.screen.height;
+      return x >= Math.min(drag.start.x, drag.end.x) && x <= Math.max(drag.start.x, drag.end.x)
+        && y >= Math.min(drag.start.y, drag.end.y) && y <= Math.max(drag.start.y, drag.end.y);
+    };
+    for (const pawn of pawns) if (inside(pawn.view)) selectedPawns.add(pawn);
+    for (const [deer, { view }] of deerViews) if (inside(view)) selectedDeerSet.add(deer);
+    refreshSelection();
+  }
+  cancelSelectionDrag();
+}
+
 app.canvas.addEventListener('pointerdown', (event) => {
+  if (event.button === 2 && selectionDrag) { cancelSelectionDrag(); return; }
   const { x, y } = mapPosition(event);
   if (demolitionSelected) {
     if (event.button === 0) markDemolition({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) });
@@ -1010,47 +1111,25 @@ app.canvas.addEventListener('pointerdown', (event) => {
     return;
   }
   if (event.button === 0) {
-    const clickedPawn = [...pawns].reverse().find(({ view }) =>
-      Math.abs(view.x - x) <= TILE_SIZE * 0.45 && Math.abs(view.y - y) <= TILE_SIZE * 0.45,
-    );
-    selectedPawn = clickedPawn ?? null;
-    selectedDeer = clickedPawn ? null : [...deerViews].reverse().find(([, { view }]) =>
-      Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0] ?? null;
-    const column = Math.floor(x / TILE_SIZE);
-    const row = Math.floor(y / TILE_SIZE);
-    selectedItem = clickedPawn || selectedDeer || walls.isBlocked({ column, row }) ? null
-      : [...mapItems].reverse().find((item) => item.quantity > 0 && item.column === column && item.row === row) ?? null;
-    selectedItems = new Set(selectedItem ? [selectedItem] : []);
-    const environment = !clickedPawn && !selectedDeer && !selectedItem && !walls.isBlocked({ column, row })
-      ? environmentObjects.find((object) => !object.collected && object.column === column && object.row === row) : undefined;
-    selectedEnvironment = new Set(environment ? [environment] : []);
-    updateItemSelection();
-    for (const pawn of pawns) pawn.selection.visible = pawn === selectedPawn;
-    updatePawnModeButton();
-  } else if (event.button === 2 && selectedPawn?.mode === 'drafted' && isPlayerControlled(selectedPawn) && !selectedPawn.dead) {
-    const column = Math.floor(x / TILE_SIZE);
-    const row = Math.floor(y / TILE_SIZE);
-    if (column >= 0 && column < MAP_SIZE && row >= 0 && row < MAP_SIZE
-      && commandMove(selectedPawn.movement, { column, row }, MAP_SIZE, walls.isBlocked, walls.cannotStop)) {
-      showDestination(column, row);
-    }
+    selectionDrag = { pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY },
+      end: { x: event.clientX, y: event.clientY }, additive: event.shiftKey, dragged: false };
+    app.canvas.setPointerCapture(event.pointerId);
+  } else if (event.button === 2) {
+    const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
+    const movements = controlledSelection().filter(pawn => pawn.mode === 'drafted').map(pawn => pawn.movement);
+    for (const goal of commandGroup(movements, tile, MAP_SIZE, walls.isBlocked, walls.cannotStop, pawnOccupancy)) showDestination(goal.column, goal.row);
   }
 });
-app.canvas.addEventListener('dblclick', (event) => {
-  if (selectedConstruction || demolitionSelected || selectedDeer) return;
-  const { x, y } = mapPosition(event);
-  const column = Math.floor(x / TILE_SIZE), row = Math.floor(y / TILE_SIZE);
-  if (selectedItem && !selectedPawn) { selectedItems = new Set(nearbyItems(mapItems, selectedItem)); updateItemSelection(); return; }
-  const object = environmentObjects.find((entry) => !entry.collected && entry.column === column && entry.row === row);
-  if (!object || selectedPawn || selectedItem) return;
-  selectedEnvironment = new Set(nearbySameType(environmentObjects, object));
-  updateItemSelection();
+app.canvas.addEventListener('dblclick', event => {
+  if (!selectedConstruction && !demolitionSelected) selectHit(event, event.shiftKey, true);
 });
-app.canvas.addEventListener('pointermove', (event) => {
+app.canvas.addEventListener('pointermove', event => {
   if (drawingPointer === event.pointerId && selectedConstruction) drawWalls(event);
+  else updateSelectionDrag(event);
 });
-for (const eventName of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
-  app.canvas.addEventListener(eventName, stopDrawing);
+app.canvas.addEventListener('pointerup', event => { finishSelection(event); stopDrawing(); });
+for (const eventName of ['pointercancel', 'lostpointercapture'] as const) {
+  app.canvas.addEventListener(eventName, () => { stopDrawing(); cancelSelectionDrag(); });
 }
 
 const simulationClock = new SimulationClock();
