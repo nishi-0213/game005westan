@@ -9,7 +9,7 @@ export class GameTime {
 }
 export function daylight(hour:number):{red:number;green:number;blue:number;shadowX:number;shadowY:number;shadowAlpha:number} {
   const h=((hour%24)+24)%24;
-  const night=[.18,.25,.60],sunset=[1,.66,.56],day=[1,1,1];
+  const night=[.45,.50,.75],sunset=[1,.66,.56],day=[1,1,1];
   let a=day,b=day,t=0;
   if(h<5||h>=20){a=night;b=night;}
   else if(h<6){a=night;b=sunset;t=h-5;}
