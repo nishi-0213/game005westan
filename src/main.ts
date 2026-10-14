@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
 import { advancePathMovement } from './pathfinding';
@@ -63,7 +63,9 @@ document.addEventListener('contextmenu', (event) => event.preventDefault());
 const gameTime=new GameTime();
 const timeDisplay=document.querySelector<HTMLElement>('#game-time')!;
 const map = new Container();
-map.filterArea=app.screen;
+// Pixi transforms filterArea from the container’s local coordinates.
+const mapFilterArea=new Rectangle();
+map.filterArea=mapFilterArea;
 // Input is handled by native canvas listeners; no Pixi scene hit testing is needed.
 map.eventMode = 'none';
 function createProgressBar(): { view: Container; fill: Graphics } {
@@ -1241,6 +1243,7 @@ function applyCamera(): void {
     app.screen.width / 2 - camera.x * scale,
     app.screen.height / 2 - camera.y * scale,
   );
+  mapFilterArea.set(-map.x/scale,-map.y/scale,app.screen.width/scale,app.screen.height/scale);
 }
 
 window.addEventListener('keydown', (event) => {
