@@ -10,6 +10,7 @@ import { Storage } from '../src/storage.ts';
 import { Harvesting } from '../src/harvesting.ts';
 import { Hauling } from '../src/hauling.ts';
 import { carryCapacity, ITEM_APPEARANCE, countItems } from '../src/items.ts';
+import {shootingObstacles} from '../src/shooting.ts';
 import { initialNeeds, updateNeeds } from '../src/needs.ts';
 
 const tile=(column,row)=>({column,row});
@@ -52,7 +53,7 @@ test('out-of-range attacks choose the nearest reachable stopping cell in range a
  const s=scene(),a=s.pawn(2,5,'rifle'),b=s.pawn(23,5);s.pawn(7,5);
  const wall=s.walls.plan(tile(8,5),'wood');s.walls.complete(wall);
  const paths=findPaths(a.movement.tile,32,s.walls.isBlocked,s.walls.cannotStop,a.movement);
- const candidates=[...paths].filter(([index])=>inWeaponRange('rifle',tile(index%32,Math.floor(index/32)),b.movement.tile));
+ const candidates=[...paths].filter(([index])=>s.combat.canFireFrom('rifle',tile(index%32,Math.floor(index/32)),b.movement.tile));
  assert.ok(s.combat.requestAttack(a,b));const goal=a.movement.destination;
  assert.ok(inWeaponRange('rifle',goal,b.movement.tile));assert.notEqual(key(goal),key(b.movement.tile));assert.notEqual(key(goal),'7,5');
  assert.equal(paths.get(goal.row*32+goal.column).distance,Math.min(...candidates.map(([,p])=>p.distance)));
@@ -68,10 +69,10 @@ test('an unreachable target receives no attack and auto, wild, dead and self att
  a.mode='drafted';a.faction='wild';assert.equal(s.combat.requestAttack(a,b),false);a.faction='player';a.dead=true;assert.equal(s.combat.requestAttack(a,b),false);
 });
 
-test('moving targets are approached again, and death or departure cancels the attack',()=>{
+test('drafted attacks hold their original firing position when targets leave range, and departure cancels the attack',()=>{
  const s=scene(),a=s.pawn(2,2),b=s.pawn(3,2);s.combat.requestAttack(a,b);
  b.movement.tile=tile(12,12);b.movement.destination=tile(12,12);b.movement.changed();s.combat.update(a,.3);
- assert.ok(inWeaponRange('unarmed',a.movement.destination,b.movement.tile));assert.notEqual(key(a.movement.destination),key(b.movement.tile));
+ assert.deepEqual(a.movement.destination,tile(2,2));assert.equal(b.hp,100);assert.ok(a.attackJob);
  b.departed=true;s.combat.update(a,.1);assert.equal(a.attackJob,null);
 });
 
@@ -124,3 +125,16 @@ test('equipped workers haul and build using real3stone batches without exceeding
  assert.equal(p.weapon,'knife');assert.equal(knife.quantity,0);assert.equal(countItems(e.items).rifle,1);assert.equal(ITEM_APPEARANCE.knife.massKg,2);assert.equal(carryCapacity(p,'wood'),18);
  e.construction.requestDrop(p);e.construction.update(p,.1);assert.equal(p.weapon,'unarmed');assert.equal(countItems(e.items).knife,1);
  });
+
+test('rifles cannot fire through completed walls but barricades subtract40percentage points once',()=>{
+ for(const roll of [.099,.1]){const s=scene(()=>roll),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(6,3),'wood','barricade');s.walls.complete(barrier);const second=s.walls.plan(tile(7,3),'wood','barricade');s.walls.complete(second);s.combat.requestAttack(a,b);s.combat.update(a,2.5);assert.equal(b.hp,roll<.1?60:100);}
+ const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);s.combat.requestAttack(a,b);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);let shots=0;s.combat.onAttack=()=>shots++;s.combat.update(a,10);assert.equal(b.hp,100);assert.equal(shots,0);assert.deepEqual(a.movement.destination,tile(3,3));
+ s.walls.erase(wall);s.combat.update(a,2.5);assert.equal(b.hp,60);
+});
+test('initial rifle approach chooses the nearest reachable point with an unobstructed shot',()=>{
+ const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);assert.ok(s.combat.requestAttack(a,b));assert.notDeepEqual(a.movement.destination,a.movement.tile);assert.equal(shootingObstacles(s.walls,a.movement.destination,b.movement.tile).blocked,false);
+});
+
+test('completed doors block rifle shots while planned doors do not',()=>{
+const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const door=s.walls.plan(tile(6,3),'wood','door');assert.equal(s.combat.canFireFrom('rifle',a.movement.tile,b.movement.tile),true);s.walls.complete(door);assert.equal(s.combat.canFireFrom('rifle',a.movement.tile,b.movement.tile),false);assert.equal(s.combat.canFireFrom('knife',tile(5,3),tile(6,3)),true);
+});

@@ -38,13 +38,16 @@ test('automatic and drafted humans automatically attack only enemies inside thei
  s.combat.update(enemy,0,[player]);s.combat.update(enemy,ATTACK_INTERVAL,[player]);assert.equal(player.hp,90);
 });
 
-test('manual attacks keep the same target despite faction changes and moving outside the original range until death',()=>{
+test('manual attacks keep the same target despite faction changes and holding position when targets leave range and resuming when they return',()=>{
  const s=scene(),a=s.pawn(5,5,'player','rifle'),target=s.pawn(10,5,'player');s.combat.requestAttack(a,target);
  target.faction='wild';target.movement.tile=tile(30,5);target.movement.destination=tile(30,5);target.movement.changed();
  const rival=s.pawn(5,6,'enemy1');
  for(let i=0;i<300&&!target.dead;i++){s.combat.update(a,.1,[rival]);s.move(a);}
  assert.equal(rival.hp,100);
- assert.equal(target.dead,true);assert.equal(target.hp,0);assert.equal(a.attackJob,null);
+ assert.equal(target.hp,100);assert.deepEqual(a.movement.tile,tile(5,5));assert.equal(a.attackJob.target,target);
+ target.movement.tile=tile(10,5);target.movement.destination=tile(10,5);target.movement.changed();
+ for(let i=0;i<100&&!target.dead;i++){s.combat.update(a,.1,[rival]);s.move(a);}
+ assert.equal(target.dead,true);assert.equal(a.attackJob,null);
 });
 
 test('every shot reports a hit or miss at fire time and hit damage is already applied before visuals',()=>{

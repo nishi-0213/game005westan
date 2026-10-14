@@ -1,3 +1,4 @@
+import { shootingObstacles } from './shooting.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -37,6 +38,7 @@ export interface AttackOrder {
   goal?: Tile;
   manual?: boolean;
   hunting?: boolean;
+  holdPosition?: Tile;
 }
 export type CombatPawn = CombatTarget & {
   weapon?: Weapon;
@@ -96,8 +98,13 @@ export class Combat {
     if (!approach) return false;
     this.interrupt(pawn); this.cancel(pawn);
     pawn.attackJob = { target, cooldown: WEAPONS[pawn.weapon ?? 'unarmed'].interval, retrySeconds: .25,
-      targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true };
+      targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true,
+      holdPosition:stationary(pawn)&&positionKey(pawn.movement.tile)===positionKey(approach.goal)?{...approach.goal}:undefined };
     return setRoute(pawn.movement, approach.path.tiles);
+  }
+
+  canFireFrom(weapon:Weapon,from:Tile,to:Tile):boolean {
+    return inWeaponRange(weapon,from,to)&&(weapon!=='rifle'||!shootingObstacles(this.construction.walls,from,to).blocked);
   }
 
   canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
@@ -119,7 +126,7 @@ export class Combat {
     // Dijkstra's endpoint order is nearest first. Only stopping cells are filtered.
     for (const [index, path] of paths) {
       const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
-      if (inWeaponRange(pawn.weapon ?? 'unarmed', goal, target.movement.tile)) return { goal, path };
+      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile)) return { goal, path };
     }
     return null;
   }
@@ -128,7 +135,7 @@ export class Combat {
     let nearest: CombatTarget | null = null, distance = Infinity;
     for (const target of targets) {
       if (target === pawn || target.dead || target.departed || !areHostile(pawn, target)
-        || !inWeaponRange(pawn.weapon ?? 'unarmed', pawn.movement.tile, target.movement.tile)) continue;
+        || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, target.movement.tile)) continue;
       const candidateDistance = Math.hypot(target.movement.tile.column - pawn.movement.tile.column, target.movement.tile.row - pawn.movement.tile.row);
       if (candidateDistance < distance) { distance = candidateDistance; nearest = target; }
     }
@@ -170,12 +177,14 @@ export class Combat {
     const manual = job.manual !== false;
     if (manual && pawn.mode !== 'drafted' || job.target.dead || job.target.departed
       || job.hunting && (pawn.mode!=='automatic'||!job.target.hunt)
-      || !manual && !job.hunting && (!areHostile(pawn, job.target) || !inWeaponRange(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile))) {
+      || !manual && !job.hunting && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
     const weapon = pawn.weapon ?? 'unarmed';
+    if(manual&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
+    if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile))return true;
     if (!manual && !job.hunting && !stationary(pawn)) return true;
-    if (!stationary(pawn) || !inWeaponRange(weapon, pawn.movement.tile, job.target.movement.tile)) {
+    if (!stationary(pawn) || !this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile)) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
       const changedGoal = job.goal && positionKey(job.goal) !== positionKey(pawn.movement.destination);
@@ -193,7 +202,9 @@ export class Combat {
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
       job.cooldown += WEAPONS[weapon].interval;
-      const hit = this.random() < WEAPONS[weapon].accuracy;
+      const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,job.target.movement.tile).covered;
+      const accuracy=Math.max(0,WEAPONS[weapon].accuracy-(covered?.4:0));
+      const hit = this.random() < accuracy;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
         from: renderedPosition(pawn.movement), to: renderedPosition(job.target.movement),
         damage: hit ? WEAPONS[weapon].damage : 0 };
