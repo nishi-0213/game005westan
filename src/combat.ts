@@ -7,15 +7,16 @@ import { killPawn } from './needs.ts';
 import type { FactionMember } from './factions';
 import { areHostile, isPlayerControlled } from './factions.ts';
 import type { MapItem } from './items';
-import { carryCapacity, returnItems } from './items.ts';
+import { carryCapacity, returnItems, isWeaponItem } from './items.ts';
 import type { Construction } from './construction';
 import type { Harvesting } from './harvesting';
 import type { Hauling } from './hauling';
 
-export type Weapon = 'unarmed' | 'rifle';
+export type Weapon = 'unarmed' | 'rifle' | 'knife';
 export const WEAPONS = {
-  unarmed: { name: '素手', damage: 10, accuracy: .30, range: 1 },
-  rifle: { name: 'ライフル', damage: 40, accuracy: .10, range: 16 },
+  unarmed: { name: '素手', damage: 10, accuracy: .80, range: 1, interval: 2.5 },
+  knife: { name: 'ナイフ', damage: 40, accuracy: .90, range: 1, interval: 1 },
+  rifle: { name: 'ライフル', damage: 40, accuracy: .50, range: 16, interval: 2.5 },
 };
 export const ATTACK_INTERVAL = 1 / .4;
 export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean };
@@ -47,7 +48,7 @@ export type CombatPawn = CombatTarget & {
 export function inWeaponRange(weapon: Weapon, from: Tile, target: Tile): boolean {
   const dc = Math.abs(from.column - target.column), dr = Math.abs(from.row - target.row);
   if (!dc && !dr) return false;
-  return weapon === 'unarmed' ? Math.max(dc, dr) <= 1 : dc * dc + dr * dr <= 16 * 16;
+  return WEAPONS[weapon].range === 1 ? Math.max(dc, dr) <= 1 : dc * dc + dr * dr <= 16 * 16;
 }
 
 const stationary = (pawn: CombatPawn): boolean => !pawn.movement.nextTile
@@ -76,7 +77,7 @@ export class Combat {
   }
 
   requestEquip(pawn: CombatPawn, source: MapItem): boolean {
-    if (pawn.dead || !isPlayerControlled(pawn) || source.type !== 'rifle' || source.quantity <= 0) return false;
+    if (pawn.dead || !isPlayerControlled(pawn) || !isWeaponItem(source.type) || source.quantity <= 0) return false;
     const walls = this.construction.walls, from = pawn.movement.nextTile ?? pawn.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     const direct = paths.get(source.row * walls.mapSize + source.column);
@@ -92,7 +93,7 @@ export class Combat {
     const approach = this.attackApproach(pawn, target);
     if (!approach) return false;
     this.interrupt(pawn); this.cancel(pawn);
-    pawn.attackJob = { target, cooldown: ATTACK_INTERVAL, retrySeconds: .25,
+    pawn.attackJob = { target, cooldown: WEAPONS[pawn.weapon ?? 'unarmed'].interval, retrySeconds: .25,
       targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true };
     return setRoute(pawn.movement, approach.path.tiles);
   }
@@ -127,8 +128,8 @@ export class Combat {
       if (!stationary(pawn)) return true;
       if (positionKey(pawn.movement.tile) !== positionKey(equip.goal)) { this.cancel(pawn); return false; }
       equip.source.quantity -= 1;
-      if (pawn.weapon === 'rifle') returnItems(this.construction.items, pawn.movement.tile, 'rifle', 1);
-      pawn.weapon = 'rifle'; pawn.equipJob = null;
+      if (pawn.weapon && pawn.weapon !== 'unarmed') returnItems(this.construction.items, pawn.movement.tile, pawn.weapon, 1);
+      pawn.weapon = equip.source.type as Exclude<Weapon, 'unarmed'>; pawn.equipJob = null;
       if (pawn.inventory) {
         const excess = Math.max(0, pawn.inventory.quantity - carryCapacity(pawn, pawn.inventory.type));
         if (excess) { returnItems(this.construction.items, pawn.movement.tile, pawn.inventory.type, excess); pawn.inventory.quantity -= excess; }
@@ -144,7 +145,7 @@ export class Combat {
         const target = this.automaticTarget(pawn, targets);
         if (target) {
           this.interrupt(pawn);
-          pawn.attackJob = { target, cooldown: ATTACK_INTERVAL, retrySeconds: .25, manual: false };
+          pawn.attackJob = { target, cooldown: WEAPONS[pawn.weapon ?? 'unarmed'].interval, retrySeconds: .25, manual: false };
         }
       }
     }
@@ -174,7 +175,7 @@ export class Combat {
     job.cooldown -= seconds;
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
-      job.cooldown += ATTACK_INTERVAL;
+      job.cooldown += WEAPONS[weapon].interval;
       const hit = this.random() < WEAPONS[weapon].accuracy;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
         from: renderedPosition(pawn.movement), to: renderedPosition(job.target.movement),

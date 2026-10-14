@@ -5,6 +5,9 @@ import type { Wall, Walls } from './walls';
 
 export class Storage {
   readonly walls: Walls;
+  private sourceCache = new WeakMap<Wall,Map<ItemType,MapItem>>();
+  private storedSources = new WeakSet<MapItem>();
+  isSource(item: MapItem): boolean { return this.storedSources.has(item); }
   constructor(walls: Walls) { this.walls = walls; }
 
   boxes(): Wall[] {
@@ -23,15 +26,23 @@ export class Storage {
   }
 
   sources(type: ItemType): MapItem[] {
-    return this.boxes().filter(box => (box.stored?.[type] ?? 0) > 0).map(box => ({
-      column: box.column, row: box.row, type,
-      get quantity() { return box.state === 'completed' ? box.stored?.[type] ?? 0 : 0; },
-      set quantity(value: number) { box.stored![type] = value; },
-    }));
+    return this.boxes().filter(box => (box.stored?.[type] ?? 0) > 0).map(box => {
+      let cache=this.sourceCache.get(box);
+      if(!cache){cache=new Map();this.sourceCache.set(box,cache);}
+      let source=cache.get(type);
+      if(!source){
+        const walls=this.walls;
+        source={column:box.column,row:box.row,type,
+          get quantity(){return box.state==='completed' && walls.at(box)===box ? box.stored?.[type]??0 : 0;},
+          set quantity(value:number){box.stored![type]=value;}};
+        cache.set(type,source);this.storedSources.add(source);
+      }
+      return source;
+    });
   }
 
   totals(): Record<ItemType, number> {
-    const totals = { wood: 0, stone: 0, strawberry: 0, rifle: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };
+    const totals = { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };
     for (const box of this.boxes()) for (const type of ITEM_TYPES) totals[type] += box.stored?.[type] ?? 0;
     return totals;
   }
@@ -54,7 +65,7 @@ export class Storage {
 
   deposit(box: Wall, type: ItemType, quantity: number): number {
     if (!this.accepts(box, type) || quantity <= 0) return 0;
-    box.stored ??= { wood: 0, stone: 0, strawberry: 0, rifle: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };
+    box.stored ??= { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };
     const deposited = Math.min(quantity, this.capacity(box, type));
     box.stored[type] = (box.stored[type] ?? 0) + deposited;
     return deposited;

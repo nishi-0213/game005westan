@@ -5,6 +5,7 @@ import type { Walls } from './walls';
 import { invalidatePaths } from './pathfinding.ts';
 
 export class PlantGrowth {
+  readonly living = new Set<EnvironmentObject>();
   readonly growing = new Set<EnvironmentObject>();
   readonly objects: EnvironmentObject[];
   readonly walls: Walls;
@@ -17,13 +18,23 @@ export class PlantGrowth {
     onSpawn: (object: EnvironmentObject) => void = () => {}, random: () => number = Math.random) {
     this.objects = objects; this.walls = walls; this.occupied = occupied;
     this.onSpawn = onSpawn; this.random = random;
-    for (const object of objects) if (object.type !== 'rock' && !object.collected && object.hp < 100) this.growing.add(object);
+    for (const object of objects) if (object.type !== 'rock' && !object.collected) { this.living.add(object); if (object.hp < 100) this.growing.add(object); }
   }
 
   update(seconds: number): void {
     let remaining = Math.max(0, seconds);
     while (remaining > 0) {
       const step = Math.min(remaining, 60 - this.elapsed);
+      let expired = false;
+      for (const object of this.living) {
+        if (object.collected) { this.living.delete(object); continue; }
+        object.ageSeconds = (object.ageSeconds ?? 0) + step;
+        if (object.ageSeconds >= 180 - 1e-9) {
+          object.collected = true; object.collect = false;
+          this.living.delete(object); this.growing.delete(object); expired = true;
+        }
+      }
+      if (expired) invalidatePaths(this.walls.isBlocked);
       for (const object of this.growing) {
         if (object.collected) { this.growing.delete(object); continue; }
         object.hp = Math.min(100, object.hp + 99 * step / 60);
@@ -50,6 +61,7 @@ export class PlantGrowth {
         const object = createEnvironment(type, tile);
         this.objects.push(object);
         this.growing.add(object);
+        this.living.add(object);
         this.onSpawn(object);
         spawned = true;
       }

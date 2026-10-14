@@ -14,7 +14,7 @@ export interface Builder {
   butcherJob?: import('./butchery').ButcherJob | null;
   forcedCorpse?: import('./butchery').Corpse | null;
   carryingCorpse?: import('./butchery').Corpse | null;
-  weapon?: 'unarmed' | 'rifle';
+  weapon?: 'unarmed' | 'rifle' | 'knife';
   mode: 'drafted' | 'automatic';
   inventory: { type: ItemType; quantity: number } | null;
   job: { target: Wall; phase: 'gather' | 'deliver' | 'build' | 'demolish'; source?: MapItem; goal: Tile } | null;
@@ -61,7 +61,7 @@ export class Construction {
   }
 
   requestDrop(builder: Builder): void {
-    if (!builder.inventory?.quantity && builder.weapon !== 'rifle') return;
+    if (!builder.inventory?.quantity && (!builder.weapon || builder.weapon === 'unarmed')) return;
     this.cancel(builder);
     builder.dropRequested = true;
   }
@@ -130,7 +130,7 @@ export class Construction {
     if (builder.dropRequested) {
       if (builder.movement.nextTile || !sameTile(builder.movement.tile, builder.movement.destination)) return;
       if (builder.inventory) returnItems(this.items, builder.movement.tile, builder.inventory.type, builder.inventory.quantity);
-      if (builder.weapon === 'rifle') { returnItems(this.items, builder.movement.tile, 'rifle', 1); builder.weapon = 'unarmed'; }
+      if (builder.weapon && builder.weapon !== 'unarmed') { returnItems(this.items, builder.movement.tile, builder.weapon, 1); builder.weapon = 'unarmed'; }
       builder.inventory = null;
       builder.dropRequested = false;
       builder.retrySeconds = 0.25;

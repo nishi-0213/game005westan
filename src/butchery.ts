@@ -183,7 +183,7 @@ export class Butchery {
     returnItems(this.construction.items, movement.tile, 'meat', MEAT_YIELD);
     const meat = this.construction.items.find(item => item.type === 'meat' && sameTile(item,movement.tile))!; meat.collect = true;
     if (job.corpse.inventory) returnItems(this.construction.items, movement.tile, job.corpse.inventory.type, job.corpse.inventory.quantity);
-    if (job.corpse.weapon === 'rifle') returnItems(this.construction.items, movement.tile, 'rifle', 1);
+    if (job.corpse.weapon && job.corpse.weapon !== 'unarmed') returnItems(this.construction.items, movement.tile, job.corpse.weapon, 1);
     job.corpse.inventory = null; job.corpse.weapon = 'unarmed'; job.corpse.consumed = true; job.corpse.corpseStation = undefined;
     state.corpse = undefined; state.seconds = 0;
     if (state.mode === 'count') state.remaining = Math.max(0,state.remaining-1);

@@ -34,18 +34,18 @@ test('unarmed attacks include diagonal neighbors and rifle range uses the inclus
  assert.equal(ATTACK_INTERVAL,2.5);
 });
 
-test('unarmed hits do10HP damage every2.5seconds and exact30percent rolls miss',()=>{
- const s=scene(()=>.299),a=s.pawn(3,3),b=s.pawn(4,4);
+test('unarmed hits do10HP damage every2.5seconds and exact80percent rolls miss',()=>{
+ const s=scene(()=>.799),a=s.pawn(3,3),b=s.pawn(4,4);
  assert.ok(s.combat.requestAttack(a,b));s.combat.update(a,2.49);assert.equal(b.hp,100);s.combat.update(a,.01);assert.equal(b.hp,90);
  s.combat.update(a,5);assert.equal(b.hp,70);assert.equal(b.needs.health,100);
- const t=scene(()=>.3),c=t.pawn(3,3),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
+ const t=scene(()=>.8),c=t.pawn(3,3),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
 });
 
-test('rifle hits use10percent accuracy and40HP damage, killing immediately at zero even when health is100',()=>{
- const s=scene(()=>.099),a=s.pawn(3,3,'rifle'),b=s.pawn(15,3);
+test('rifle hits use50percent accuracy and40HP damage, killing immediately at zero even when health is100',()=>{
+ const s=scene(()=>.499),a=s.pawn(3,3,'rifle'),b=s.pawn(15,3);
  s.combat.requestAttack(a,b);s.combat.update(a,2.5);assert.equal(b.hp,60);s.combat.update(a,2.5);assert.equal(b.hp,20);assert.equal(b.dead,undefined);
  s.combat.update(a,2.5);assert.equal(b.hp,0);assert.equal(b.dead,true);assert.equal(b.needs.health,100);assert.equal(a.attackJob,null);
- const t=scene(()=>.1),c=t.pawn(3,3,'rifle'),d=t.pawn(15,3);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
+ const t=scene(()=>.5),c=t.pawn(3,3,'rifle'),d=t.pawn(15,3);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
 });
 
 test('out-of-range attacks choose the nearest reachable stopping cell in range and never stop on a pawn',()=>{
@@ -114,3 +114,13 @@ test('equipped workers haul and build using real3stone batches without exceeding
  assert.equal(maximum,3);assert.equal(wall.delivered,10);assert.equal(wall.state,'completed');
  assert.equal(box.stored.stone+(a.inventory?.quantity??0),10);
 });
+
+ test('knife has90percent accuracy,40damage and diagonal melee range; equip replacement and drop preserve both weapons',()=>{
+ const s=scene(()=>.899),a=s.pawn(3,3,'knife'),b=s.pawn(4,4);s.combat.requestAttack(a,b);s.combat.update(a,.99);assert.equal(b.hp,100);s.combat.update(a,.01);assert.equal(b.hp,60);
+ assert.equal(inWeaponRange('knife',tile(3,3),tile(5,3)),false);
+ const t=scene(()=>.9),c=t.pawn(3,3,'knife'),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,2.5);assert.equal(d.hp,100);
+ const e=scene(),p=e.pawn(2,2,'rifle'),knife={...tile(3,2),type:'knife',quantity:1};e.items.push(knife);e.combat.requestEquip(p,knife);
+ for(let i=0;i<30&&p.equipJob;i++){e.move(p);e.combat.update(p,.1)}
+ assert.equal(p.weapon,'knife');assert.equal(knife.quantity,0);assert.equal(countItems(e.items).rifle,1);assert.equal(ITEM_APPEARANCE.knife.massKg,2);assert.equal(carryCapacity(p,'wood'),18);
+ e.construction.requestDrop(p);e.construction.update(p,.1);assert.equal(p.weapon,'unarmed');assert.equal(countItems(e.items).knife,1);
+ });

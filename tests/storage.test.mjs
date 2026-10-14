@@ -18,7 +18,7 @@ function scene(items=[]){
  return {walls,storage,hauling,construction,worker,tick,box,items};
 }
 test('storage recipe is wood30/3seconds; totals exclude ground, plans and carried inventory',()=>{
- const s=scene([{column:3,row:3,type:'wood',quantity:100}]);const planned=s.walls.plan({column:7,row:7},'stone','storage');assert.equal(planned.material,'wood');assert.deepEqual(BUILD_RECIPES.storage,{materialCount:30,seconds:3});assert.deepEqual(s.storage.totals(),{wood:0,stone:0,strawberry:0,rifle:0,meat:0,humanCorpse:0,deerCorpse:0});const box=s.box();s.storage.deposit(box,'wood',2000);assert.deepEqual(s.storage.totals(),{wood:2000,stone:0,strawberry:0,rifle:0,meat:0,humanCorpse:0,deerCorpse:0});assert.equal(s.walls.isBlocked(box),true);
+ const s=scene([{column:3,row:3,type:'wood',quantity:100}]);const planned=s.walls.plan({column:7,row:7},'stone','storage');assert.equal(planned.material,'wood');assert.deepEqual(BUILD_RECIPES.storage,{materialCount:30,seconds:3});assert.deepEqual(s.storage.totals(),{wood:0,stone:0,strawberry:0,rifle:0,knife:0,meat:0,humanCorpse:0,deerCorpse:0});const box=s.box();s.storage.deposit(box,'wood',2000);assert.deepEqual(s.storage.totals(),{wood:2000,stone:0,strawberry:0,rifle:0,knife:0,meat:0,humanCorpse:0,deerCorpse:0});assert.equal(s.walls.isBlocked(box),true);
 });
 test('ignored items are not hauled; marked items arrive with no losses under20kg',()=>{
  const stack={column:3,row:2,type:'stone',quantity:8};const s=scene([stack]);const box=s.box();s.tick(20);assert.equal(stack.quantity,8);stack.collect=true;let max=0;for(let i=0;i<300;i++){s.tick();max=Math.max(max,(s.worker.inventory?.quantity??0)*4);}assert.equal(max,20);assert.equal(stack.quantity,0);assert.equal(box.stored.stone,8);assert.equal(s.worker.inventory,null);
@@ -54,4 +54,11 @@ test('simultaneous deliveries cannot overfill one area or lose surplus carried i
  s.hauling.update(s.worker);s.hauling.update(other);
  for(let i=0;i<100;i++)for(const w of [s.worker,other]){advancePathMovement(w.movement,.1,12,s.walls.isBlocked,s.walls.cannotStop);s.hauling.update(w);}
  assert.equal(area.stored.wood,100);assert.equal(stacks.reduce((n,i)=>n+i.quantity,0)+(s.worker.inventory?.quantity??0)+(other.inventory?.quantity??0),20);
+});
+
+test('stored item source identity persists across selection and quantity updates and clears on removal',()=>{
+ const s=scene([]),box=s.box();s.storage.deposit(box,'knife',2);
+ const a=s.storage.sources('knife')[0];assert.equal(s.storage.sources('knife')[0],a);assert.equal(s.storage.isSource(a),true);
+ s.storage.deposit(box,'knife',1);assert.equal(a.quantity,3);a.quantity=0;assert.equal(s.storage.sources('knife').length,0);
+ s.storage.deposit(box,'knife',1);s.walls.erase(box);assert.equal(a.quantity,0);
 });

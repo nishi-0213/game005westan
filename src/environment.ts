@@ -8,6 +8,7 @@ export interface EnvironmentObject extends Tile {
   collected: boolean;
   workSeconds: number;
   hp: number;
+  ageSeconds?: number;
   clusterId?: number;
 }
 export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; material: ItemType; quantity: number; seconds: number }> = {

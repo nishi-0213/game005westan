@@ -90,3 +90,12 @@ test('harvest yield uses theHP at completion, including growth during the harves
   assert.equal(object.collected, true);
   assert.equal(items[0].quantity, 2);
 });
+
+ test('trees and berries expire at180game seconds, rocks remain and new plants have their own lifetime',()=>{
+ const tree=createEnvironment('tree',{column:1,row:1}),berry=createEnvironment('wildStrawberry',{column:2,row:1}),rock=createEnvironment('rock',{column:3,row:1});
+ const objects=[tree,berry,rock],walls=new Walls(8),growth=new PlantGrowth(objects,walls,()=>false,()=>{},()=>0);
+ growth.update(179.9);assert.equal(tree.collected,false);assert.equal(berry.collected,false);
+ const newer=objects.find(o=>o!==tree&&o.type==='tree');growth.update(.1);
+ assert.equal(tree.collected,true);assert.equal(berry.collected,true);assert.equal(rock.collected,false);assert.equal(newer.collected,false);assert.equal(growth.living.has(tree),false);
+ growth.update(60);assert.equal(newer.collected,true);
+ });
