@@ -1,3 +1,4 @@
+import type { Hunting } from './hunting';
 import type { Butchery } from './butchery';
 import type { Clearing } from './clearing';
 import type { Hauling, HaulWorker } from './hauling';
@@ -8,26 +9,27 @@ import { isBuildingPhase } from './construction.ts';
 import { stopAtNextSafeTile } from './movement.ts';
 import { updateRoaming } from './roaming.ts';
 
-export interface WorkPriorities { construction: number; harvesting: number; hauling?: number; butchery?: number; free?: number }
+export interface WorkPriorities { construction: number; harvesting: number; hauling?: number; butchery?: number; hunting?: number; free?: number }
 export type AutonomousWorker = HarvestWorker & HaulWorker & { priorities: WorkPriorities; dead?: boolean; freeSeconds?: number; freeActive?: boolean; decisionSeconds?: number; prioritySignature?: string; workTask?: string; transportTask?: 'clear' | 'deliver' | 'store' | 'corpse' };
 export const INITIAL_PRIORITIES: WorkPriorities[] = [
-  { construction: 3, harvesting: 3, hauling: 3, butchery: 3, free: 3 },
-  { construction: 3, harvesting: 3, hauling: 3, butchery: 3, free: 3 },
-  { construction: 3, harvesting: 3, hauling: 3, butchery: 3, free: 3 },
+  { construction: 3, harvesting: 3, hauling: 3, butchery: 3, hunting: 3, free: 3 },
+  { construction: 3, harvesting: 3, hauling: 3, butchery: 3, hunting: 3, free: 3 },
+  { construction: 3, harvesting: 3, hauling: 3, butchery: 3, hunting: 3, free: 3 },
 ];
 export function nextPriority(value: number, direction: 1 | -1 = 1): number { return (value - 1 + direction + 4) % 4 + 1; }
 
-export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling, clearing?: Clearing, butchery?: Butchery): void {
-  if (worker.dead) return;
+export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling, clearing?: Clearing, butchery?: Butchery, hunting?: Hunting): void {
+  if (worker.dead) {hunting?.cancel(worker);return;}
   const wasFree = worker.freeActive;
   worker.freeActive = false;
   if (worker.mode !== 'automatic' || worker.dropRequested) {
+    hunting?.cancel(worker);
     worker.freeSeconds = 0;
     if (worker.butcherJob || worker.carryingCorpse) butchery?.cancel(worker);
     if (worker.haulJob || worker.clearJob) hauling?.cancel(worker);
     construction.update(worker, seconds); harvesting.update(worker, seconds); return;
   }
-  const signature = `${worker.priorities.construction},${worker.priorities.harvesting},${worker.priorities.hauling ?? 3},${worker.priorities.free ?? 4},${worker.priorities.butchery ?? 3}`;
+  const signature = `${worker.priorities.construction},${worker.priorities.harvesting},${worker.priorities.hauling ?? 3},${worker.priorities.free ?? 4},${worker.priorities.butchery ?? 3},${worker.priorities.hunting??3}`;
   worker.decisionSeconds = (worker.decisionSeconds ?? 0) - seconds;
   let task = worker.workTask;
   if (!task || worker.decisionSeconds <= 0 || worker.prioritySignature !== signature) {
@@ -36,10 +38,12 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
       { task: 'transport', priority: worker.priorities.hauling ?? 3 },
       { task: 'build', priority: worker.priorities.construction },
       { task: 'butcher', priority: worker.priorities.butchery ?? 3 },
+      { task: 'hunt', priority: worker.priorities.hunting??3 },
       { task: 'free', priority: worker.priorities.free ?? 4 },
     ].sort((a, b) => a.priority - b.priority);
     // Only explore as far down the priority list as needed to select a task.
     for (const choice of choices) {
+      if (choice.task==='hunt'&&!hunting?.hasAvailableWork(worker))continue;
       if (choice.task === 'harvest' && !worker.harvestJob && !harvesting.hasAvailableWork(worker)) continue;
       if (choice.task === 'build' && !(worker.job && isBuildingPhase(worker.job.phase)) && !construction.nearestPlan(worker, undefined, 'build')) continue;
       if (choice.task === 'butcher' && !(worker.butcherJob?.phase === 'process') && !butchery?.findProcessing(worker)) continue;
@@ -57,6 +61,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
     worker.prioritySignature = signature;
     worker.decisionSeconds = .25;
   }
+  if(task!=='hunt')hunting?.cancel(worker);
   if (worker.butcherJob && !(task === 'butcher' && worker.butcherJob.phase === 'process') && !(task === 'transport' && worker.transportTask === 'corpse')) butchery?.cancel(worker);
   if (task === 'free') {
     if (worker.job) construction.cancel(worker);
@@ -69,7 +74,9 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
   if (wasFree) stopAtNextSafeTile(worker.movement, construction.walls.cannotStop);
   worker.freeSeconds = 0;
   const hadJob = Boolean(worker.job || worker.harvestJob || worker.haulJob || worker.clearJob || worker.butcherJob);
-  if (task === 'butcher' || task === 'transport' && worker.transportTask === 'corpse') {
+  if(task==='hunt'){
+    hunting?.update(worker,seconds);
+  } else if (task === 'butcher' || task === 'transport' && worker.transportTask === 'corpse') {
     if (worker.job) construction.cancel(worker);
     if (worker.harvestJob) harvesting.cancel(worker);
     if (worker.haulJob || worker.clearJob) hauling?.cancel(worker);

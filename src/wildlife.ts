@@ -15,6 +15,7 @@ import type { MapItem } from './items';
 
 export interface Deer extends EatingWorker, FactionMember {
   kind: 'deer';
+  hunt?: boolean;
   id: number;
   freeSeconds: number;
   leaving: boolean;
@@ -107,6 +108,7 @@ export class Wildlife {
   flee(deer: Deer, attacker: Tile): boolean {
     if (deer.dead || deer.departed) return false;
     const walls = this.construction.walls;
+    walls.bindMovement(deer.movement,deer.faction);
     const start = deer.movement.nextTile ?? deer.movement.tile;
     let dc = start.column - attacker.column, dr = start.row - attacker.row;
     if (!dc && !dr) { dc = 1; dr = 0; }
@@ -139,6 +141,7 @@ export class Wildlife {
   updateDeer(deer: Deer, seconds: number): void {
     if (deer.dead || deer.departed) return;
     const walls = this.construction.walls;
+    walls.bindMovement(deer.movement,deer.faction);
     const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, false);
     if (deer.dead) return;
     if (deer.fleeGoal) {

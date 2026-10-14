@@ -19,7 +19,7 @@ export const WEAPONS = {
   rifle: { name: 'ライフル', damage: 40, accuracy: .50, range: 16, interval: 2.5 },
 };
 export const ATTACK_INTERVAL = 1 / .4;
-export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean };
+export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean };
 export interface AttackEvent {
   attacker: CombatPawn;
   target: CombatTarget;
@@ -36,6 +36,7 @@ export interface AttackOrder {
   targetPosition?: string;
   goal?: Tile;
   manual?: boolean;
+  hunting?: boolean;
 }
 export type CombatPawn = CombatTarget & {
   weapon?: Weapon;
@@ -90,12 +91,26 @@ export class Combat {
 
   requestAttack(pawn: CombatPawn, target: CombatTarget): boolean {
     if (pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
+    this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach = this.attackApproach(pawn, target);
     if (!approach) return false;
     this.interrupt(pawn); this.cancel(pawn);
     pawn.attackJob = { target, cooldown: WEAPONS[pawn.weapon ?? 'unarmed'].interval, retrySeconds: .25,
       targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true };
     return setRoute(pawn.movement, approach.path.tiles);
+  }
+
+  canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
+    this.construction.walls.bindMovement(pawn.movement,pawn.faction);
+    return Boolean(this.attackApproach(pawn,target));
+  }
+  requestHunt(pawn:CombatPawn,target:CombatTarget):boolean {
+    if(pawn.dead||pawn.mode!=='automatic'||!isPlayerControlled(pawn)||!target.hunt||target.dead||target.departed)return false;
+    this.construction.walls.bindMovement(pawn.movement,pawn.faction);
+    const approach=this.attackApproach(pawn,target);if(!approach)return false;
+    this.interrupt(pawn);this.cancel(pawn);
+    pawn.attackJob={target,cooldown:WEAPONS[pawn.weapon??'unarmed'].interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,hunting:true};
+    return setRoute(pawn.movement,approach.path.tiles);
   }
 
   private attackApproach(pawn: CombatPawn, target: CombatTarget): { goal: Tile; path: Path } | null {
@@ -122,6 +137,7 @@ export class Combat {
 
   update(pawn: CombatPawn, seconds: number, targets: readonly CombatTarget[] = []): boolean {
     if (pawn.dead || pawn.faction === 'wild') { this.cancel(pawn); return false; }
+    this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const equip = pawn.equipJob;
     if (equip) {
       if (equip.source.quantity <= 0) { this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false; }
@@ -153,11 +169,12 @@ export class Combat {
     if (!job) return false;
     const manual = job.manual !== false;
     if (manual && pawn.mode !== 'drafted' || job.target.dead || job.target.departed
-      || !manual && (!areHostile(pawn, job.target) || !inWeaponRange(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile))) {
+      || job.hunting && (pawn.mode!=='automatic'||!job.target.hunt)
+      || !manual && !job.hunting && (!areHostile(pawn, job.target) || !inWeaponRange(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
     const weapon = pawn.weapon ?? 'unarmed';
-    if (!manual && !stationary(pawn)) return true;
+    if (!manual && !job.hunting && !stationary(pawn)) return true;
     if (!stationary(pawn) || !inWeaponRange(weapon, pawn.movement.tile, job.target.movement.tile)) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
@@ -183,6 +200,7 @@ export class Combat {
       if (hit) {
         job.target.hp = Math.max(0, (job.target.hp ?? 100) - WEAPONS[weapon].damage);
         if (job.target.hp <= 0) {
+          if(job.hunting){job.target.collectCorpse=true;job.target.hunt=false;}
           killPawn(job.target, this.construction, this.harvesting, this.hauling);
           this.cancel(job.target);
           this.cancel(pawn);

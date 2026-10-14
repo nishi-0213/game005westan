@@ -3,6 +3,7 @@ import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
 import { advancePathMovement } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
+import { Hunting } from './hunting';
 import { Combat, WEAPONS, ATTACK_INTERVAL } from './combat';
 import type { CombatPawn, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
@@ -206,6 +207,30 @@ updateItemSummary();
 walls.environmentCannotStop = tile => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false;
 const wallLayer = new Container();
 const wallViews = new Map<string, Graphics>();
+const doorAnimations=new Map<Wall,{openness:number;hold:number}>();
+function drawDoor(view:Graphics, openness:number): void {
+  view.clear().rect(0,0,2,TILE_SIZE).rect(TILE_SIZE-2,0,2,TILE_SIZE).fill(0x4d3421);
+  const width=(TILE_SIZE-4)/2*(1-openness);
+  if(width>0)view.rect(2,1,width,TILE_SIZE-2).rect(TILE_SIZE-2-width,1,width,TILE_SIZE-2).fill(0xa67849).stroke({color:0x4d3421,width:1});
+}
+function updateDoors(seconds:number):void {
+  const players=pawns.filter(pawn=>pawn.faction==='player'&&!pawn.dead);
+  for(const door of walls.items.values()) {
+    if(door.kind!=='door'||door.state!=='completed')continue;
+    let state=doorAnimations.get(door);
+    if(!state){state={openness:0,hold:0};doorAnimations.set(door,state);}
+    const nearby=players.some(pawn=>{
+      const position=renderedPosition(pawn.movement);
+      return (pawn.movement.nextTile?.column===door.column&&pawn.movement.nextTile.row===door.row)
+        ||Math.max(Math.abs(position.column-door.column),Math.abs(position.row-door.row))<.8;
+    });
+    state.hold=nearby?.2:Math.max(0,state.hold-seconds);
+    const next=Math.max(0,Math.min(1,state.openness+(state.hold>0?1:-1)*seconds*5));
+    if(next!==state.openness){state.openness=next;const view=wallViews.get(`${door.column},${door.row}`);if(view)drawDoor(view,next);}
+  }
+  for(const door of doorAnimations.keys())if(walls.at(door)!==door)doorAnimations.delete(door);
+}
+
 map.addChild(wallLayer);
 
 const storedItemLayer = new Container();
@@ -335,6 +360,7 @@ hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 const wildlife = new Wildlife(construction, harvesting, hauling);
 const combat = new Combat(construction, harvesting, hauling);
+const hunting=new Hunting(combat,()=>wildlife.deer);
 hauling.onCommand = worker => {
   construction.cancel(worker);
   const pawn = pawns.find(pawn => pawn === worker);
@@ -393,7 +419,7 @@ for (const [index, pawn] of pawns.entries()) {
   identity.append(createPawnPortrait(index), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
-  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['free', '自由']] as const) {
+  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['hunting','狩猟'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
@@ -592,7 +618,7 @@ function updatePawnPanels(): void {
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
   setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
-  const action = selectedPawn.dead ? '死亡' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? '攻撃中' : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
+  const action = selectedPawn.dead ? '死亡' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) {
     if (needsMeters[index].meter.value !== value) needsMeters[index].meter.value = value;
     setText(needsMeters[index].value, `${Math.round(value)}%`);
@@ -624,6 +650,9 @@ const itemProperties = document.querySelector<HTMLDialogElement>('#item-properti
 const itemPropertiesName = document.querySelector<HTMLElement>('#item-properties-name')!;
 const itemPropertiesMass = document.querySelector<HTMLElement>('#item-properties-mass')!;
 const acquisitionButton = document.querySelector<HTMLButtonElement>('#acquisition-button')!;
+const huntingControl=document.querySelector<HTMLElement>('#hunting-control')!;
+const huntingCheckbox=document.querySelector<HTMLInputElement>('#hunting-checkbox')!;
+huntingCheckbox.addEventListener('change',()=>{for(const deer of selectedDeerSet)if(!deer.dead&&!deer.departed)deer.hunt=huntingCheckbox.checked;});
 const collectionButton = document.querySelector<HTMLButtonElement>('#collection-button')!;
 const harvestSpeed = document.querySelector<HTMLElement>('#environment-harvest-speed')!;
 const harvestQuantity = document.querySelector<HTMLElement>('#environment-harvest-quantity')!;
@@ -780,6 +809,10 @@ function updateItemSelection(): void {
   const hasSelection = infoFocus !== null;
   itemInfoButton.hidden = !hasSelection;
   itemInfoButton.setAttribute('aria-label', infoFocus === 'deer' ? '動物のインフォメーション' : infoFocus === 'environment' ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
+  const huntable=[...selectedDeerSet].filter(deer=>!deer.dead&&!deer.departed);
+  huntingControl.hidden=!huntable.length;
+  huntingCheckbox.checked=huntable.length>0&&huntable.every(deer=>deer.hunt);
+  huntingCheckbox.indeterminate=huntable.some(deer=>deer.hunt)&&!huntingCheckbox.checked;
   const corpses=selectedCorpses();
   acquisitionButton.hidden = ![...selectedItems].some(item=>!storage.isSource(item))&&!corpses.length;
   const acquire = (selectedItems.size > 0||corpses.length>0) && [...selectedItems].every(item => item.collect)&&corpses.every(corpse=>corpse.collectCorpse);
@@ -793,6 +826,8 @@ function updateItemSelection(): void {
   for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = infoFocus !== 'deer';
   for (const element of document.querySelectorAll<HTMLElement>('[data-corpse-property]')) element.hidden=!(infoFocus==='deer'&&selectedDeer?.dead);
   if(selectedDeer?.dead)setText(document.querySelector<HTMLElement>('#corpse-mass')!,`${ITEM_APPEARANCE.deerCorpse.massKg}kg`);
+  for(const element of document.querySelectorAll<HTMLElement>('[data-food-property]'))element.hidden=infoFocus!=='item'||!selectedItem||foodNutrition(selectedItem.type)<=0;
+  if(infoFocus==='item'&&selectedItem&&foodNutrition(selectedItem.type)>0)setText(document.querySelector<HTMLElement>('#food-nutrition')!,String(foodNutrition(selectedItem.type)));
   for (const element of document.querySelectorAll<HTMLElement>('[data-weapon-property]')) element.hidden = infoFocus !== 'item' || !selectedItem || !isWeaponItem(selectedItem.type);
   itemSelection.visible = selectedItems.size > 0;
   itemSelection.clear();
@@ -875,7 +910,7 @@ let selectedConstruction: ConstructionKind | null = null;
 let demolitionSelected = false;
 const demolitionButton = document.querySelector<HTMLButtonElement>('#demolition-button')!;
 const demolitionMarks = new Map<Wall, Graphics>();
-const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood' };
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood' };
 let stationOrientation: 0 | 1 = 0;
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
@@ -883,6 +918,7 @@ const constructionTab = document.querySelector<HTMLButtonElement>('.construction
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
 const constructionChoices = [
   { kind: 'butcher' as const, tabId: '#workshops-tab', optionsId: '#workshop-options', buttonId: '#butcher-button', materialsId: '#butcher-materials' },
+  { kind: 'door' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#door-button', materialsId: '#door-materials' },
   { kind: 'wall' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#wall-button', materialsId: '#wall-materials' },
   { kind: 'storageArea' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-area-button', materialsId: '#storage-area-materials' },
   { kind: 'storage' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-button', materialsId: '#storage-materials' },
@@ -897,7 +933,7 @@ const constructionChoices = [
 function updateConstructionLabels(): void {
   for (const choice of constructionChoices) {
     if (choice.kind === 'storageArea') { choice.button.textContent = '保管エリア'; continue; }
-    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
+    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'door' ? '扉' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
   }
 }
 updateConstructionLabels();
@@ -966,7 +1002,7 @@ for (const choice of constructionChoices) {
   });
   choice.button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    if (choice.kind === 'storage' || choice.kind === 'storageArea' || choice.kind === 'butcher') return;
+    if (choice.kind === 'door' || choice.kind === 'storage' || choice.kind === 'storageArea' || choice.kind === 'butcher') return;
     const opening = choice.materials.hidden;
     hideMaterials();
     choice.materials.hidden = !opening;
@@ -1044,6 +1080,7 @@ function placeConstruction(tile: Tile): void {
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
     .fill(WALL_COLORS[wall.material]);
+  if(wall.kind==='door')drawDoor(view,0);
   if (wall.kind === 'butcher') {
     view.clear();
     for (const cell of footprint(wall)) view.rect((cell.column-tile.column)*TILE_SIZE, (cell.row-tile.row)*TILE_SIZE, TILE_SIZE, TILE_SIZE);
@@ -1071,7 +1108,7 @@ export function completeConstruction(tile: Tile): boolean {
   const sameTile = (entry: Tile): boolean => footprint(item).some(cell => entry.column === cell.column && entry.row === cell.row);
   const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher') && sameTile(entry));
   const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
-  if ([...pawns, ...wildlife.deer].filter(pawn => !pawn.consumed && !pawn.corpseCarrier && !pawn.corpseStation && !pawn.corpseStorage).some(({ movement }) => {
+  if ([...pawns, ...wildlife.deer].filter(pawn => !pawn.consumed && !pawn.corpseCarrier && !pawn.corpseStation && !pawn.corpseStorage).some(({ movement,faction }) => {
     const occupied = [movement.tile, movement.nextTile, movement.destination];
     if ((item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher') && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
       occupied.push(
@@ -1080,7 +1117,7 @@ export function completeConstruction(tile: Tile): boolean {
       );
     }
     return occupied.some((entry) => entry && sameTile(entry))
-      || !movementHasSafeExit(movement, blockedAfter, cannotStopAfter);
+      || !movementHasSafeExit(movement, faction!=='player' ? entry=>walls.nonPlayerBlocked(entry)||blockedAfter(entry)||(item.kind==='door'&&sameTile(entry)) : blockedAfter, cannotStopAfter);
   })) return false;
   if (!walls.complete(tile)) return false;
   const key = `${tile.column},${tile.row}`;
@@ -1497,19 +1534,21 @@ app.ticker.add((ticker) => {
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
     plantGrowth.update(seconds);
     for (const pawn of pawns) {
+      walls.bindMovement(pawn.movement,pawn.faction);
       pawn.shotSeconds=Math.max(0,pawn.shotSeconds-seconds);
       pawn.swingSeconds=Math.max(0,pawn.swingSeconds-seconds);
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse);
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
-      const commanding = combat.update(pawn, seconds, pawns);
+      const commanding = pawn.attackJob?.hunting?false:combat.update(pawn, seconds, pawns);
       if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');
       else if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
-      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery);
+      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     wildlife.update(seconds, pawnOccupies);
     attackEffects.update(seconds);
     for (const deer of wildlife.deer) if (!deer.dead) advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
+    updateDoors(seconds);
   });
   updateMovementPaths();
   updateAttackRanges();

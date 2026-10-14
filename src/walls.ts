@@ -1,9 +1,9 @@
 import { invalidatePaths, registerPathCache } from './pathfinding.ts';
 import type { ItemType } from './items';
-import type { Tile } from './movement';
+import type { Movement, Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
-export type ConstructionKind = 'wall' | 'barricade' | 'storage' | 'storageArea' | 'butcher';
+export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher';
 export interface Wall extends Tile {
   kind: ConstructionKind;
   orientation?: 0 | 1;
@@ -26,6 +26,7 @@ export const WALL_COLORS: Record<WallMaterial, number> = {
 export const WALL_PLAN_ALPHA = 0.7;
 export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; seconds: number } | null> = {
   wall: { materialCount: 10, seconds: 1 },
+  door: { materialCount: 15, seconds: 1 },
   barricade: { materialCount: 5, seconds: 1 },
   storage: { materialCount: 30, seconds: 3 },
   storageArea: { materialCount: 0, seconds: 0 },
@@ -46,6 +47,7 @@ export class Walls {
   constructor(mapSize: number) {
     this.mapSize = mapSize;
     registerPathCache(this.isBlocked);
+    registerPathCache(this.nonPlayerBlocked,this.isBlocked);
   }
 
   plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall', orientation: 0 | 1 = 0): Wall | null {
@@ -56,6 +58,7 @@ export class Walls {
     if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || this.at(cell))) return null;
     const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0 };
     if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true }; }
+    if (kind === 'door') wall.material='wood';
     if (kind === 'butcher') { wall.material = 'wood'; wall.butcher = { mode: 'count', remaining: 0, target: 0, seconds: 0 }; }
     this.items.set(key, wall);
     for (const cell of cells) this.occupied.set(`${cell.column},${cell.row}`, wall);
@@ -92,6 +95,12 @@ export class Walls {
     const item = this.at(tile);
     return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher');
   };
+
+  nonPlayerBlocked = (tile: Tile): boolean => this.isBlocked(tile) || (this.at(tile)?.state==='completed' && this.at(tile)?.kind==='door');
+
+  bindMovement(movement: Movement, faction: import('./factions').Faction): void {
+    movement.terrainBlocked=faction==='player'?this.isBlocked:this.nonPlayerBlocked;
+  }
 
   cannotStop = (tile: Tile): boolean => {
     const item = this.at(tile);

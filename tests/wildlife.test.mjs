@@ -54,7 +54,7 @@ test('below20satiety deer harvest unmarked berries and eat them in place for one
   s.tick(.1); assert.equal(berry.collected, true); assert.equal(s.deer.inventory.quantity, 5);
   const tile = { ...s.deer.movement.tile };
   s.tick(.9); assert.equal(deerAction(s.deer), '食事中'); assert.equal(s.deer.inventory.quantity, 5);
-  s.tick(.1); assert.equal(s.deer.needs.satiety, 100); assert.equal(s.deer.inventory, null);
+  s.tick(.1); assert.equal(s.deer.needs.satiety, 67); assert.equal(s.deer.inventory, null);
   assert.deepEqual(s.deer.movement.tile, tile);
   assert.equal(s.items.reduce((sum, item) => sum + item.quantity, 0), 0);
 });
@@ -66,7 +66,7 @@ test('deer consume only their proportional harvest and ignore plants with zero y
   s.tick(.25); s.tick(.75);
   assert.equal(s.deer.inventory.quantity, 2);
   s.tick(1); assert.equal(s.deer.inventory, null);
-  assert.equal(s.deer.needs.satiety, 57);
+  assert.equal(s.deer.needs.satiety, 37);
 });
 
 test('human and deer harvesting claims are exclusive and deer do not eat stored or ground food', () => {

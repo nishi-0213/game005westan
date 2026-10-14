@@ -4,8 +4,16 @@ import { advanceMovement, setRoute } from './movement.ts';
 export interface Path { tiles: Tile[]; distance: number }
 type TileRule = (tile: Tile) => boolean;
 const caches = new WeakMap<TileRule, WeakMap<TileRule, Map<string, Map<number, Path>>>>();
-export function registerPathCache(blocked: TileRule): void { caches.set(blocked, new WeakMap()); }
-export function invalidatePaths(blocked: TileRule): void { if (caches.has(blocked)) caches.set(blocked, new WeakMap()); }
+const cacheGroups = new WeakMap<TileRule,Set<TileRule>>();
+export function registerPathCache(blocked: TileRule, sharedWith?: TileRule): void {
+  caches.set(blocked,new WeakMap());
+  const group=cacheGroups.get(sharedWith??blocked);
+  const members=group??new Set<TileRule>();members.add(blocked);if(sharedWith)members.add(sharedWith);
+  for(const member of members)cacheGroups.set(member,members);
+}
+export function invalidatePaths(blocked: TileRule): void {
+  for(const member of cacheGroups.get(blocked)??[blocked])if(caches.has(member))caches.set(member,new WeakMap());
+}
 
 // Keep terrain searches shared; occupancy only filters possible stopping points.
 class AvailablePaths extends Map<number, Path> {
@@ -31,6 +39,7 @@ class AvailablePaths extends Map<number, Path> {
 }
 
 export function findPaths(start: Tile, size: number, blocked: TileRule, cannotStop: TileRule, movement?: Movement): Map<number, Path> {
+  blocked = movement?.terrainBlocked ?? blocked;
   if (movement?.stopBlocked) return new AvailablePaths(findPaths(start, size, blocked, cannotStop), movement, size);
   const cache = caches.get(blocked);
   let policy = cache?.get(cannotStop);
@@ -96,6 +105,7 @@ export function findPaths(start: Tile, size: number, blocked: TileRule, cannotSt
 }
 
 export function findPath(start: Tile, goal: Tile, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean, movement?: Movement): Path | null {
+  blocked = movement?.terrainBlocked ?? blocked;
   if (goal.column < 0 || goal.row < 0 || goal.column >= size || goal.row >= size || blocked(goal) || cannotStop(goal)) return null;
   return findPaths(start, size, blocked, cannotStop, movement).get(goal.row * size + goal.column) ?? null;
 }
@@ -107,6 +117,7 @@ export function commandMove(movement: Movement, goal: Tile, size: number, blocke
 }
 
 export function advancePathMovement(movement: Movement, seconds: number, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): void {
+  blocked = movement?.terrainBlocked ?? blocked;
   // A death or blocked route can create a new stationary occupant after orders were issued.
   // Passing pawns do not displace a pawn that is waiting at its reserved destination.
   if (movement.reservationBlocked?.(movement.destination)) {

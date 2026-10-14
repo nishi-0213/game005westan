@@ -11,16 +11,16 @@ export const ITEM_TYPES: ItemType[] = ['wood', 'stone', 'strawberry', 'rifle', '
 export const PAWN_CARRY_LIMIT_KG = 20;
 export const ITEM_APPEARANCE = {
   wood: { name: '木材', color: 0x916039, massKg: 1 },
-  strawberry: { name: '苺', color: 0xe75b70, massKg: 0.2 },
+  strawberry: { name: '苺', color: 0xe75b70, massKg: 0.2, nutrition: 10 },
   stone: { name: '石材', color: 0x929292, massKg: 4 },
   rifle: { name: 'ライフル', color: 0x46515b, massKg: 5 },
   knife: { name: 'ナイフ', color: 0xb9c3ca, massKg: 2 },
-  meat: { name: '肉', color: 0xb95862, massKg: 1 },
+  meat: { name: '肉', color: 0xb95862, massKg: 1, nutrition: 20 },
   humanCorpse: { name: '人間の死体', color: 0x85755a, massKg: 50 },
   deerCorpse: { name: '鹿の死体', color: 0x725036, massKg: 120 },
 };
 
-export function foodNutrition(type: ItemType): number { return type === 'strawberry' ? 20 : type === 'meat' ? 40 : 0; }
+export function foodNutrition(type: ItemType): number { return type === 'strawberry' || type === 'meat' ? ITEM_APPEARANCE[type].nutrition : 0; }
 
 export function emptyItemCounts(): Record<ItemType, number> {
   return { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };

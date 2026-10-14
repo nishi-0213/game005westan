@@ -319,3 +319,6 @@ canvas { touch-action: none; }
 #meat-target { width:64px; background:#152019; color:#f4e9cc; border:1px solid #708268; padding:5px; }
 #station-work button[aria-pressed="true"] { border-color:#f2c66d; background:#475b3e; }
 .pawn-roster-button[hidden] { display:none; }
+
+#hunting-control { padding: 10px; border: 1px solid #7d9274; background: #253529; cursor: pointer; }
+#hunting-control[hidden] { display: none; }

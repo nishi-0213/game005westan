@@ -71,17 +71,17 @@ test('corpse storage follows type filters and area one-type capacity; corpse wei
  for(let i=0;i<150;i++)s.tick();assert.equal(area.stored.humanCorpse,1);assert.equal(a.corpseStorage,area);assert.equal(b.corpseStorage,undefined);assert.equal(s.storage.accepts(area,'deerCorpse'),false);
  assert.equal(ITEM_APPEARANCE.humanCorpse.massKg,50);assert.equal(ITEM_APPEARANCE.deerCorpse.massKg,120);assert.equal(corpseItemType(a),'humanCorpse');
 });
-test('meat weighs1kg and restores40percent per item, including manual eating and held/ground/storage automatic food',()=>{
+test('meat weighs1kg and restores20percent per item, including manual eating and held/ground/storage automatic food',()=>{
  assert.equal(ITEM_APPEARANCE.meat.massKg,1);
  for(const location of ['held','ground','stored']){
   const s=scene(),w=s.worker();w.needs.satiety=20;
-  if(location==='held')w.inventory={type:'meat',quantity:3};
-  else if(location==='ground')s.items.push({...w.movement.tile,type:'meat',quantity:3,collect:true});
-  else{const box=s.walls.plan(tile(3,2),'wood','storage');s.walls.complete(box);s.storage.deposit(box,'meat',3)}
+  if(location==='held')w.inventory={type:'meat',quantity:6};
+  else if(location==='ground')s.items.push({...w.movement.tile,type:'meat',quantity:6,collect:true});
+  else{const box=s.walls.plan(tile(3,2),'wood','storage');s.walls.complete(box);s.storage.deposit(box,'meat',6)}
   for(let i=0;i<60&&w.needs.satiety<=20;i++){updateNeeds(w,s.construction,s.harvesting,s.hauling,.1);advancePathMovement(w.movement,.1,16,s.walls.isBlocked,s.walls.cannotStop)}
   assert.ok(w.needs.satiety>90);
  }
- const s=scene(),w=s.worker(),food={...w.movement.tile,type:'meat',quantity:3,collect:false};s.items.push(food);w.needs.satiety=30;assert.ok(requestEat(w,food,s.construction,s.harvesting,s.hauling));updateNeeds(w,s.construction,s.harvesting,s.hauling,1);assert.equal(food.quantity,1);assert.equal(w.needs.satiety,100);
+ const s=scene(),w=s.worker(),food={...w.movement.tile,type:'meat',quantity:5,collect:false};s.items.push(food);w.needs.satiety=30;assert.ok(requestEat(w,food,s.construction,s.harvesting,s.hauling));updateNeeds(w,s.construction,s.harvesting,s.hauling,1);assert.equal(food.quantity,1);assert.equal(w.needs.satiety,100);
 });
 
 test('heavy items have a minimum transport batch of1 even with an equipped weapon',()=>{

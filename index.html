@@ -24,6 +24,7 @@
     <button id="item-info-button" type="button" aria-label="アイテムのインフォメーション" aria-controls="item-properties" hidden>?</button>
     <button id="acquisition-button" type="button" aria-pressed="false" hidden>無視</button>
     <button id="collection-button" type="button" aria-pressed="false" hidden>無視</button>
+    <label id="hunting-control" hidden><input id="hunting-checkbox" type="checkbox" />狩猟</label>
     </nav>
     <section id="pawn-specs" aria-label="ポーンのスペック" hidden></section>
     <dialog id="item-properties" aria-labelledby="item-properties-name">
@@ -31,6 +32,7 @@
       <h2 id="item-properties-name"></h2>
       <dl>
         <dt data-item-property>質量</dt><dd id="item-properties-mass" data-item-property></dd>
+        <dt data-food-property hidden>栄養</dt><dd id="food-nutrition" data-food-property hidden></dd>
         <dt data-weapon-property hidden>射程</dt><dd id="weapon-range" data-weapon-property hidden></dd>
         <dt data-weapon-property hidden>ダメージ</dt><dd id="weapon-damage" data-weapon-property hidden></dd>
         <dt data-weapon-property hidden>基礎命中率</dt><dd id="weapon-accuracy" data-weapon-property hidden></dd>
@@ -51,7 +53,7 @@
     <dialog id="priorities-window" aria-labelledby="priorities-title">
       <button id="close-priorities" type="button" aria-label="優先順位ウィンドウを閉じる">×</button>
       <h2 id="priorities-title">優先順位</h2>
-      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">解体</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
+      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">解体</th><th scope="col">狩猟</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
     </dialog>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
@@ -75,7 +77,9 @@
     </dialog>
     <nav id="building-options" class="building-options" aria-label="建物の選択" hidden>
       <button id="wall-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="wall-materials">壁</button>
+      <button id="door-button" class="construction-subtab" type="button" aria-pressed="false">扉（木材）</button>
     </nav>
+    <nav id="door-materials" class="wall-materials" hidden></nav>
     <nav id="wall-materials" class="wall-materials" aria-label="壁の素材" hidden>
       <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
       <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>

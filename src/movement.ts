@@ -9,6 +9,7 @@ export interface Movement {
   nextTile: Tile | null;
   progress: number;
   route?: Tile[];
+  terrainBlocked?: (tile: Tile) => boolean;
   stopBlocked?: (tile: Tile) => boolean;
   reservationBlocked?: (tile: Tile) => boolean;
   changed?: () => void;
@@ -24,6 +25,7 @@ type TileRule = (tile: Tile) => boolean;
 const allowAll: TileRule = () => false;
 
 export function setDestination(movement: Movement, destination: Tile, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): boolean {
+  isBlocked = movement.terrainBlocked ?? isBlocked;
   if (isBlocked(destination) || cannotStop(destination) || movement.stopBlocked?.(destination)) return false;
   // When already crossing a barricade, reject orders that would strand the pawn there.
   const start = movement.nextTile ?? movement.tile;
@@ -98,6 +100,7 @@ export function hasSafeExit(from: Tile, destination: Tile, isBlocked: TileRule, 
 }
 
 export function advanceMovement(movement: Movement, seconds: number, isBlocked: TileRule = allowAll, cannotStop: TileRule = allowAll): void {
+  isBlocked = movement.terrainBlocked ?? isBlocked;
   try { advanceSegments(movement, seconds, isBlocked, cannotStop); }
   finally { movement.changed?.(); }
 }
