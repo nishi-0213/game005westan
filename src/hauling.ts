@@ -10,11 +10,14 @@ import type { Wall } from './walls';
 import type { Storage } from './storage';
 
 export interface HaulWorker extends Builder {
+  forcedHaulSource?: MapItem | null;
+  dead?: boolean;
   clearJob?: ClearanceJob | null;
   haulJob?: { source?: MapItem; target: Wall; phase: 'pickup' | 'deposit'; goal: Tile } | null;
 }
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 export class Hauling {
+  onCommand?: (worker: HaulWorker) => void;
   clearing?: Clearing;
   readonly claims = new Map<MapItem, HaulWorker>();
   readonly items: MapItem[];
@@ -23,9 +26,10 @@ export class Hauling {
 
   cancel(worker: HaulWorker): void {
     if (worker.clearJob) this.clearing?.cancel(worker);
-    const source = worker.haulJob?.source;
+    const source = worker.forcedHaulSource ?? worker.haulJob?.source;
     if (source && this.claims.get(source) === worker) this.claims.delete(source);
     worker.haulJob = null;
+    worker.forcedHaulSource = null;
     stopAtNextSafeTile(worker.movement, this.storage.walls.cannotStop);
   }
 
@@ -77,16 +81,44 @@ export class Hauling {
 
   hasAvailableWork(worker: HaulWorker): boolean { return this.findWork(worker) !== null; }
 
+  private forcedWork(worker: HaulWorker, source: MapItem): { source?: MapItem; target: Wall; goal: Tile; path: Path } | null {
+    if (!this.items.includes(source) || source.quantity <= 0 || this.claims.has(source) && this.claims.get(source) !== worker) return null;
+    const from = worker.movement.nextTile ?? worker.movement.tile;
+    const walls = this.storage.walls;
+    const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
+    const path = paths.get(source.row * walls.mapSize + source.column);
+    const approach = path ? { goal: source, path } : !walls.isBlocked(source) ? this.approach(from, source, paths) : null;
+    if (!approach) return null;
+    const box = this.nearestBox(approach.goal, source.type, worker.movement);
+    if (!box) return null;
+    if (worker.inventory?.quantity) return this.nearestBox(from, worker.inventory.type, worker.movement);
+    return { source, target: box.target, ...approach };
+  }
+
+  canRequest(worker: HaulWorker, source: MapItem): boolean {
+    return worker.mode === 'automatic' && !worker.dead && this.forcedWork(worker, source) !== null;
+  }
+
+  request(worker: HaulWorker, source: MapItem): boolean {
+    if (!this.canRequest(worker, source)) return false;
+    const work = this.forcedWork(worker, source)!;
+    this.cancel(worker); this.onCommand?.(worker);
+    worker.dropRequested = false; worker.forcedHaulSource = source;
+    this.claims.set(source, worker);
+    worker.haulJob = { source: work.source, target: work.target, phase: work.source ? 'pickup' : 'deposit', goal: work.goal };
+    return setRoute(worker.movement, work.path.tiles);
+  }
+
   update(worker: HaulWorker): void {
-    if (worker.mode !== 'automatic' || worker.dropRequested || worker.job) { if (worker.haulJob) this.cancel(worker); return; }
+    if (worker.dead || worker.mode !== 'automatic' || worker.dropRequested || worker.job) { if (worker.haulJob || worker.forcedHaulSource) this.cancel(worker); return; }
     const job = worker.haulJob;
-    if (job && (job.phase === 'pickup' && (!job.source?.collect || job.source.quantity <= 0 || this.claims.get(job.source) !== worker)
+    if (job && (job.phase === 'pickup' && ((!job.source?.collect && worker.forcedHaulSource !== job.source) || !job.source || job.source.quantity <= 0 || this.claims.get(job.source) !== worker)
       || !this.storage.accepts(job.target, job.phase === 'pickup' ? job.source!.type : worker.inventory?.type ?? 'wood'))) this.cancel(worker);
     const movement = worker.movement;
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!worker.haulJob) {
-      const work = this.findWork(worker);
-      if (!work) return;
+      const work = worker.forcedHaulSource ? this.forcedWork(worker, worker.forcedHaulSource) : this.findWork(worker);
+      if (!work) { if (worker.forcedHaulSource) this.cancel(worker); return; }
       if (work.source) this.claims.set(work.source, worker);
       worker.haulJob = { source: work.source, target: work.target, phase: work.source ? 'pickup' : 'deposit', goal: work.goal };
       setRoute(movement, work.path.tiles);
@@ -99,7 +131,7 @@ export class Hauling {
       const quantity = Math.min(source.quantity, this.storage.capacity(active.target, source.type), carryCapacity(worker, source.type));
       worker.inventory = { type: source.type, quantity };
       source.quantity -= quantity;
-      this.claims.delete(source);
+      if (worker.forcedHaulSource !== source) this.claims.delete(source);
       const box = this.nearestBox(movement.tile, source.type, movement);
       if (!box) { this.cancel(worker); return; }
       worker.haulJob = { target: box.target, phase: 'deposit', goal: box.goal };
@@ -110,6 +142,8 @@ export class Hauling {
       worker.inventory.quantity -= this.storage.deposit(active.target, worker.inventory.type, worker.inventory.quantity);
       if (!worker.inventory.quantity) worker.inventory = null;
     }
-    this.cancel(worker);
+    if (worker.forcedHaulSource && worker.forcedHaulSource.quantity > 0) {
+      worker.haulJob = null;
+    } else this.cancel(worker);
   }
 }

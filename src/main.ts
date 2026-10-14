@@ -297,6 +297,11 @@ hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 const wildlife = new Wildlife(construction, harvesting, hauling);
 const combat = new Combat(construction, harvesting, hauling);
+hauling.onCommand = worker => {
+  construction.cancel(worker);
+  const pawn = pawns.find(pawn => pawn === worker);
+  if (pawn) { harvesting.cancel(pawn); combat.cancel(pawn); pawn.eatJob = null; pawn.manualMove = false; }
+};
 const pawnOccupancy = new PawnOccupancy();
 for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
 wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
@@ -496,7 +501,7 @@ function selectPawn(pawn: (typeof pawns)[number], additive = false): void {
 
 function updatePawnPanels(): void {
   const hidden = selectedPawn === null;
-  const cannotDrop = !controlledSelection().some(pawn => pawn.inventory?.quantity && !pawn.dropRequested);
+  const cannotDrop = !controlledSelection().some(pawn => (pawn.inventory?.quantity || pawn.weapon === 'rifle') && !pawn.dropRequested);
   if (dropInventoryButton.hidden !== hidden) dropInventoryButton.hidden = hidden;
   if (dropInventoryButton.disabled !== cannotDrop) dropInventoryButton.disabled = cannotDrop;
   if (pawnSpecs.hidden !== hidden) pawnSpecs.hidden = hidden;
@@ -528,7 +533,7 @@ function updatePawnPanels(): void {
   }
 }
 dropInventoryButton.addEventListener('click', () => {
-  for (const pawn of controlledSelection()) if (pawn.inventory?.quantity) { combat.cancel(pawn); pawn.manualMove = false; hauling.cancel(pawn); harvesting.cancel(pawn); construction.requestDrop(pawn); }
+  for (const pawn of controlledSelection()) if (pawn.inventory?.quantity || pawn.weapon === 'rifle') { combat.cancel(pawn); pawn.manualMove = false; hauling.cancel(pawn); harvesting.cancel(pawn); construction.requestDrop(pawn); }
   updatePawnPanels();
 });
 const itemInfoButton = document.querySelector<HTMLButtonElement>('#item-info-button')!;
@@ -560,9 +565,35 @@ function updateObjectProperties(): void {
   }
 }
 
+const haulCommandWindow = document.querySelector<HTMLDialogElement>('#haul-command')!;
+let haulCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
+const immediateHaulButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-immediate-haul]')];
+function prepareHaulCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number]): void {
+  haulCommand = { pawn, source };
+  for (const button of immediateHaulButtons) {
+    button.hidden = pawn.mode !== 'automatic' || !mapItems.includes(source);
+    button.disabled = !button.hidden && !hauling.canRequest(pawn, source);
+    button.title = button.disabled ? '運搬できる経路と、このアイテムを受け入れる保管場所が必要です。' : '';
+  }
+}
+function openHaulCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  prepareHaulCommand(pawn, source);
+  equipmentCommandWindow.close(); foodCommandWindow.close();
+  haulCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
+  haulCommandWindow.style.top = `${Math.max(0, Math.min(event.clientY, window.innerHeight - 100))}px`;
+  if (!haulCommandWindow.open) haulCommandWindow.show();
+}
+for (const button of immediateHaulButtons) button.addEventListener('click', () => {
+  if (haulCommand && haulCommand.pawn === selectedPawn) hauling.request(haulCommand.pawn, haulCommand.source);
+  haulCommandWindow.close(); equipmentCommandWindow.close(); foodCommandWindow.close();
+});
+document.querySelector<HTMLButtonElement>('#close-haul-command')!.addEventListener('click', () => haulCommandWindow.close());
+haulCommandWindow.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); haulCommandWindow.close(); } });
+
 const equipmentCommandWindow = document.querySelector<HTMLDialogElement>('#equipment-command')!;
 let equipmentCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
 function openEquipmentCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  prepareHaulCommand(pawn, source); haulCommandWindow.close(); foodCommandWindow.close();
   equipmentCommand = { pawn, source };
   equipmentCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
   equipmentCommandWindow.style.top = `${Math.max(0, Math.min(event.clientY, window.innerHeight - 80))}px`;
@@ -578,6 +609,7 @@ equipmentCommandWindow.addEventListener('keydown', event => { if (event.key === 
 const foodCommandWindow = document.querySelector<HTMLDialogElement>('#food-command')!;
 let foodCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
 function openFoodCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  prepareHaulCommand(pawn, source); haulCommandWindow.close(); equipmentCommandWindow.close();
   foodCommand = { pawn, source };
   foodCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
   foodCommandWindow.style.top = `${Math.max(0, Math.min(event.clientY, window.innerHeight - 80))}px`;
@@ -658,6 +690,7 @@ acquisitionButton.addEventListener('click', () => {
 function updateItemSelection(): void {
   foodCommandWindow.close();
   equipmentCommandWindow.close();
+  haulCommandWindow.close();
   const environment = [...selectedEnvironment][0];
   const hasSelection = infoFocus !== null;
   itemInfoButton.hidden = !hasSelection;
@@ -1143,8 +1176,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     if (target) {
       let commanded = false;
       for (const pawn of controlledSelection()) if (combat.requestAttack(pawn, target)) { pawn.manualMove = false; commanded = true; }
-      if (commanded) showAttackCommand(target);
-      return;
+      if (commanded) { showAttackCommand(target); return; }
     }
     if (selectedPawn && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
       const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
@@ -1158,6 +1190,11 @@ app.canvas.addEventListener('pointerdown', (event) => {
     const source = [...mapItems].reverse().find(item => item.type === 'strawberry' && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
       ?? (walls.items.get(`${tile.column},${tile.row}`)?.kind === 'storageArea' ? storage.sources('strawberry').find(item => item.column === tile.column && item.row === tile.row) : undefined);
     if (source) { openFoodCommand(selectedPawn, source, event); return; }
+  }
+  if (event.button === 2 && selectedPawn?.mode === 'automatic' && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
+    const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
+    const source = [...mapItems].reverse().find(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row);
+    if (source) { openHaulCommand(selectedPawn, source, event); return; }
   }
   const clickedStructure = walls.items.get(`${Math.floor(x / TILE_SIZE)},${Math.floor(y / TILE_SIZE)}`);
   if (event.button === 2 && clickedStructure?.kind === 'storage' && clickedStructure.state === 'completed') {
@@ -1242,7 +1279,7 @@ combat.onAttack = event => {
 
 function updateAttackRanges(): void {
   for (const pawn of pawns) {
-    const visible = selectedPawns.has(pawn) && !pawn.dead && WEAPONS[pawn.weapon].range >= 1;
+    const visible = selectedPawns.has(pawn) && !pawn.dead && pawn.mode === 'drafted' && WEAPONS[pawn.weapon].range > 1;
     pawn.attackRange.visible = visible;
     if (!visible) continue;
     const tile = pawn.movement.tile;
@@ -1289,9 +1326,10 @@ app.ticker.add((ticker) => {
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
     plantGrowth.update(seconds);
     for (const pawn of pawns) {
-      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob);
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource);
       const commanding = combat.update(pawn, seconds, pawns);
-      if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
+      if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
+      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     wildlife.update(seconds, pawnOccupies);
@@ -1314,6 +1352,7 @@ app.ticker.add((ticker) => {
   }
   if (foodCommandWindow.open && (!foodCommand || foodCommand.pawn !== selectedPawn || foodCommand.pawn.dead || foodCommand.source.quantity <= 0)) foodCommandWindow.close();
   if (equipmentCommandWindow.open && (!equipmentCommand || equipmentCommand.pawn !== selectedPawn || equipmentCommand.pawn.dead || equipmentCommand.source.quantity <= 0)) equipmentCommandWindow.close();
+  if (haulCommandWindow.open && (!haulCommand || haulCommand.pawn !== selectedPawn || haulCommand.pawn.dead || haulCommand.pawn.mode !== 'automatic' || haulCommand.source.quantity <= 0)) haulCommandWindow.close();
   updateStorageSettings();
   updateStoredItemViews();
   updateConstructionProgress();

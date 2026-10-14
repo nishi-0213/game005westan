@@ -91,10 +91,16 @@
     <dialog id="food-command" aria-label="苺の操作">
       <button id="close-food-command" type="button" aria-label="苺の操作を閉じる">×</button>
       <button id="eat-now-button" type="button">今すぐ食べる</button>
+      <button type="button" data-immediate-haul hidden>今すぐ運搬</button>
     </dialog>
     <dialog id="equipment-command" aria-label="武器の操作">
       <button id="close-equipment-command" type="button" aria-label="武器の操作を閉じる">×</button>
       <button id="equip-button" type="button">装備する</button>
+      <button type="button" data-immediate-haul hidden>今すぐ運搬</button>
+    </dialog>
+    <dialog id="haul-command" aria-label="アイテムの運搬">
+      <button id="close-haul-command" type="button" aria-label="運搬操作を閉じる">×</button>
+      <button id="haul-now-button" type="button" data-immediate-haul>今すぐ運搬</button>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

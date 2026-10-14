@@ -136,6 +136,7 @@ export class Combat {
       }
       return true;
     }
+    if (!pawn.attackJob && pawn.forcedHaulSource) return false;
     if (!pawn.attackJob) {
       pawn.combatDecisionSeconds = (pawn.combatDecisionSeconds ?? 0) - seconds;
       if (pawn.combatDecisionSeconds <= 0) {
