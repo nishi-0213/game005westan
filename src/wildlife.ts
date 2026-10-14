@@ -27,6 +27,7 @@ export interface Animal extends EatingWorker, FactionMember {
   outsideGoal?: Tile;
   decisionSeconds: number;
   fleeGoal?: Tile;
+  attackMotionSeconds?:number;
 }
 export type Deer=Animal & {kind:'deer'};
 export type Wolf=Animal & {kind:'wolf';prey?:CombatTarget};
@@ -212,15 +213,15 @@ export class Wildlife {
     if(wolf.dead){this.combat?.cancel(wolf);return;}
     if(wolf.leaving){this.combat?.cancel(wolf);this.updateExit(wolf,seconds);return;}
     if(eating)return;
-    if(wolf.attackJob?.predation){this.combat?.update(wolf,seconds);return;}
+    wolf.decisionSeconds-=seconds;
+    if(wolf.attackJob?.predation&&this.combat?.update(wolf,seconds))return;
     if(wolf.needs.satiety<=FOOD_THRESHOLD&&this.combat&&this.corpseEating){
       if(wolf.prey?.dead&&this.corpseEating.request(wolf,wolf.prey)){wolf.prey=undefined;return;}
-      wolf.decisionSeconds-=seconds;
       if(wolf.decisionSeconds<=0){
         wolf.decisionSeconds=.25;
         const origin=wolf.movement.tile;
         const nearest=(targets:readonly CombatTarget[])=>[...targets].filter(target=>!target.departed&&!target.consumed&&target!==wolf).sort((a,b)=>Math.hypot(a.movement.tile.column-origin.column,a.movement.tile.row-origin.row)-Math.hypot(b.movement.tile.column-origin.column,b.movement.tile.row-origin.row)).find(target=>target.dead?this.corpseEating!.canEat(wolf,target):this.combat!.canReachAttack(wolf,target));
-        const target=nearest(this.deer)??nearest(this.players().filter(pawn=>pawn.faction==='player'));
+        const target=nearest(this.deer)??nearest(this.corpseEating.corpses().filter(corpse=>corpse.dead) as CombatTarget[])??nearest(this.players().filter(pawn=>pawn.faction==='player'));
         if(target){
           if(target.dead)this.corpseEating.request(wolf,target);
           else if(this.combat.requestPredation(wolf,target))wolf.prey=target;

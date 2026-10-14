@@ -39,3 +39,23 @@ test('wolves share starvation/death behavior and stop attacking when told to lea
 const s=scene(),wolf=createWolf(tile(2,3),1),target=s.human(3,3);s.wildlife.wolves.push(wolf);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,target);s.wildlife.markForExit(wolf);assert.equal(wolf.attackJob,null);for(let i=0;i<60&&!wolf.departed;i++){s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(wolf.departed,true);
 const dying=createWolf(tile(4,4),3);dying.needs.satiety=0;dying.needs.health=0;dying.hp=10;s.wildlife.updateWolf(dying,1);assert.equal(dying.dead,true);assert.equal(dying.hp,0);
 });
+test('wolves abandon a prey after its route is sealed and select another reachable target',()=>{
+const s=scene(),wolf=createWolf(tile(1,3),1),deer=createDeer(tile(6,3),2),human=s.human(2,3);s.wildlife.wolves.push(wolf);s.wildlife.deer.push(deer);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,deer);
+for(let row=0;row<16;row++)s.walls.complete(s.walls.plan(tile(4,row),'wood'));
+s.wildlife.updateWolf(wolf,.3);assert.equal(wolf.attackJob.target,human);assert.equal(wolf.prey,human);
+});
+test('wolves eat preexisting human and wolf corpses even when their collection flag is off',()=>{
+for(const species of ['human','wolf']){const s=scene(),wolf=createWolf(tile(2,3),1),body=species==='human'?s.human(3,3):createWolf(tile(3,3),2);s.wildlife.wolves.push(wolf);if(species==='wolf')s.wildlife.wolves.push(body);killPawn(body,s.construction,s.harvesting,s.hauling);body.collectCorpse=false;wolf.needs.satiety=10;
+for(let i=0;i<40&&!body.consumed;i++){s.eating.updateClaims(.1);s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(body.consumed,true);assert.equal(wolf.needs.satiety,100);}
+});
+test('a sealed corpse eating route releases the claim and an alternative corpse can be chosen',()=>{
+const s=scene(),p=s.human(1,3),a=createDeer(tile(6,3),1),b=createDeer(tile(2,4),2);s.wildlife.deer.push(a,b);for(const body of [a,b])killPawn(body,s.construction,s.harvesting,s.hauling);p.needs.satiety=10;assert.equal(s.eating.request(p,a,false),true);
+for(let row=0;row<16;row++)s.walls.complete(s.walls.plan(tile(4,row),'wood'));s.eating.updateClaims(.3);assert.equal(p.eatJob,null);assert.equal(a.corpseEater,undefined);assert.equal(s.eating.automatic(p),true);assert.equal(b.corpseEater,p);
+});
+test('death drops equipped weapons nearby once and all attackers trigger a body motion even on misses',()=>{
+for(const weapon of ['rifle','knife']){const s=scene(),p=s.human(3,3);p.weapon=weapon;killPawn(p,s.construction,s.harvesting,s.hauling);assert.equal(p.weapon,'unarmed');const item=s.items.find(i=>i.type===weapon);assert.equal(item.quantity,1);assert.ok(Math.max(Math.abs(item.column-3),Math.abs(item.row-3))===1);killPawn(p,s.construction,s.harvesting,s.hauling);assert.equal(countItems(s.items)[weapon],1);}
+for(const kind of ['human','wolf']){const s=scene(),p=kind==='human'?s.human(2,3):createWolf(tile(2,3),1),target=s.human(3,3);if(kind==='human'){p.mode='drafted';assert.equal(s.combat.requestAttack(p,target),true);}else assert.equal(s.combat.requestPredation(p,target),true);s.combat.random=()=>1;s.combat.update(p,2.5);assert.equal(p.attackMotionSeconds,.25);assert.equal(target.hp,100);}
+});
+test('wolves cannot bite diagonally through a sealed wall corner',()=>{
+const s=scene(),wolf=createWolf(tile(3,3),1),deer=createDeer(tile(4,4),2);for(const t of [tile(3,4),tile(4,3)])s.walls.complete(s.walls.plan(t,'wood'));assert.equal(s.combat.requestPredation(wolf,deer),true);assert.notDeepEqual(wolf.attackJob.goal,tile(3,3));s.combat.update(wolf,2.5);assert.equal(deer.hp,100);
+});

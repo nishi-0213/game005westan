@@ -32,6 +32,21 @@ export class AttackEffects {
       const tracer = new Graphics().moveTo(muzzle.x, muzzle.y).lineTo(end.x, end.y).stroke({ color: 0xffedba, width: 1.2 });
       this.add(tracer, .18);
     }
+    if(event.weapon!=='rifle') {
+      const points:number[]=[],radius=this.tileSize*.8;
+      for(let index=0;index<=20;index++){
+        const angle=-Math.PI/2+index*Math.PI/20;
+        points.push(Math.cos(angle)*radius,Math.sin(angle)*radius);
+      }
+      for(let index=20;index>=0;index--){
+        const angle=-Math.PI/2+index*Math.PI/20;
+        points.push(Math.cos(angle)*radius*.55,Math.sin(angle)*radius);
+      }
+      const slash=new Graphics().poly(points).fill({color:0xfff5c0,alpha:.85});
+      slash.position.set(from.x,from.y);
+      slash.rotation=Math.atan2(target.y-from.y,target.x-from.x);
+      this.add(slash,.25);
+    }
     if(event.hit&&event.target.structure){
       for(let index=0;index<5;index++){
         const star=new Graphics().poly([0,-4,1,-1,4,0,1,1,0,4,-1,1,-4,0,-1,-1]).fill(0xffdf52);

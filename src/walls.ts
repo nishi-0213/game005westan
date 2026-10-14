@@ -13,6 +13,7 @@ export interface Wall extends Tile {
   delivered: number;
   workSeconds: number;
   hp: number;
+  openness?: number;
   storedCorpses?: import('./needs').EatingWorker[];
   stored?: Record<ItemType, number>;
   demolition?: boolean;
@@ -97,7 +98,16 @@ export class Walls {
     return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher');
   };
 
-  nonPlayerBlocked = (tile: Tile): boolean => this.isBlocked(tile) || (this.at(tile)?.state==='completed' && this.at(tile)?.kind==='door');
+  nonPlayerBlocked = (tile: Tile): boolean => {
+    const door=this.at(tile);
+    return this.isBlocked(tile) || (door?.state==='completed' && door.kind==='door' && (door.openness??0)<=0);
+  };
+
+  setDoorOpenness(door:Wall,openness:number):void {
+    const wasOpen=(door.openness??0)>0;
+    door.openness=Math.max(0,Math.min(1,openness));
+    if(wasOpen!==(door.openness>0))invalidatePaths(this.nonPlayerBlocked);
+  }
 
   bindMovement(movement: Movement, faction: import('./factions').Faction): void {
     movement.terrainBlocked=faction==='player'?this.isBlocked:this.nonPlayerBlocked;

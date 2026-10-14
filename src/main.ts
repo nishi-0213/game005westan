@@ -222,6 +222,7 @@ function drawDoor(view:Graphics, openness:number): void {
   if(width>0)view.rect(2,1,width,TILE_SIZE-2).rect(TILE_SIZE-2-width,1,width,TILE_SIZE-2).fill(0xa67849).stroke({color:0x4d3421,width:1});
 }
 function updateDoors(seconds:number):void {
+  const actors=[...pawns,...wildlife.animals].filter(actor=>!actor.dead);
   const players=pawns.filter(pawn=>pawn.faction==='player'&&!pawn.dead);
   for(const door of walls.items.values()) {
     if(door.kind!=='door'||door.state!=='completed')continue;
@@ -233,8 +234,12 @@ function updateDoors(seconds:number):void {
         ||Math.max(Math.abs(position.column-door.column),Math.abs(position.row-door.row))<.8;
     });
     state.hold=nearby?.2:Math.max(0,state.hold-seconds);
-    const next=Math.max(0,Math.min(1,state.openness+(state.hold>0?1:-1)*seconds*5));
-    if(next!==state.openness){state.openness=next;const view=wallViews.get(`${door.column},${door.row}`);if(view)drawDoor(view,next);}
+    const occupied=state.openness>0&&actors.some(actor=>{
+      const position=renderedPosition(actor.movement);
+      return Math.max(Math.abs(position.column-door.column),Math.abs(position.row-door.row))<.8;
+    });
+    const next=Math.max(0,Math.min(1,state.openness+(state.hold>0||occupied?1:-1)*seconds*5));
+    if(next!==state.openness){state.openness=next;walls.setDoorOpenness(door,next);const view=wallViews.get(`${door.column},${door.row}`);if(view)drawDoor(view,next);}
   }
   for(const door of doorAnimations.keys())if(walls.at(door)!==door)doorAnimations.delete(door);
 }
@@ -299,7 +304,7 @@ function updateDeerViews(): void {
     }
     const position = deer.dead ? corpsePosition(deer) : renderedPosition(deer.movement);
     entry.view.position.set((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
-    entry.view.rotation = deer.dead ? Math.PI / 2 : 0;
+    entry.view.rotation = deer.dead ? Math.PI / 2 : attackWobble(deer);
     entry.selection.visible = selectedDeerSet.has(deer);
     entry.food.visible = Boolean(deer.eatJob);
     entry.food.tint=deer.kind==='wolf'?ITEM_APPEARANCE.meat.color:0xffffff;
@@ -351,7 +356,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, attackMotionSeconds:0, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -1472,6 +1477,9 @@ function updateMovementPaths(): void {
   }
 }
 
+function attackWobble(actor:{attackMotionSeconds?:number}):number {
+  return Math.sin((1-(actor.attackMotionSeconds??0)/.25)*Math.PI*4)*.16*((actor.attackMotionSeconds??0)/.25);
+}
 const attackEffects = new AttackEffects(TILE_SIZE);
 map.addChild(attackEffects.view);
 combat.onAttack = event => {
@@ -1585,9 +1593,10 @@ app.ticker.add((ticker) => {
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
     plantGrowth.update(seconds);
-    corpseEating.updateClaims();
+    corpseEating.updateClaims(seconds);
     for (const pawn of pawns) {
       walls.bindMovement(pawn.movement,pawn.faction);
+      pawn.attackMotionSeconds=Math.max(0,pawn.attackMotionSeconds-seconds);
       pawn.shotSeconds=Math.max(0,pawn.shotSeconds-seconds);
       pawn.swingSeconds=Math.max(0,pawn.swingSeconds-seconds);
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse,corpseEating.automatic);
@@ -1598,6 +1607,7 @@ app.ticker.add((ticker) => {
       else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
+    for(const animal of wildlife.animals)animal.attackMotionSeconds=Math.max(0,(animal.attackMotionSeconds??0)-seconds);
     wildlife.update(seconds, pawnOccupies);
     attackEffects.update(seconds);
     for (const deer of wildlife.animals) if (!deer.dead) advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
@@ -1610,7 +1620,7 @@ app.ticker.add((ticker) => {
     pawn.view.visible = !pawn.consumed && !pawn.corpseStorage;
     pawn.corpseIcon.visible = Boolean(pawn.dead&&pawn.collectCorpse&&!pawn.consumed&&!pawn.corpseCarrier&&!pawn.corpseStation&&!pawn.corpseStorage);
     pawn.corpseIcon.position.set(pawn.view.x,pawn.view.y-8);
-    pawn.view.rotation = pawn.dead ? Math.PI / 2 : 0;
+    pawn.view.rotation = pawn.dead ? Math.PI / 2 : attackWobble(pawn);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     if(pawn.drawnWeapon!==pawn.weapon){drawWeapon(pawn.weaponView,pawn.weapon);pawn.drawnWeapon=pawn.weapon;}
     if(pawn.shotSeconds<=0 || pawn.weapon!=='rifle')pawn.weaponView.rotation=0;

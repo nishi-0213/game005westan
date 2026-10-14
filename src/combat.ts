@@ -1,4 +1,4 @@
-import { shootingObstacles } from './shooting.ts';
+import { rayTiles, shootingObstacles } from './shooting.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -49,6 +49,7 @@ export type CombatPawn = CombatTarget & {
   attackJob?: AttackOrder | null;
   equipJob?: { source: MapItem; goal: Tile } | null;
   combatDecisionSeconds?: number;
+  attackMotionSeconds?: number;
 };
 
 export function inWeaponRange(weapon: Weapon, from: Tile, target: Tile): boolean {
@@ -150,9 +151,14 @@ export class Combat {
     // Dijkstra's endpoint order is nearest first. Only stopping cells are filtered.
     for (const [index, path] of paths) {
       const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
-      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile,target.structure)) return { goal, path };
+      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile,target.structure)
+        && (pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn))) return { goal, path };
     }
     return null;
+  }
+
+  private predationClear(from:Tile,to:Tile,pawn:CombatPawn):boolean {
+    return !rayTiles(from,to).slice(1).some(pawn.movement.terrainBlocked??this.construction.walls.isBlocked);
   }
 
   private automaticTarget(pawn: CombatPawn, targets: readonly CombatTarget[]): CombatTarget | null {
@@ -208,16 +214,23 @@ export class Combat {
     if(manual&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
     if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
     if (!manual && !job.hunting && !job.predation && !stationary(pawn)) return true;
-    if (!stationary(pawn) || !this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)) {
+    if (!stationary(pawn) || (!this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)
+      || job.predation&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn))) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
       const changedGoal = job.goal && positionKey(job.goal) !== positionKey(pawn.movement.destination);
-      if (job.retrySeconds <= 0 && (movedTarget || stationary(pawn) || changedGoal)) {
+      const blocked=pawn.movement.terrainBlocked??this.construction.walls.isBlocked;
+      const sealedRoute=job.predation&&job.retrySeconds<=0&&((pawn.movement.nextTile&&blocked(pawn.movement.nextTile))||pawn.movement.route?.some(blocked));
+      if (job.retrySeconds <= 0 && (movedTarget || stationary(pawn) || changedGoal || sealedRoute)) {
         job.retrySeconds = .25;
         const approach = this.attackApproach(pawn, job.target);
         if (approach) {
           job.goal = approach.goal; job.targetPosition = positionKey(job.target.movement.tile);
           setRoute(pawn.movement, approach.path.tiles);
+        } else if(job.predation) {
+          this.cancel(pawn);
+          stopAtNextSafeTile(pawn.movement,this.construction.walls.cannotStop);
+          return false;
         }
       }
       return true;
@@ -239,10 +252,12 @@ export class Combat {
           if(job.target.structure)this.onDestroyStructure?.(job.target.structure);
           else{killPawn(job.target, this.construction, this.harvesting, this.hauling);this.cancel(job.target);}
           this.cancel(pawn);
+          pawn.attackMotionSeconds=.25;
           this.onAttack?.(event);
           break;
         }
       }
+      pawn.attackMotionSeconds=.25;
       this.onAttack?.(event);
     }
     return true;

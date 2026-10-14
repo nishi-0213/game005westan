@@ -2,7 +2,7 @@ import type { Construction } from './construction';
 import type { HarvestWorker, Harvesting } from './harvesting';
 import type { HaulWorker, Hauling } from './hauling';
 import type { MapItem } from './items';
-import { foodNutrition } from './items.ts';
+import { foodNutrition, returnItems } from './items.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -50,6 +50,17 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
       if (distance < nearestDistance) { nearestDistance = distance; restingTile = tile; }
     }
     worker.deadPosition = { ...restingTile };
+  }
+  if(worker.weapon && worker.weapon!=='unarmed') {
+    const walls=construction.walls;
+    const nearby=[];
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(!dc&&!dr)continue;
+      const tile={column:restingTile.column+dc,row:restingTile.row+dr};
+      if(tile.column>=0&&tile.row>=0&&tile.column<walls.mapSize&&tile.row<walls.mapSize&&!walls.isBlocked(tile)&&!walls.cannotStop(tile))nearby.push(tile);
+    }
+    returnItems(construction.items,nearby[0]??restingTile,worker.weapon,1);
+    worker.weapon='unarmed';
   }
   worker.dead = true;
   interruptWork(worker, construction, harvesting, hauling);

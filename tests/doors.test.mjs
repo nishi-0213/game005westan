@@ -22,3 +22,6 @@ test('environment invalidation refreshes both cached faction policies',()=>{
 test('players can stop on a completed door while enemy and wild pawns cannot',()=>{
 const walls=scene();for(const faction of ['player','enemy1','wild']){const m=createMovement(tile(2,3));walls.bindMovement(m,faction);assert.equal(commandMove(m,tile(3,3),7,walls.isBlocked,walls.cannotStop),faction==='player');if(faction==='player'){advancePathMovement(m,1,7,walls.isBlocked,walls.cannotStop);assert.deepEqual(m.tile,tile(3,3));assert.equal(m.nextTile,null);}}
 });
+test('partially open doors allow enemy and wild routes, closing invalidates their cached routes',()=>{
+const walls=scene(),door=walls.at(tile(3,3));for(const faction of ['enemy1','wild']){const m=createMovement(tile(1,3));walls.bindMovement(m,faction);assert.equal(findPath(m.tile,tile(5,3),7,walls.isBlocked,walls.cannotStop,m),null);walls.setDoorOpenness(door,.001);assert.ok(findPath(m.tile,tile(5,3),7,walls.isBlocked,walls.cannotStop,m));assert.equal(commandMove(m,tile(3,3),7,walls.isBlocked,walls.cannotStop),true);advancePathMovement(m,1,7,walls.isBlocked,walls.cannotStop);assert.deepEqual(m.tile,tile(3,3));walls.setDoorOpenness(door,0);const other=createMovement(tile(1,3));walls.bindMovement(other,faction);assert.equal(findPath(other.tile,tile(5,3),7,walls.isBlocked,walls.cannotStop,other),null);}
+});

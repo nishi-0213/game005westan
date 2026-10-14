@@ -7,6 +7,8 @@ import type { Corpse } from './butchery';
 import {corpseItemType} from './butchery.ts';
 import type {MapItem} from './items';
 import {returnItems} from './items.ts';
+import {stopAtNextSafeTile} from './movement.ts';
+import {rayTiles} from './shooting.ts';
 import {findPaths} from './pathfinding.ts';
 
 export class CorpseEating {
@@ -15,7 +17,16 @@ export class CorpseEating {
   onConsume?:(corpse:Corpse)=>void;
   isReserved?:(corpse:Corpse)=>boolean;
   constructor(construction:Construction,harvesting:Harvesting,hauling:Hauling,corpses:()=>readonly Corpse[]){this.construction=construction;this.harvesting=harvesting;this.hauling=hauling;this.corpses=corpses;}
-  updateClaims():void {
+  private reachabilitySeconds=0;
+  updateClaims(seconds=0):void {
+    this.reachabilitySeconds-=seconds;
+    if(seconds>0&&this.reachabilitySeconds<=0){
+      this.reachabilitySeconds=.25;
+      for(const [corpse,{worker}]of this.claims)if(!this.approach(worker,corpse)){
+        worker.eatJob=null;
+        stopAtNextSafeTile(worker.movement,this.construction.walls.cannotStop);
+      }
+    }
     for(const [corpse,{worker,source}]of this.claims)if(worker.dead||worker.eatJob?.source!==source||corpse.consumed){corpse.corpseEater=undefined;this.claims.delete(corpse);}
   }
   private eligible(corpse:Corpse,worker:EatingWorker):boolean {
@@ -28,6 +39,8 @@ export class CorpseEating {
     for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
       if(!dc&&!dr)continue;const goal={column:position.column+dc,row:position.row+dr};
       if(goal.column<0||goal.row<0||goal.column>=walls.mapSize||goal.row>=walls.mapSize)continue;
+      const blocked=worker.movement.terrainBlocked??walls.isBlocked;
+      if(rayTiles(goal,position).slice(1).some(cell=>!(cell.column===position.column&&cell.row===position.row)&&blocked(cell)))continue;
       const path=paths.get(goal.row*walls.mapSize+goal.column);
       if(path&&(!best||path.distance<best.distance))best={goal,distance:path.distance};
     }
