@@ -9,6 +9,8 @@ import type { FactionMember } from './factions';
 import { areHostile, isPlayerControlled } from './factions.ts';
 import type { MapItem } from './items';
 import { carryCapacity, returnItems, isWeaponItem } from './items.ts';
+import { createMovement } from './movement.ts';
+import type {Wall} from './walls';
 import type { Construction } from './construction';
 import type { Harvesting } from './harvesting';
 import type { Hauling } from './hauling';
@@ -20,7 +22,7 @@ export const WEAPONS = {
   rifle: { name: 'ライフル', damage: 40, accuracy: .50, range: 16, interval: 2.5 },
 };
 export const ATTACK_INTERVAL = 1 / .4;
-export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean };
+export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean; structure?:Wall };
 export interface AttackEvent {
   attacker: CombatPawn;
   target: CombatTarget;
@@ -38,6 +40,7 @@ export interface AttackOrder {
   goal?: Tile;
   manual?: boolean;
   hunting?: boolean;
+  predation?: boolean;
   holdPosition?: Tile;
 }
 export type CombatPawn = CombatTarget & {
@@ -63,10 +66,21 @@ export class Combat {
   readonly harvesting: Harvesting;
   readonly hauling: Hauling;
   readonly random: () => number;
+  private structureTargets=new WeakMap<Wall,CombatTarget>();
+  onDestroyStructure?:(structure:Wall)=>void;
   onAttack?: (event: AttackEvent) => void;
 
   constructor(construction: Construction, harvesting: Harvesting, hauling: Hauling, random: () => number = Math.random) {
     this.construction = construction; this.harvesting = harvesting; this.hauling = hauling; this.random = random;
+  }
+
+  structureTarget(structure:Wall):CombatTarget {
+    let target=this.structureTargets.get(structure);if(target)return target;
+    const walls=this.construction.walls;
+    target={structure,faction:'player',mode:'automatic',movement:createMovement(structure),needs:{satiety:100,health:100},eatJob:null,inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,
+      get hp(){return structure.hp??100;},set hp(value:number){structure.hp=value;},
+      get dead(){return structure.hp<=0||structure.state!=='completed'||walls.at(structure)!==structure;}};
+    this.structureTargets.set(structure,target);return target;
   }
 
   cancel(pawn: CombatPawn): void {
@@ -92,6 +106,7 @@ export class Combat {
   }
 
   requestAttack(pawn: CombatPawn, target: CombatTarget): boolean {
+    if(target.structure&&(!isPlayerControlled(pawn)||'kind' in pawn&&pawn.kind!=='human'||target.structure.state!=='completed'))return false;
     if (pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach = this.attackApproach(pawn, target);
@@ -103,8 +118,8 @@ export class Combat {
     return setRoute(pawn.movement, approach.path.tiles);
   }
 
-  canFireFrom(weapon:Weapon,from:Tile,to:Tile):boolean {
-    return inWeaponRange(weapon,from,to)&&(weapon!=='rifle'||!shootingObstacles(this.construction.walls,from,to).blocked);
+  canFireFrom(weapon:Weapon,from:Tile,to:Tile,structure?:Wall):boolean {
+    return inWeaponRange(weapon,from,to)&&(weapon!=='rifle'||!shootingObstacles(this.construction.walls,from,to,structure).blocked);
   }
 
   canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
@@ -120,13 +135,22 @@ export class Combat {
     return setRoute(pawn.movement,approach.path.tiles);
   }
 
+  requestPredation(pawn:CombatPawn,target:CombatTarget):boolean {
+    if(pawn.dead||target.dead||target.departed||target.structure||pawn.faction!=='wild')return false;
+    this.construction.walls.bindMovement(pawn.movement,pawn.faction);
+    const approach=this.attackApproach(pawn,target);if(!approach)return false;
+    this.interrupt(pawn);this.cancel(pawn);
+    pawn.attackJob={target,cooldown:WEAPONS.unarmed.interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,predation:true};
+    return setRoute(pawn.movement,approach.path.tiles);
+  }
+
   private attackApproach(pawn: CombatPawn, target: CombatTarget): { goal: Tile; path: Path } | null {
     const walls = this.construction.walls;
     const paths = findPaths(pawn.movement.nextTile ?? pawn.movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     // Dijkstra's endpoint order is nearest first. Only stopping cells are filtered.
     for (const [index, path] of paths) {
       const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
-      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile)) return { goal, path };
+      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile,target.structure)) return { goal, path };
     }
     return null;
   }
@@ -135,7 +159,7 @@ export class Combat {
     let nearest: CombatTarget | null = null, distance = Infinity;
     for (const target of targets) {
       if (target === pawn || target.dead || target.departed || !areHostile(pawn, target)
-        || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, target.movement.tile)) continue;
+        || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, target.movement.tile,target.structure)) continue;
       const candidateDistance = Math.hypot(target.movement.tile.column - pawn.movement.tile.column, target.movement.tile.row - pawn.movement.tile.row);
       if (candidateDistance < distance) { distance = candidateDistance; nearest = target; }
     }
@@ -143,7 +167,7 @@ export class Combat {
   }
 
   update(pawn: CombatPawn, seconds: number, targets: readonly CombatTarget[] = []): boolean {
-    if (pawn.dead || pawn.faction === 'wild') { this.cancel(pawn); return false; }
+    if (pawn.dead || pawn.faction === 'wild' && !pawn.attackJob?.predation) { this.cancel(pawn); return false; }
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const equip = pawn.equipJob;
     if (equip) {
@@ -177,14 +201,14 @@ export class Combat {
     const manual = job.manual !== false;
     if (manual && pawn.mode !== 'drafted' || job.target.dead || job.target.departed
       || job.hunting && (pawn.mode!=='automatic'||!job.target.hunt)
-      || !manual && !job.hunting && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile))) {
+      || !manual && !job.hunting && !job.predation && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
     const weapon = pawn.weapon ?? 'unarmed';
     if(manual&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
-    if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile))return true;
-    if (!manual && !job.hunting && !stationary(pawn)) return true;
-    if (!stationary(pawn) || !this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile)) {
+    if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
+    if (!manual && !job.hunting && !job.predation && !stationary(pawn)) return true;
+    if (!stationary(pawn) || !this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
       const changedGoal = job.goal && positionKey(job.goal) !== positionKey(pawn.movement.destination);
@@ -202,7 +226,7 @@ export class Combat {
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
       job.cooldown += WEAPONS[weapon].interval;
-      const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,job.target.movement.tile).covered;
+      const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,job.target.movement.tile,job.target.structure).covered;
       const accuracy=Math.max(0,WEAPONS[weapon].accuracy-(covered?.4:0));
       const hit = this.random() < accuracy;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
@@ -212,8 +236,8 @@ export class Combat {
         job.target.hp = Math.max(0, (job.target.hp ?? 100) - WEAPONS[weapon].damage);
         if (job.target.hp <= 0) {
           if(job.hunting){job.target.collectCorpse=true;job.target.hunt=false;}
-          killPawn(job.target, this.construction, this.harvesting, this.hauling);
-          this.cancel(job.target);
+          if(job.target.structure)this.onDestroyStructure?.(job.target.structure);
+          else{killPawn(job.target, this.construction, this.harvesting, this.hauling);this.cancel(job.target);}
           this.cancel(pawn);
           this.onAttack?.(event);
           break;

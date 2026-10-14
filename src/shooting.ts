@@ -1,5 +1,5 @@
 import type { Tile } from './movement';
-import type { Walls } from './walls';
+import type { Wall, Walls } from './walls';
 
 // Include both touching cells when a ray crosses an exact grid corner.
 export function rayTiles(from:Tile,to:Tile):Tile[] {
@@ -15,10 +15,10 @@ export function rayTiles(from:Tile,to:Tile):Tile[] {
   }
   return cells;
 }
-export function shootingObstacles(walls:Walls,from:Tile,to:Tile):{blocked:boolean;covered:boolean} {
+export function shootingObstacles(walls:Walls,from:Tile,to:Tile,target?:Wall):{blocked:boolean;covered:boolean} {
   let covered=false;
   for(const cell of rayTiles(from,to)){
-    const structure=walls.at(cell);if(structure?.state!=='completed')continue;
+    const structure=walls.at(cell);if(structure?.state!=='completed'||structure===target)continue;
     if(structure.kind==='wall'||structure.kind==='door')return {blocked:true,covered};
     if(structure.kind==='barricade')covered=true;
   }

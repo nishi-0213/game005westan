@@ -24,7 +24,7 @@
     <button id="item-info-button" type="button" aria-label="アイテムのインフォメーション" aria-controls="item-properties" hidden>?</button>
     <button id="acquisition-button" type="button" aria-pressed="false" hidden>無視</button>
     <button id="collection-button" type="button" aria-pressed="false" hidden>無視</button>
-    <label id="hunting-control" hidden><input id="hunting-checkbox" type="checkbox" />狩猟</label>
+    <button id="hunting-button" type="button" aria-pressed="false" hidden>無視</button>
     </nav>
     <section id="pawn-specs" aria-label="ポーンのスペック" hidden></section>
     <dialog id="item-properties" aria-labelledby="item-properties-name">
@@ -66,8 +66,8 @@
       <button id="butcher-button" class="construction-subtab" type="button" aria-pressed="false">解体所（木材）</button>
     </nav>
     <nav id="butcher-materials" class="wall-materials" hidden></nav>
-    <section id="station-info" aria-label="解体所のインフォメーション" hidden>
-      <button id="station-work-button" type="button">作業</button><h2>解体所</h2><p id="station-status"></p>
+    <section id="station-info" aria-label="建造物のインフォメーション" hidden>
+      <button id="station-work-button" type="button">作業</button><h2>解体所</h2><p id="structure-hp"></p><p id="station-status"></p>
     </section>
     <dialog id="station-work" aria-label="解体所の作業一覧">
       <button id="close-station-work" type="button" aria-label="作業一覧を閉じる">×</button><h2>作業一覧</h2>
@@ -103,11 +103,13 @@
       <p>受け入れるアイテム</p>
       <label><input type="checkbox" data-storage-type="wood" checked />木材 <span id="stored-wood">0</span></label>
       <label><input type="checkbox" data-storage-type="stone" checked />石材 <span id="stored-stone">0</span></label>
+      <label><input type="checkbox" data-storage-type="ration" checked />携帯食料 <span id="stored-ration">0</span></label>
       <label><input type="checkbox" data-storage-type="strawberry" checked />苺 <span id="stored-strawberry">0</span></label>
       <label><input type="checkbox" data-storage-type="knife" checked />ナイフ <span id="stored-knife">0</span></label>
       <label><input type="checkbox" data-storage-type="rifle" checked />ライフル <span id="stored-rifle">0</span></label>
       <label><input type="checkbox" data-storage-type="meat" checked />肉 <span id="stored-meat">0</span></label>
       <label><input type="checkbox" data-storage-type="humanCorpse" checked />人間の死体 <span id="stored-humanCorpse">0</span></label>
+      <label><input type="checkbox" data-storage-type="wolfCorpse" checked />狼の死体 <span id="stored-wolfCorpse">0</span></label>
       <label><input type="checkbox" data-storage-type="deerCorpse" checked />鹿の死体 <span id="stored-deerCorpse">0</span></label>
     </dialog>
     <dialog id="food-command" aria-label="食料の操作">
@@ -122,6 +124,7 @@
     </dialog>
     <dialog id="haul-command" aria-label="アイテムの運搬">
       <button id="close-haul-command" type="button" aria-label="運搬操作を閉じる">×</button>
+      <button id="devour-button" type="button" hidden>捕食する</button>
       <button id="haul-now-button" type="button" data-immediate-haul>今すぐ運搬</button>
     </dialog>
     <script type="module" src="/src/main.ts"></script>

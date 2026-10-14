@@ -37,3 +37,9 @@ test('drafting interrupts an automatic meal but explicit eating commands still w
 const s=scene(),food={column:3,row:2,type:'meat',quantity:10,collect:true};s.items.push(food);s.worker.needs.satiety=10;s.tick(0);assert.ok(s.worker.eatJob);s.worker.mode='drafted';s.tick(0);assert.equal(s.worker.eatJob,null);assert.equal(food.quantity,10);assert.equal(requestEat(s.worker,food,s.construction,s.harvesting,s.hauling),true);
 for(let i=0;i<30&&s.worker.eatJob;i++){advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);s.tick(.1);}assert.equal(s.worker.needs.satiety,100);assert.equal(s.worker.mode,'drafted');assert.equal(food.quantity,5);
 });
+
+test('portable rations weigh1kg and provide30nutrition from stored food in a one-second meal',()=>{
+const s=scene(),box=s.walls.plan({column:3,row:2},'wood','storage');s.walls.complete(box);s.storage.deposit(box,'ration',40);s.worker.needs.satiety=20;
+for(let i=0;i<50&&s.worker.needs.satiety<=20;i++){s.tick(.1);advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);}
+assert.equal(s.worker.needs.satiety,100);assert.equal(box.stored.ration,37);assert.equal(ITEM_APPEARANCE.ration.massKg,1);assert.equal(ITEM_APPEARANCE.ration.nutrition,30);
+});

@@ -26,8 +26,8 @@ export function corpsePosition(corpse: Corpse): Tile {
   if (corpse.corpseCarrier) { const position = renderedPosition(corpse.corpseCarrier.movement); return { column: position.column + .2, row: position.row + .2 }; }
   return corpse.corpseStation ?? corpse.corpseStorage ?? corpse.deadPosition ?? corpse.movement.tile;
 }
-export function corpseItemType(corpse: Corpse): 'humanCorpse' | 'deerCorpse' {
-  return 'kind' in corpse && corpse.kind === 'deer' ? 'deerCorpse' : 'humanCorpse';
+export function corpseItemType(corpse: Corpse): 'humanCorpse' | 'deerCorpse' | 'wolfCorpse' {
+  return 'kind' in corpse && corpse.kind === 'deer' ? 'deerCorpse' : 'kind' in corpse && corpse.kind === 'wolf' ? 'wolfCorpse' : 'humanCorpse';
 }
 export function adjustButcherCount(state: ButcherState, amount: number): void {
   state.mode = 'count'; state.remaining = Math.max(0, Math.min(99, state.remaining + amount));
@@ -62,7 +62,7 @@ export class Butchery {
   }
   findTransport(worker: Builder, only?: Corpse): { station: Wall; corpse: Corpse; goal: Tile; path: Path } | null {
     const stations = this.stations().filter(station => !station.butcher?.corpse && (!this.claims.has(station) || this.claims.get(station) === worker));
-    const corpses = this.corpses().filter(corpse => corpse.dead && (only ? corpse===only : corpse.collectCorpse || corpse.corpseStorage) && !corpse.consumed && !corpse.corpseCarrier && !corpse.corpseStation && !this.corpseClaims.has(corpse));
+    const corpses = this.corpses().filter(corpse => corpse.dead && (only ? corpse===only : corpse.collectCorpse || corpse.corpseStorage) && !corpse.consumed && !corpse.corpseEater && !corpse.corpseCarrier && !corpse.corpseStation && !this.corpseClaims.has(corpse));
     if (!stations.length || !corpses.length) return null;
     const paths = this.paths(worker), from = worker.movement.nextTile ?? worker.movement.tile;
     let best: { station: Wall; corpse: Corpse; goal: Tile; path: Path } | null = null;
@@ -79,7 +79,7 @@ export class Butchery {
   }
   findStorage(worker: Builder, only?: Corpse): { station: Wall; corpse: Corpse; goal: Tile; path: Path } | null {
     if (!this.hauling.storage.boxes().length) return null;
-    const bodies = this.corpses().filter(body => body.dead && (only ? body===only : body.collectCorpse) && !body.consumed && !body.corpseCarrier && !body.corpseStation && !body.corpseStorage && !this.corpseClaims.has(body));
+    const bodies = this.corpses().filter(body => body.dead && (only ? body===only : body.collectCorpse) && !body.consumed && !body.corpseEater && !body.corpseCarrier && !body.corpseStation && !body.corpseStorage && !this.corpseClaims.has(body));
     if (!bodies.length) return null;
     const paths = this.paths(worker), from = worker.movement.nextTile ?? worker.movement.tile;
     let best: { station: Wall; corpse: Corpse; goal: Tile; path: Path } | null = null;

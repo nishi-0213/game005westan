@@ -147,7 +147,7 @@ canvas { display: block; width: 100%; height: 100%; }
   font: 20px system-ui, sans-serif;
   cursor: pointer;
 }
-:is(#collection-button, #acquisition-button) {
+:is(#collection-button, #acquisition-button, #hunting-button) {
   position: fixed;
   right: 64px;
   bottom: 0;
@@ -161,10 +161,10 @@ canvas { display: block; width: 100%; height: 100%; }
   font: 600 14px system-ui, sans-serif;
   cursor: pointer;
 }
-:is(#collection-button, #acquisition-button)[hidden] { display: none; }
-:is(#collection-button, #acquisition-button)[aria-pressed="true"] { background: #475b3e; color: #fff2a3; }
-:is(#collection-button, #acquisition-button):hover { background: #354936; }
-:is(#collection-button, #acquisition-button):focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
+:is(#collection-button, #acquisition-button, #hunting-button)[hidden] { display: none; }
+:is(#collection-button, #acquisition-button, #hunting-button)[aria-pressed="true"] { background: #475b3e; color: #fff2a3; }
+:is(#collection-button, #acquisition-button, #hunting-button):hover { background: #354936; }
+:is(#collection-button, #acquisition-button, #hunting-button):focus-visible { outline: 2px solid #f2c66d; outline-offset: -3px; }
 
 .construction-tab {
   position: fixed;
@@ -319,6 +319,3 @@ canvas { touch-action: none; }
 #meat-target { width:64px; background:#152019; color:#f4e9cc; border:1px solid #708268; padding:5px; }
 #station-work button[aria-pressed="true"] { border-color:#f2c66d; background:#475b3e; }
 .pawn-roster-button[hidden] { display:none; }
-
-#hunting-control { padding: 10px; border: 1px solid #7d9274; background: #253529; cursor: pointer; }
-#hunting-control[hidden] { display: none; }

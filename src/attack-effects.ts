@@ -32,7 +32,14 @@ export class AttackEffects {
       const tracer = new Graphics().moveTo(muzzle.x, muzzle.y).lineTo(end.x, end.y).stroke({ color: 0xffedba, width: 1.2 });
       this.add(tracer, .18);
     }
-    if (event.hit) for (let index = 0; index < 10; index++) {
+    if(event.hit&&event.target.structure){
+      for(let index=0;index<5;index++){
+        const star=new Graphics().poly([0,-4,1,-1,4,0,1,1,0,4,-1,1,-4,0,-1,-1]).fill(0xffdf52);
+        star.position.set(target.x,target.y);const angle=index*Math.PI*2/5;
+        this.add(star,.45,Math.cos(angle)*22,Math.sin(angle)*22);
+      }
+    }
+    if (event.hit&&!event.target.structure) for (let index = 0; index < 10; index++) {
       const angle = Math.random() * Math.PI * 2, speed = 14 + Math.random() * 28;
       const particle = new Graphics().circle(0, 0, 1 + Math.random()).fill(0xdc3548);
       particle.position.set(target.x, target.y);

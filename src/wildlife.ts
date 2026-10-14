@@ -1,3 +1,5 @@
+import type { Combat, CombatTarget, AttackOrder } from './combat';
+import type { CorpseEating } from './corpse-eating';
 import type { FactionMember } from './factions';
 import type { EatingWorker } from './needs';
 import { FOOD_THRESHOLD, initialNeeds, updateNeeds } from './needs.ts';
@@ -13,8 +15,9 @@ import type { EnvironmentObject } from './environment';
 import { harvestYield } from './environment.ts';
 import type { MapItem } from './items';
 
-export interface Deer extends EatingWorker, FactionMember {
-  kind: 'deer';
+export interface Animal extends EatingWorker, FactionMember {
+  kind: 'deer' | 'wolf';
+  attackJob?: AttackOrder | null;
   hunt?: boolean;
   id: number;
   freeSeconds: number;
@@ -25,6 +28,9 @@ export interface Deer extends EatingWorker, FactionMember {
   decisionSeconds: number;
   fleeGoal?: Tile;
 }
+export type Deer=Animal & {kind:'deer'};
+export type Wolf=Animal & {kind:'wolf';prey?:CombatTarget};
+export function createWolf(tile:Tile,id:number):Wolf {return {...createDeer(tile,id),kind:'wolf'};}
 export const DEER_FLEE_DISTANCE = 8;
 const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row === b.row;
 const berries = (object: EnvironmentObject): boolean => object.type === 'wildStrawberry' && harvestYield(object) > 0;
@@ -34,31 +40,42 @@ export function createDeer(tile: Tile, id: number): Deer {
     freeSeconds: 0, leaving: false, departed: false, decisionSeconds: 0 };
 }
 
-export function deerAction(deer: Deer): string {
+export function deerAction(deer: Animal): string {
   if (deer.dead) return '死亡';
   if (deer.fleeGoal) return '逃走中';
   if (deer.leaving) return 'マップ外へ移動中';
   if (deer.eatJob) return '食事中';
+  if(deer.attackJob?.predation)return '捕食対象を追跡中';
   if (deer.harvestJob) return deer.movement.nextTile || !sameTile(deer.movement.tile, deer.movement.destination) ? '収集へ移動中' : '収集中';
   return '自由';
 }
 
 export class Wildlife {
   readonly deer: Deer[] = [];
+  readonly wolves:Wolf[]=[];
+  get animals():Animal[]{return [...this.deer,...this.wolves];}
+  combat?:Combat;
+  corpseEating?:CorpseEating;
+  players:()=>readonly CombatTarget[]=()=>[];
+  private wolfSpawnSeconds=0;
+  private wolfExitSeconds:number;
   readonly construction: Construction;
   readonly harvesting: Harvesting;
   readonly hauling: Hauling;
   readonly random: () => number;
-  onSpawn?: (deer: Deer) => void;
-  onDepart?: (deer: Deer) => void;
+  onSpawn?: (deer: Animal) => void;
+  onDepart?: (deer: Animal) => void;
   private nextId = 1;
   private spawnSeconds = 0;
   private exitSeconds: number;
   constructor(construction: Construction, harvesting: Harvesting, hauling: Hauling, random: () => number = Math.random) {
     this.construction = construction; this.harvesting = harvesting; this.hauling = hauling; this.random = random;
     this.exitSeconds = this.interval();
+    this.wolfExitSeconds=this.wolfInterval();
   }
   private interval(): number { return 50 + this.random() * 20; }
+  private wolfInterval():number{return 110+this.random()*20;}
+  private wolfCount():number{return 1+Math.floor(this.random()*2);}
   private count(): number { return 2 + Math.floor(this.random() * 2); }
 
   update(seconds: number, occupied: (tile: Tile) => boolean = () => false): void {
@@ -72,6 +89,16 @@ export class Wildlife {
       for (let i = 0; i < count && candidates.length; i++) this.markForExit(candidates.splice(Math.floor(this.random() * candidates.length), 1)[0]);
       this.exitSeconds += this.interval();
     }
+    if(this.combat&&this.corpseEating){
+      this.wolfSpawnSeconds-=seconds;this.wolfExitSeconds-=seconds;
+      if(this.wolfSpawnSeconds<=0){this.spawn(occupied,'wolf');this.wolfSpawnSeconds+=this.wolfInterval();}
+      if(this.wolfExitSeconds<=0){
+        const candidates=this.wolves.filter(wolf=>!wolf.dead&&!wolf.leaving&&!wolf.departed),count=this.wolfCount();
+        for(let i=0;i<count&&candidates.length;i++)this.markForExit(candidates.splice(Math.floor(this.random()*candidates.length),1)[0]);
+        this.wolfExitSeconds+=this.wolfInterval();
+      }
+      for(let index=this.wolves.length-1;index>=0;index--){const wolf=this.wolves[index];this.updateWolf(wolf,seconds);if(wolf.departed){this.onDepart?.(wolf);this.wolves.splice(index,1);}}
+    }
     for (let index = this.deer.length - 1; index >= 0; index--) {
       const deer = this.deer[index];
       this.updateDeer(deer, seconds);
@@ -79,27 +106,28 @@ export class Wildlife {
     }
   }
 
-  private spawn(occupied: (tile: Tile) => boolean): void {
+  private spawn(occupied: (tile: Tile) => boolean,kind:'deer'|'wolf'='deer'): void {
     const walls = this.construction.walls, candidates: Tile[] = [];
     for (let row = 0; row < walls.mapSize; row++) for (let column = 0; column < walls.mapSize; column++) {
       if (column !== 0 && row !== 0 && column !== walls.mapSize - 1 && row !== walls.mapSize - 1) continue;
       const tile = { column, row };
       if (!walls.at(tile) && !walls.isBlocked(tile) && !walls.cannotStop(tile) && !occupied(tile)
-        && !this.deer.some(deer => sameTile(deer.movement.tile, tile) || sameTile(deer.movement.destination, tile))) candidates.push(tile);
+        && !this.animals.some(deer => sameTile(deer.movement.tile, tile) || sameTile(deer.movement.destination, tile))) candidates.push(tile);
     }
-    const count = this.count();
+    const count = kind==='wolf'?this.wolfCount():this.count();
     for (let i = 0; i < count && candidates.length; i++) {
       const tile = candidates.splice(Math.floor(this.random() * candidates.length), 1)[0];
-      const deer = createDeer(tile, this.nextId++);
-      this.deer.push(deer);
-      this.onSpawn?.(deer);
+      const animal=kind==='wolf'?createWolf(tile,this.nextId++):createDeer(tile,this.nextId++);
+      if(animal.kind==='wolf')this.wolves.push(animal as Wolf);else this.deer.push(animal as Deer);
+      this.onSpawn?.(animal);
     }
   }
 
-  markForExit(deer: Deer): void {
+  markForExit(deer: Animal): void {
     if (deer.dead || deer.departed || deer.leaving) return;
     if (deer.fleeGoal) { deer.leaving = true; return; }
     this.harvesting.cancel(deer);
+    this.combat?.cancel(deer);
     deer.eatJob = null;
     deer.leaving = true;
     deer.decisionSeconds = 0;
@@ -177,6 +205,32 @@ export class Wildlife {
     updateRoaming(deer, walls, seconds, this.random);
   }
 
+  updateWolf(wolf:Wolf,seconds:number):void {
+    if(wolf.dead||wolf.departed)return;
+    const walls=this.construction.walls;walls.bindMovement(wolf.movement,wolf.faction);
+    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,false);
+    if(wolf.dead){this.combat?.cancel(wolf);return;}
+    if(wolf.leaving){this.combat?.cancel(wolf);this.updateExit(wolf,seconds);return;}
+    if(eating)return;
+    if(wolf.attackJob?.predation){this.combat?.update(wolf,seconds);return;}
+    if(wolf.needs.satiety<=FOOD_THRESHOLD&&this.combat&&this.corpseEating){
+      if(wolf.prey?.dead&&this.corpseEating.request(wolf,wolf.prey)){wolf.prey=undefined;return;}
+      wolf.decisionSeconds-=seconds;
+      if(wolf.decisionSeconds<=0){
+        wolf.decisionSeconds=.25;
+        const origin=wolf.movement.tile;
+        const nearest=(targets:readonly CombatTarget[])=>[...targets].filter(target=>!target.departed&&!target.consumed&&target!==wolf).sort((a,b)=>Math.hypot(a.movement.tile.column-origin.column,a.movement.tile.row-origin.row)-Math.hypot(b.movement.tile.column-origin.column,b.movement.tile.row-origin.row)).find(target=>target.dead?this.corpseEating!.canEat(wolf,target):this.combat!.canReachAttack(wolf,target));
+        const target=nearest(this.deer)??nearest(this.players().filter(pawn=>pawn.faction==='player'));
+        if(target){
+          if(target.dead)this.corpseEating.request(wolf,target);
+          else if(this.combat.requestPredation(wolf,target))wolf.prey=target;
+          return;
+        }
+      }
+    }
+    updateRoaming(wolf,walls,seconds,this.random);
+  }
+
   private eatHarvest(deer: Deer, target: EnvironmentObject): void {
     const source = this.harvesting.items.find(item => item.type === 'strawberry' && sameTile(item, target) && item.quantity > 0);
     if (!source) return;
@@ -193,7 +247,7 @@ export class Wildlife {
     deer.freeSeconds = 0;
   }
 
-  private updateExit(deer: Deer, seconds: number): void {
+  private updateExit(deer: Animal, seconds: number): void {
     const walls = this.construction.walls, movement = deer.movement;
     if (movement.tile.column < 0 || movement.tile.row < 0 || movement.tile.column >= walls.mapSize || movement.tile.row >= walls.mapSize) {
       deer.departed = true;

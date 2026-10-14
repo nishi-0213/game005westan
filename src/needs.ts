@@ -14,6 +14,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   hp?: number;
   consumed?: boolean;
   collectCorpse?: boolean;
+  corpseEater?: EatingWorker;
   corpseStorage?: import('./walls').Wall;
   corpseCarrier?: { movement: import('./movement').Movement };
   corpseStation?: Tile;
@@ -62,7 +63,7 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
   worker.movement.changed?.();
 }
 
-export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true): boolean {
+export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true, fallbackFood?: (worker:EatingWorker)=>boolean): boolean {
   if (worker.dead) return true;
   const elapsed = Math.max(0, seconds);
   const previousSatiety = worker.needs.satiety;
@@ -99,8 +100,8 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
       worker.eatJob = { source, goal };
       return true;
     }
-    const sources = [...construction.items.filter(item => foodNutrition(item.type) > 0 && item.collect && item.quantity > 0), ...(construction.storage?.sources('strawberry') ?? []), ...(construction.storage?.sources('meat') ?? [])];
-    if (!sources.length) return false;
+    const sources = [...construction.items.filter(item => foodNutrition(item.type) > 0 && item.collect && item.quantity > 0), ...(construction.storage?.sources('strawberry') ?? []), ...(construction.storage?.sources('meat') ?? []),...(construction.storage?.sources('ration')??[])];
+    if (!sources.length) return fallbackFood?.(worker)??false;
     const walls = construction.walls;
     const from = worker.movement.nextTile ?? worker.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
@@ -110,7 +111,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
       if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
       if (approach && (!best || approach.path.distance < best.path.distance)) best = { source, ...approach };
     }
-    if (!best) return false;
+    if (!best) return fallbackFood?.(worker)??false;
     interruptWork(worker, construction, harvesting, hauling);
     worker.eatJob = { source: best.source, goal: best.goal };
     setRoute(worker.movement, best.path.tiles);

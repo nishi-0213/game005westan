@@ -42,19 +42,19 @@ export class Storage {
   }
 
   totals(): Record<ItemType, number> {
-    const totals = { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };
+    const totals = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 };
     for (const box of this.boxes()) for (const type of ITEM_TYPES) totals[type] += box.stored?.[type] ?? 0;
     return totals;
   }
 
-  depositCorpse(box: Wall, corpse: EatingWorker, type: 'humanCorpse' | 'deerCorpse'): boolean {
+  depositCorpse(box: Wall, corpse: EatingWorker, type: 'humanCorpse' | 'deerCorpse' | 'wolfCorpse'): boolean {
     if (this.deposit(box, type, 1) !== 1) return false;
     box.storedCorpses ??= []; box.storedCorpses.push(corpse); corpse.corpseStorage = box;
     corpse.corpseCarrier = undefined; corpse.corpseStation = undefined;
     return true;
   }
 
-  withdrawCorpse(corpse: EatingWorker, type: 'humanCorpse' | 'deerCorpse'): void {
+  withdrawCorpse(corpse: EatingWorker, type: 'humanCorpse' | 'deerCorpse' | 'wolfCorpse'): void {
     const box = corpse.corpseStorage;
     if (!box) return;
     const index = box.storedCorpses?.indexOf(corpse) ?? -1;
@@ -65,7 +65,7 @@ export class Storage {
 
   deposit(box: Wall, type: ItemType, quantity: number): number {
     if (!this.accepts(box, type) || quantity <= 0) return 0;
-    box.stored ??= { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 };
+    box.stored ??= { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 };
     const deposited = Math.min(quantity, this.capacity(box, type));
     box.stored[type] = (box.stored[type] ?? 0) + deposited;
     return deposited;

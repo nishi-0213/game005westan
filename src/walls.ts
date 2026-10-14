@@ -12,6 +12,7 @@ export interface Wall extends Tile {
   state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
+  hp: number;
   storedCorpses?: import('./needs').EatingWorker[];
   stored?: Record<ItemType, number>;
   demolition?: boolean;
@@ -56,8 +57,8 @@ export class Walls {
     const key = `${tile.column},${tile.row}`;
     const cells = footprint({ ...tile, kind, orientation });
     if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || this.at(cell))) return null;
-    const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0 };
-    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true }; }
+    const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0, hp:100 };
+    if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, ration: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true, wolfCorpse: true }; }
     if (kind === 'door') wall.material='wood';
     if (kind === 'butcher') { wall.material = 'wood'; wall.butcher = { mode: 'count', remaining: 0, target: 0, seconds: 0 }; }
     this.items.set(key, wall);

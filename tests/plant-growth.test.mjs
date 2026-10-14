@@ -7,9 +7,9 @@ import { findPath } from '../src/pathfinding.ts';
 import { Harvesting } from '../src/harvesting.ts';
 import { createMovement } from '../src/movement.ts';
 
-test('initial trees and berries start at1HP; rocks start at100HP', () => {
+test('initial trees, berries and rocks start fully grown at100HP', () => {
   const objects = initialEnvironment(32);
-  for (const object of objects) assert.equal(object.hp, object.type === 'rock' ? 100 : 1);
+  for (const object of objects) assert.equal(object.hp, 100);
 });
 
 test('plants grow from1 to100HP in exactly60game seconds and pause without elapsed time', () => {
