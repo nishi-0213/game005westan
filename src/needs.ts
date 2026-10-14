@@ -1,7 +1,7 @@
 import type { Construction } from './construction';
 import type { HarvestWorker, Harvesting } from './harvesting';
 import type { HaulWorker, Hauling } from './hauling';
-import type { MapItem } from './items';
+import type { MapItem, ItemType } from './items';
 import { foodNutrition, returnItems } from './items.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
@@ -74,7 +74,7 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
   worker.movement.changed?.();
 }
 
-export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true, fallbackFood?: (worker:EatingWorker)=>boolean): boolean {
+export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true, fallbackFood?: (worker:EatingWorker)=>boolean, animalDiet?: readonly ItemType[]): boolean {
   if (worker.dead) return true;
   const elapsed = Math.max(0, seconds);
   const previousSatiety = worker.needs.satiety;
@@ -94,13 +94,13 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     if(!worker.eatJob)return false;
   }
   if (!worker.eatJob && (!automaticFood || worker.needs.satiety > FOOD_THRESHOLD)) return false;
-  if (worker.eatJob && (worker.eatJob.source.quantity <= 0 || !worker.eatJob.manual && construction.items.includes(worker.eatJob.source) && !worker.eatJob.source.collect)) {
+  if (worker.eatJob && (worker.eatJob.source.quantity <= 0 || !worker.eatJob.manual && construction.items.includes(worker.eatJob.source) && !worker.eatJob.source.collect && !animalDiet)) {
     worker.eatJob = null;
     stopAtNextSafeTile(worker.movement, construction.walls.cannotStop);
     return false;
   }
   if (!worker.eatJob) {
-    if (worker.inventory && foodNutrition(worker.inventory.type) > 0 && worker.inventory.quantity > 0) {
+    if (worker.inventory && foodNutrition(worker.inventory.type) > 0 && (!animalDiet||animalDiet.includes(worker.inventory.type)) && worker.inventory.quantity > 0) {
       const held = worker.inventory;
       interruptWork(worker, construction, harvesting, hauling);
       const goal = { ...worker.movement.destination };
@@ -111,7 +111,8 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
       worker.eatJob = { source, goal };
       return true;
     }
-    const sources = [...construction.items.filter(item => foodNutrition(item.type) > 0 && item.collect && item.quantity > 0), ...(construction.storage?.sources('strawberry') ?? []), ...(construction.storage?.sources('meat') ?? []),...(construction.storage?.sources('ration')??[])];
+    const types:readonly ItemType[]=animalDiet??['strawberry','meat','ration'];
+    const sources = [...construction.items.filter(item => types.includes(item.type) && (animalDiet||item.collect) && item.quantity > 0), ...types.flatMap(type=>construction.storage?.sources(type)??[])];
     if (!sources.length) return fallbackFood?.(worker)??false;
     const walls = construction.walls;
     const from = worker.movement.nextTile ?? worker.movement.tile;

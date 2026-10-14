@@ -3,10 +3,11 @@ import type { ItemType } from './items';
 import type { Movement, Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
-export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher';
+export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher' | 'cooker' | 'torch';
 export interface Wall extends Tile {
   kind: ConstructionKind;
   orientation?: 0 | 1;
+  cooking?:import('./cooking').CookingState;
   butcher?: import('./butchery').ButcherState;
   material: WallMaterial;
   state: 'planned' | 'completed' | 'cancelled';
@@ -33,17 +34,21 @@ export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; se
   storage: { materialCount: 30, seconds: 3 },
   storageArea: { materialCount: 0, seconds: 0 },
   butcher: { materialCount: 30, seconds: 3 },
+  cooker: { materialCount:30,seconds:4 },
+  torch:{materialCount:1,seconds:1},
 };
 
 export function footprint(wall: Pick<Wall, 'column' | 'row' | 'kind' | 'orientation'>): Tile[] {
-  if (wall.kind !== 'butcher') return [{ column: wall.column, row: wall.row }];
-  return [-1, 0, 1].map(offset => ({ column: wall.column + (wall.orientation ? offset : 0), row: wall.row + (wall.orientation ? 0 : offset) }));
+  if (wall.kind !== 'butcher' && wall.kind !== 'cooker') return [{ column: wall.column, row: wall.row }];
+  const horizontal=wall.kind==='cooker'?!wall.orientation:Boolean(wall.orientation);
+  return [-1, 0, 1].map(offset => ({ column: wall.column + (horizontal ? offset : 0), row: wall.row + (horizontal ? 0 : offset) }));
 }
 
 export class Walls {
   readonly items = new Map<string, Wall>();
   private occupied = new Map<string, Wall>();
   readonly mapSize: number;
+  revision=0;
   environmentCannotStop: (tile: Tile) => boolean = () => false;
 
   constructor(mapSize: number) {
@@ -60,8 +65,10 @@ export class Walls {
     if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || this.at(cell))) return null;
     const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0, hp:100 };
     if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, ration: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true, wolfCorpse: true }; }
-    if (kind === 'door') wall.material='wood';
+    if (kind === 'door'||kind==='torch') wall.material='wood';
+    if(kind==='cooker'){wall.material='wood';wall.cooking={mode:'count',remaining:0,target:0,seconds:0,meat:0,strawberry:0};}
     if (kind === 'butcher') { wall.material = 'wood'; wall.butcher = { mode: 'count', remaining: 0, target: 0, seconds: 0 }; }
+    this.revision++;
     this.items.set(key, wall);
     for (const cell of cells) this.occupied.set(`${cell.column},${cell.row}`, wall);
     return wall;
@@ -71,6 +78,7 @@ export class Walls {
     const wall = this.at(tile);
     if (!wall || wall.state === 'completed') return false;
     wall.state = 'completed';
+    this.revision++;
     invalidatePaths(this.isBlocked);
     return true;
   }
@@ -88,6 +96,7 @@ export class Walls {
   at(tile: Tile): Wall | undefined { return this.occupied.get(`${tile.column},${tile.row}`) ?? this.items.get(`${tile.column},${tile.row}`); }
 
   erase(item: Wall): void {
+    this.revision++;
     this.items.delete(`${item.column},${item.row}`);
     for (const cell of footprint(item)) this.occupied.delete(`${cell.column},${cell.row}`);
     invalidatePaths(this.isBlocked);
@@ -95,7 +104,7 @@ export class Walls {
 
   isBlocked = (tile: Tile): boolean => {
     const item = this.at(tile);
-    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher');
+    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher' || item.kind==='cooker');
   };
 
   nonPlayerBlocked = (tile: Tile): boolean => {

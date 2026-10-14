@@ -16,6 +16,7 @@ export function destroyStructure(walls:Walls,items:MapItem[],tile:Tile):Wall|nul
   returnItems(items, tile, target.material, Math.floor(BUILD_RECIPES[target.kind]!.materialCount / 2));
   for (const type of ITEM_TYPES.filter(type=>type!=='humanCorpse'&&type!=='deerCorpse'&&type!=='wolfCorpse')) returnItems(items, tile, type, target.stored?.[type] ?? 0);
   target.stored = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 };
+  if(target.cooking){for(const type of ['meat','strawberry'] as const)returnItems(items,tile,type,target.cooking[type]);target.cooking.meat=0;target.cooking.strawberry=0;}
   target.state = 'cancelled';
   walls.erase(target);
   invalidatePaths(walls.isBlocked);

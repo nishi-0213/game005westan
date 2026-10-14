@@ -4,11 +4,15 @@ import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTi
 import { advancePathMovement } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { CorpseEating } from './corpse-eating';
+import { Cooking,COOK_SECONDS,stagedNutrition } from './cooking';
 import { Hunting } from './hunting';
 import { Combat, WEAPONS, ATTACK_INTERVAL } from './combat';
 import type { CombatPawn, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
 import { attackRangeEdges } from './attack-range';
+import { WorldLighting } from './world-lighting';
+import { GameTime } from './game-time';
+import { StructureShadows } from './structure-shadows';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
@@ -46,6 +50,7 @@ const app = new Application();
 
 await app.init({
   resizeTo: window,
+  preference:'webgl',
   background: '#151d19',
   antialias: true,
   resolution: RENDER_RESOLUTION,
@@ -55,7 +60,10 @@ document.body.appendChild(app.canvas);
 app.canvas.setAttribute('aria-label', 'れ・こんきすた。32×32マスのマップと中央の3人のポーン');
 document.addEventListener('contextmenu', (event) => event.preventDefault());
 
+const gameTime=new GameTime();
+const timeDisplay=document.querySelector<HTMLElement>('#game-time')!;
 const map = new Container();
+map.filterArea=app.screen;
 // Input is handled by native canvas listeners; no Pixi scene hit testing is needed.
 map.eventMode = 'none';
 function createProgressBar(): { view: Container; fill: Graphics } {
@@ -81,6 +89,7 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 }
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
+const shadowLayer=new Container();map.addChild(shadowLayer);
 const environmentObjects = initialEnvironment(MAP_SIZE);
 const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
 let selectedEnvironment = new Set<EnvironmentObject>();
@@ -115,6 +124,8 @@ function createEnvironmentView(object: EnvironmentObject) {
 }
 const environmentViews = new Map(environmentObjects.map(object => [object, createEnvironmentView(object)]));
 const walls = new Walls(MAP_SIZE);
+const worldLighting=new WorldLighting(walls);
+const daylightFilter=worldLighting.filter;map.filters=[daylightFilter];
 const storage = new Storage(walls);
 const mapItems = initialItems();
 let selectedItems = new Set<(typeof mapItems)[number]>();
@@ -212,6 +223,8 @@ function updateItemSummary(): void {
 updateItemSummary();
 
 walls.environmentCannotStop = tile => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false;
+const structureShadows=new StructureShadows(walls,TILE_SIZE);
+shadowLayer.addChild(structureShadows.view);
 const wallLayer = new Container();
 const wallViews = new Map<string, Graphics>();
 const structureSelection=new Graphics();map.addChild(structureSelection);
@@ -356,7 +369,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, attackMotionSeconds:0, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -386,10 +399,11 @@ wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
 wildlife.onDepart = deer => pawnOccupancy.untrack(deer.movement);
 const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
 const butchery = new Butchery(construction, hauling, () => [...pawns, ...wildlife.animals], () => pawns);
+const cooking=new Cooking(construction,hauling,()=>pawns);
 const corpseEating=new CorpseEating(construction,harvesting,hauling,()=>[...pawns,...wildlife.animals]);
 corpseEating.isReserved=corpse=>butchery.corpseClaims.has(corpse);
 wildlife.combat=combat;wildlife.corpseEating=corpseEating;wildlife.players=()=>pawns;
-construction.onCancel = worker => { if (!worker.dead && (worker.butcherJob || worker.carryingCorpse)) butchery.cancel(worker); };
+construction.onCancel = worker => { if(worker.cookJob)cooking.cancel(worker); if (!worker.dead && (worker.butcherJob || worker.carryingCorpse)) butchery.cancel(worker); };
 butchery.onPickup = corpse => {
   pawnOccupancy.untrack(corpse.movement);
   const human = pawns.find(pawn => pawn === corpse);
@@ -437,7 +451,7 @@ for (const [index, pawn] of pawns.entries()) {
   identity.append(createPawnPortrait(index), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
-  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['hunting','狩猟'], ['free', '自由']] as const) {
+  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['cooking','調理'], ['hunting','狩猟'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
@@ -473,15 +487,15 @@ const constructionProgressViews = new Map<string, { view: Container; fill: Graph
 const butcherProgressViews = new Map<Wall,{view:Container;fill:Graphics}>();
 function updateButcherProgress(): void {
   for(const station of walls.items.values()) {
-    const state=station.butcher;
-    if(station.state!=='completed'||!state?.corpse||state.seconds<=0||state.seconds>=BUTCHER_SECONDS)continue;
+    const state=station.cooking??station.butcher;
+    if(station.state!=='completed'||!(station.cooking?stagedNutrition(station.cooking)>0:station.butcher?.corpse)||!state||state.seconds<=0||state.seconds>=BUTCHER_SECONDS)continue;
     let entry=butcherProgressViews.get(station);
     if(!entry){entry=createProgressBar();entry.view.position.set(station.column*TILE_SIZE,(station.row+1)*TILE_SIZE+1);constructionProgressLayer.addChild(entry.view);butcherProgressViews.set(station,entry);}
     entry.view.visible=true;entry.fill.scale.x=state.seconds/BUTCHER_SECONDS;
   }
   for(const [station,entry] of butcherProgressViews) {
-    const state=station.butcher;
-    if(walls.at(station)!==station||!state?.corpse||state.seconds<=0||state.seconds>=BUTCHER_SECONDS){entry.view.destroy({children:true});butcherProgressViews.delete(station);}
+    const state=station.cooking??station.butcher;
+    if(walls.at(station)!==station||!(station.cooking?stagedNutrition(station.cooking)>0:station.butcher?.corpse)||!state||state.seconds<=0||state.seconds>=BUTCHER_SECONDS){entry.view.destroy({children:true});butcherProgressViews.delete(station);}
   }
 }
 
@@ -647,7 +661,7 @@ function updatePawnPanels(): void {
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
   setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
-  const action = selectedPawn.dead ? '死亡' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
+  const action = selectedPawn.dead ? '死亡' : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health].entries()) {
     if (needsMeters[index].meter.value !== value) needsMeters[index].meter.value = value;
     setText(needsMeters[index].value, `${Math.round(value)}%`);
@@ -952,14 +966,16 @@ let selectedConstruction: ConstructionKind | null = null;
 let demolitionSelected = false;
 const demolitionButton = document.querySelector<HTMLButtonElement>('#demolition-button')!;
 const demolitionMarks = new Map<Wall, Graphics>();
-const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood' };
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood', cooker:'wood',torch:'wood' };
 let stationOrientation: 0 | 1 = 0;
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
 const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
 const constructionChoices = [
+  { kind:'cooker' as const,tabId:'#workshops-tab',optionsId:'#workshop-options',buttonId:'#cooker-button',materialsId:'#cooker-materials' },
   { kind: 'butcher' as const, tabId: '#workshops-tab', optionsId: '#workshop-options', buttonId: '#butcher-button', materialsId: '#butcher-materials' },
+  { kind:'torch' as const,tabId:'#buildings-tab',optionsId:'#building-options',buttonId:'#torch-button',materialsId:'#torch-materials' },
   { kind: 'door' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#door-button', materialsId: '#door-materials' },
   { kind: 'wall' as const, tabId: '#buildings-tab', optionsId: '#building-options', buttonId: '#wall-button', materialsId: '#wall-materials' },
   { kind: 'storageArea' as const, tabId: '#storage-tab', optionsId: '#storage-options', buttonId: '#storage-area-button', materialsId: '#storage-area-materials' },
@@ -975,7 +991,7 @@ const constructionChoices = [
 function updateConstructionLabels(): void {
   for (const choice of constructionChoices) {
     if (choice.kind === 'storageArea') { choice.button.textContent = '保管エリア'; continue; }
-    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'door' ? '扉' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
+    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'door' ? '扉' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : choice.kind==='cooker'?'調理器':choice.kind==='torch'?'たいまつ': 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
   }
 }
 updateConstructionLabels();
@@ -996,7 +1012,7 @@ function selectConstruction(kind: ConstructionKind | null): void {
   app.canvas.style.cursor = kind ? 'crosshair' : '';
   stopDrawing();
   cancelSelectionDrag();
-  stationPreview.visible = kind === 'butcher';
+  stationPreview.visible = isWorkshop(kind);
   drawStationPreview();
   if (kind) {
     clearSelection();
@@ -1044,7 +1060,7 @@ for (const choice of constructionChoices) {
   });
   choice.button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    if (choice.kind === 'door' || choice.kind === 'storage' || choice.kind === 'storageArea' || choice.kind === 'butcher') return;
+    if (choice.kind==='torch'||choice.kind === 'door' || choice.kind === 'storage' || choice.kind === 'storageArea' || isWorkshop(choice.kind)) return;
     const opening = choice.materials.hidden;
     hideMaterials();
     choice.materials.hidden = !opening;
@@ -1098,7 +1114,7 @@ function completeDemolition(tile: Tile, attacked=false): boolean {
   constructionProgressViews.delete(key);
   demolitionMarks.get(target)?.destroy();
   demolitionMarks.delete(target);
-  for(const pawn of pawns){if(pawn.job?.target===target)construction.cancel(pawn);if(pawn.butcherJob?.station===target)butchery.cancel(pawn);if(pawn.haulJob?.target===target)hauling.cancel(pawn);}
+  for(const pawn of pawns){if(pawn.job?.target===target)construction.cancel(pawn);if(pawn.butcherJob?.station===target)butchery.cancel(pawn);if(pawn.cookJob?.station===target)cooking.cancel(pawn);if(pawn.haulJob?.target===target)hauling.cancel(pawn);}
   const bodies=[...(target.storedCorpses??[]),...(target.butcher?.corpse?[target.butcher.corpse]:[])];
   if(target.butcher)target.butcher.corpse=undefined;
   for (const corpse of bodies) {
@@ -1130,10 +1146,11 @@ function placeConstruction(tile: Tile): void {
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
     .fill(WALL_COLORS[wall.material]);
   if(wall.kind==='door')drawDoor(view,0);
-  if (wall.kind === 'butcher') {
+  if(wall.kind==='torch')view.clear().rect(10,8,4,14).fill(0x916039).poly([7,10,8,4,11,6,13,1,17,8,16,11]).fill(0xff9b36).poly([10,10,12,5,14,10]).fill(0xffed9a);
+  if (isWorkshop(wall.kind)) {
     view.clear();
     for (const cell of footprint(wall)) view.rect((cell.column-tile.column)*TILE_SIZE, (cell.row-tile.row)*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    view.fill(0x9c7953).rect(2,2,TILE_SIZE-4,TILE_SIZE-4).fill(0xb1a091).stroke({color:0x43392f,width:2});
+    view.fill(wall.kind==='cooker'?0x52626a:0x9c7953).rect(2,2,TILE_SIZE-4,TILE_SIZE-4).fill(wall.kind==='cooker'?0xe4944d:0xb1a091).stroke({color:0x43392f,width:2});
   }
   if (wall.kind === 'storageArea') view.clear().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2).fill({ color: 0xd7b97d, alpha: 0.15 }).stroke({ color: 0xd7b97d, width: 1 });
   if (wall.kind === 'storage') view.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).stroke({ color: 0xd7b97d, width: 2 }).moveTo(2, 8).lineTo(TILE_SIZE - 2, 8).stroke({ color: 0xd7b97d, width: 1 }).rect(10, 7, 4, 5).fill(0xd7b97d);
@@ -1155,11 +1172,11 @@ export function completeConstruction(tile: Tile): boolean {
   if (!item || item.state === 'completed') return false;
   if (needsClearing(tile)) return false;
   const sameTile = (entry: Tile): boolean => footprint(item).some(cell => entry.column === cell.column && entry.row === cell.row);
-  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher') && sameTile(entry));
+  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage' || isWorkshop(item.kind)) && sameTile(entry));
   const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
   if ([...pawns, ...wildlife.animals].filter(pawn => !pawn.consumed && !pawn.corpseCarrier && !pawn.corpseStation && !pawn.corpseStorage).some(({ movement,faction }) => {
     const occupied = [movement.tile, movement.nextTile, movement.destination];
-    if ((item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher') && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
+    if ((item.kind === 'wall' || item.kind === 'storage' || isWorkshop(item.kind)) && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
       occupied.push(
         { column: movement.nextTile.column, row: movement.tile.row },
         { column: movement.tile.column, row: movement.nextTile.row },
@@ -1227,7 +1244,7 @@ function applyCamera(): void {
 }
 
 window.addEventListener('keydown', (event) => {
-  if (event.code === 'KeyR' && selectedConstruction === 'butcher' && !event.repeat && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); stationOrientation = stationOrientation ? 0 : 1; drawStationPreview(); }
+  if (event.code === 'KeyR' && isWorkshop(selectedConstruction) && !event.repeat && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); stationOrientation = stationOrientation ? 0 : 1; drawStationPreview(); }
   if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) {
     event.preventDefault();
     cameraKeys.add(event.code);
@@ -1269,7 +1286,7 @@ function drawWalls(event: PointerEvent): void {
     previousDragTile = null;
     return;
   }
-  if (selectedConstruction === 'butcher') { if (!previousDragTile) placeConstruction(tile); }
+  if (isWorkshop(selectedConstruction)) { if (!previousDragTile) placeConstruction(tile); }
   else for (const entry of dragTiles(previousDragTile ?? tile, tile)) placeConstruction(entry);
   previousDragTile = tile;
 }
@@ -1290,7 +1307,7 @@ function cancelSelectionDrag(): void {
 function hitSelection(event: MouseEvent) {
   const { x, y } = mapPosition(event);
   const building = walls.at({column:Math.floor(x/TILE_SIZE),row:Math.floor(y/TILE_SIZE)});
-  if (building?.kind === 'butcher' && building.state === 'completed') return {kind:'structure' as const,value:building};
+  if (building && isWorkshop(building.kind) && building.state === 'completed') return {kind:'structure' as const,value:building};
   const pawn = [...pawns].reverse().find(({ view, consumed, corpseCarrier, corpseStation, corpseStorage }) => !consumed && !corpseCarrier && !corpseStation && !corpseStorage && Math.abs(view.x - x) <= TILE_SIZE * .45 && Math.abs(view.y - y) <= TILE_SIZE * .45);
   if (pawn) return { kind: 'pawn' as const, value: pawn };
   const deer = [...deerViews].reverse().find(([deer, { view }]) => !deer.consumed && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0];
@@ -1437,7 +1454,7 @@ app.canvas.addEventListener('dblclick', event => {
   if (!selectedConstruction && !demolitionSelected) selectHit(event, event.shiftKey, true);
 });
 app.canvas.addEventListener('pointermove', event => {
-  if (selectedConstruction === 'butcher') { stationPreviewPoint = mapPosition(event); drawStationPreview(); }
+  if (isWorkshop(selectedConstruction)) { stationPreviewPoint = mapPosition(event); drawStationPreview(); }
   if (drawingPointer === event.pointerId && selectedConstruction) drawWalls(event);
   else updateSelectionDrag(event);
 });
@@ -1488,6 +1505,16 @@ combat.onAttack = event => {
   if (pawn && event.weapon === 'rifle') { pawn.weaponView.rotation = Math.atan2(event.to.row - event.from.row, event.to.column - event.from.column); pawn.shotSeconds=.12; }
   if(pawn && event.weapon==='knife'){pawn.swingSeconds=.25;pawn.swingAngle=Math.atan2(event.to.row-event.from.row,event.to.column-event.from.column);}
   if ('kind' in event.target && event.target.kind === 'deer') wildlife.flee(event.target as Deer, event.from);
+  if(!event.target.dead&&'kind' in event.target&&event.target.kind==='wolf')combat.requestRetaliation(event.target,event.attacker);
+  const player=pawns.find(pawn=>pawn===event.target&&pawn.faction==='player');
+  if(player){
+    player.attackedSeconds=3;
+    if(!player.dead){
+      butchery.cancel(player);
+      player.manualMove=false;player.workTask=undefined;player.decisionSeconds=0;
+      wildlife.flee(player,event.from);
+    }
+  }
 };
 
 function updateAttackRanges(): void {
@@ -1513,14 +1540,16 @@ stationPreview.eventMode = 'none'; stationPreview.visible = false; map.addChild(
 let stationPreviewPoint = {x:MAP_PIXELS/2,y:MAP_PIXELS/2};
 function drawStationPreview(): void {
   stationPreview.clear();
-  if (selectedConstruction !== 'butcher') { stationPreview.visible = false; return; }
+  if (!isWorkshop(selectedConstruction)) { stationPreview.visible = false; return; }
   stationPreview.visible = true;
-  const center = {column:Math.floor(stationPreviewPoint.x/TILE_SIZE),row:Math.floor(stationPreviewPoint.y/TILE_SIZE),kind:'butcher' as const,orientation:stationOrientation};
+  const center = {column:Math.floor(stationPreviewPoint.x/TILE_SIZE),row:Math.floor(stationPreviewPoint.y/TILE_SIZE),kind:selectedConstruction,orientation:stationOrientation};
   const cells = footprint(center);
   const valid = cells.every(cell => cell.column>=0&&cell.row>=0&&cell.column<MAP_SIZE&&cell.row<MAP_SIZE&&!walls.at(cell));
   for (const cell of cells) stationPreview.rect(cell.column*TILE_SIZE,cell.row*TILE_SIZE,TILE_SIZE,TILE_SIZE);
   stationPreview.fill({color:valid?0xfff2a3:0xdc3548,alpha:.15}).stroke({color:valid?0xfff2a3:0xdc3548,width:1});
 }
+function isWorkshop(kind:ConstructionKind|null|undefined):kind is 'butcher'|'cooker'{return kind==='butcher'||kind==='cooker';}
+const billState=(station:Wall|null)=>station?.cooking??station?.butcher;
 const stationInfo = document.querySelector<HTMLElement>('#station-info')!;
 const stationStatus = document.querySelector<HTMLElement>('#station-status')!;
 const stationWorkWindow = document.querySelector<HTMLDialogElement>('#station-work')!;
@@ -1536,30 +1565,33 @@ function updateStationInfo(): void {
     pawnPanelLayoutDirty=false;
   }
   if (selectedStation) {
-    const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所'};
+    const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所',cooker:'調理器',torch:'たいまつ'};
     setText(document.querySelector<HTMLElement>('#station-info h2')!,names[selectedStation.kind]);
     setText(document.querySelector<HTMLElement>('#structure-hp')!,`HP ${Math.round(selectedStation.hp??100)}%`);
-    document.querySelector<HTMLButtonElement>('#station-work-button')!.hidden=selectedStation.kind!=='butcher';
+    document.querySelector<HTMLButtonElement>('#station-work-button')!.hidden=!isWorkshop(selectedStation.kind);
     const state=selectedStation.butcher;
-    setText(stationStatus,state?(state.corpse?`解体進捗：${Math.round(state.seconds/5*100)}%`:'死体なし'):`${ITEM_APPEARANCE[selectedStation.material].name}${selectedStructures.size>1?`・${selectedStructures.size}個選択中`:''}`);
+    setText(stationStatus,selectedStation.cooking?`材料：栄養 ${stagedNutrition(selectedStation.cooking)} / 100・調理進捗：${Math.round(selectedStation.cooking.seconds/COOK_SECONDS*100)}%`:state?(state.corpse?`解体進捗：${Math.round(state.seconds/5*100)}%`:'死体なし'):`${ITEM_APPEARANCE[selectedStation.material].name}${selectedStructures.size>1?`・${selectedStructures.size}個選択中`:''}`);
   }
-  if (stationWorkWindow.open && workStation?.butcher) {
-    const state=workStation.butcher;
-    setText(billCount,state.mode==='forever'?'∞':state.mode==='until'?`肉 ${butchery.meatStock()} / ${state.target}`:String(state.remaining));
+  if (stationWorkWindow.open && billState(workStation)) {
+    const state=billState(workStation)!;
+    setText(billCount,state.mode==='forever'?'∞':state.mode==='until'?`${workStation?.kind==='cooker'?'携帯食料':'肉'} ${workStation?.kind==='cooker'?cooking.rationStock():butchery.meatStock()} / ${state.target}`:String(state.remaining));
     setAttribute(billCount,'data-zero',String(state.mode==='count'&&state.remaining===0));
     setAttribute(document.querySelector<HTMLElement>('#repeat-until')!,'aria-pressed',String(state.mode==='until'));
     setAttribute(document.querySelector<HTMLElement>('#repeat-forever')!,'aria-pressed',String(state.mode==='forever'));
   }
 }
 document.querySelector<HTMLButtonElement>('#station-work-button')!.addEventListener('click',()=>{
-  if (!selectedStation?.butcher) return;
-  workStation=selectedStation; meatTarget.value=String(workStation.butcher!.target);
+  if (!billState(selectedStation)) return;
+  workStation=selectedStation; meatTarget.value=String(billState(workStation)!.target);
+  setText(document.querySelector<HTMLElement>('#butcher-once')!,workStation?.kind==='cooker'?'調理':'解体');
+  meatTarget.setAttribute('aria-label',workStation?.kind==='cooker'?'目標の携帯食料の個数':'目標の肉の個数');
+  stationWorkWindow.setAttribute('aria-label',workStation?.kind==='cooker'?'調理器の作業一覧':'解体所の作業一覧');
   if (!stationWorkWindow.open) stationWorkWindow.show(); updateStationInfo();
 });
-for (const [selector,amount] of [['#butcher-once',1],['#butcher-plus',1],['#butcher-minus',-1]] as const) document.querySelector<HTMLButtonElement>(selector)!.addEventListener('click',()=>{if(workStation?.butcher){adjustButcherCount(workStation.butcher,amount);updateStationInfo();}});
-document.querySelector<HTMLButtonElement>('#repeat-until')!.addEventListener('click',()=>{if(workStation?.butcher){workStation.butcher.target=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(Number(meatTarget.value)||0)));workStation.butcher.mode='until';updateStationInfo();}});
-meatTarget.addEventListener('change',()=>{if(workStation?.butcher)workStation.butcher.target=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(Number(meatTarget.value)||0)));});
-document.querySelector<HTMLButtonElement>('#repeat-forever')!.addEventListener('click',()=>{if(workStation?.butcher){workStation.butcher.mode='forever';updateStationInfo();}});
+for (const [selector,amount] of [['#butcher-once',1],['#butcher-plus',1],['#butcher-minus',-1]] as const) document.querySelector<HTMLButtonElement>(selector)!.addEventListener('click',()=>{if(billState(workStation)){adjustButcherCount(billState(workStation)!,amount);updateStationInfo();}});
+document.querySelector<HTMLButtonElement>('#repeat-until')!.addEventListener('click',()=>{if(billState(workStation)){billState(workStation)!.target=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(Number(meatTarget.value)||0)));billState(workStation)!.mode='until';updateStationInfo();}});
+meatTarget.addEventListener('change',()=>{if(billState(workStation))billState(workStation)!.target=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(Number(meatTarget.value)||0)));});
+document.querySelector<HTMLButtonElement>('#repeat-forever')!.addEventListener('click',()=>{if(billState(workStation)){billState(workStation)!.mode='forever';updateStationInfo();}});
 document.querySelector<HTMLButtonElement>('#close-station-work')!.addEventListener('click',()=>stationWorkWindow.close());
 stationWorkWindow.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();stationWorkWindow.close();}});
 
@@ -1592,19 +1624,28 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    gameTime.advance(seconds);
     plantGrowth.update(seconds);
     corpseEating.updateClaims(seconds);
     for (const pawn of pawns) {
       walls.bindMovement(pawn.movement,pawn.faction);
+      pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
+      if(pawn.fleeGoal){
+        const m=pawn.movement;
+        const arrived=!m.nextTile&&m.tile.column===m.destination.column&&m.tile.row===m.destination.row;
+        const redirected=m.destination.column!==pawn.fleeGoal.column||m.destination.row!==pawn.fleeGoal.row;
+        if(arrived||redirected)pawn.fleeGoal=undefined;
+      }
+      const fleeing=Boolean(pawn.fleeGoal);
       pawn.attackMotionSeconds=Math.max(0,pawn.attackMotionSeconds-seconds);
       pawn.shotSeconds=Math.max(0,pawn.shotSeconds-seconds);
       pawn.swingSeconds=Math.max(0,pawn.swingSeconds-seconds);
-      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse,corpseEating.automatic);
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse,corpseEating.automatic);
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
-      const commanding = pawn.attackJob?.hunting?false:combat.update(pawn, seconds, pawns);
+      const commanding = fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, pawns);
       if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');
       else if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
-      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting);
+      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting,cooking);
       if (!pawn.dead) advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     for(const animal of wildlife.animals)animal.attackMotionSeconds=Math.max(0,(animal.attackMotionSeconds??0)-seconds);
@@ -1613,6 +1654,9 @@ app.ticker.add((ticker) => {
     for (const deer of wildlife.animals) if (!deer.dead) advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     updateDoors(seconds);
   });
+  worldLighting.update(gameTime.hour,map.x,map.y,map.scale.x,TILE_SIZE);
+  structureShadows.update(gameTime.hour);
+  setText(timeDisplay,gameTime.label);
   updateMovementPaths();
   updateAttackRanges();
   for (const pawn of pawns) {
@@ -1629,6 +1673,7 @@ app.ticker.add((ticker) => {
     pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);
     if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
   }
+  for(const entry of rosterButtons)entry.button.classList.toggle('under-attack',!entry.pawn.dead&&entry.pawn.attackedSeconds>0);
   for (const entry of rosterButtons) if (entry.dead !== entry.pawn.dead) {
     entry.dead = entry.pawn.dead;
     entry.portrait.style.transform = entry.dead ? 'rotate(90deg)' : '';

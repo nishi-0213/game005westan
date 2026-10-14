@@ -6,6 +6,7 @@
     <title>れ・こんきすた。</title>
   </head>
   <body>
+    <time id="game-time" aria-label="ゲーム内の現在日時">1年1月1日 08:00</time>
     <ul id="item-summary" aria-label="保管箱内のアイテム"></ul>
     <nav id="time-controls" aria-label="ゲーム速度">
       <button type="button" data-game-speed="0" aria-pressed="false">一時停止</button>
@@ -53,7 +54,7 @@
     <dialog id="priorities-window" aria-labelledby="priorities-title">
       <button id="close-priorities" type="button" aria-label="優先順位ウィンドウを閉じる">×</button>
       <h2 id="priorities-title">優先順位</h2>
-      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">解体</th><th scope="col">狩猟</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
+      <table><thead><tr><th scope="col">ポーン</th><th scope="col">建設</th><th scope="col">収集</th><th scope="col">運搬</th><th scope="col">解体</th><th scope="col">調理</th><th scope="col">狩猟</th><th scope="col">自由</th></tr></thead><tbody id="priorities-rows"></tbody></table>
     </dialog>
     <nav id="construction-subtabs" class="construction-subtabs" aria-label="建設の下位タブ" hidden>
       <button id="buildings-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="building-options">建物</button>
@@ -64,7 +65,9 @@
     </nav>
     <nav id="workshop-options" class="building-options" aria-label="作業所の選択" hidden>
       <button id="butcher-button" class="construction-subtab" type="button" aria-pressed="false">解体所（木材）</button>
+      <button id="cooker-button" class="construction-subtab" type="button" aria-pressed="false">調理器（木材）</button>
     </nav>
+    <nav id="cooker-materials" class="wall-materials" hidden></nav>
     <nav id="butcher-materials" class="wall-materials" hidden></nav>
     <section id="station-info" aria-label="建造物のインフォメーション" hidden>
       <button id="station-work-button" type="button">作業</button><h2>解体所</h2><p id="structure-hp"></p><p id="station-status"></p>
@@ -77,9 +80,11 @@
     </dialog>
     <nav id="building-options" class="building-options" aria-label="建物の選択" hidden>
       <button id="wall-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="wall-materials">壁</button>
+      <button id="torch-button" class="construction-subtab" type="button" aria-pressed="false">たいまつ（木材）</button>
       <button id="door-button" class="construction-subtab" type="button" aria-pressed="false">扉（木材）</button>
     </nav>
     <nav id="door-materials" class="wall-materials" hidden></nav>
+    <nav id="torch-materials" class="wall-materials" hidden></nav>
     <nav id="wall-materials" class="wall-materials" aria-label="壁の素材" hidden>
       <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
       <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>

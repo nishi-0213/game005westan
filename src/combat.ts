@@ -41,6 +41,7 @@ export interface AttackOrder {
   manual?: boolean;
   hunting?: boolean;
   predation?: boolean;
+  retaliation?:boolean;
   holdPosition?: Tile;
 }
 export type CombatPawn = CombatTarget & {
@@ -145,6 +146,11 @@ export class Combat {
     return setRoute(pawn.movement,approach.path.tiles);
   }
 
+  requestRetaliation(pawn:CombatPawn,target:CombatTarget):boolean {
+    if(!('kind' in pawn)||pawn.kind!=='wolf'||!this.requestPredation(pawn,target))return false;
+    pawn.attackJob!.predation=false;pawn.attackJob!.retaliation=true;return true;
+  }
+
   private attackApproach(pawn: CombatPawn, target: CombatTarget): { goal: Tile; path: Path } | null {
     const walls = this.construction.walls;
     const paths = findPaths(pawn.movement.nextTile ?? pawn.movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
@@ -173,7 +179,7 @@ export class Combat {
   }
 
   update(pawn: CombatPawn, seconds: number, targets: readonly CombatTarget[] = []): boolean {
-    if (pawn.dead || pawn.faction === 'wild' && !pawn.attackJob?.predation) { this.cancel(pawn); return false; }
+    if (pawn.dead || pawn.faction === 'wild' && !pawn.attackJob?.predation&&!pawn.attackJob?.retaliation) { this.cancel(pawn); return false; }
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const equip = pawn.equipJob;
     if (equip) {
@@ -207,27 +213,27 @@ export class Combat {
     const manual = job.manual !== false;
     if (manual && pawn.mode !== 'drafted' || job.target.dead || job.target.departed
       || job.hunting && (pawn.mode!=='automatic'||!job.target.hunt)
-      || !manual && !job.hunting && !job.predation && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
+      || !manual && !job.hunting && !job.predation && !job.retaliation && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
     const weapon = pawn.weapon ?? 'unarmed';
     if(manual&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
     if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
-    if (!manual && !job.hunting && !job.predation && !stationary(pawn)) return true;
+    if (!manual && !job.hunting && !job.predation && !job.retaliation && !stationary(pawn)) return true;
     if (!stationary(pawn) || (!this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)
-      || job.predation&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn))) {
+      || (job.predation||job.retaliation)&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn))) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
       const changedGoal = job.goal && positionKey(job.goal) !== positionKey(pawn.movement.destination);
       const blocked=pawn.movement.terrainBlocked??this.construction.walls.isBlocked;
-      const sealedRoute=job.predation&&job.retrySeconds<=0&&((pawn.movement.nextTile&&blocked(pawn.movement.nextTile))||pawn.movement.route?.some(blocked));
+      const sealedRoute=(job.predation||job.retaliation)&&job.retrySeconds<=0&&((pawn.movement.nextTile&&blocked(pawn.movement.nextTile))||pawn.movement.route?.some(blocked));
       if (job.retrySeconds <= 0 && (movedTarget || stationary(pawn) || changedGoal || sealedRoute)) {
         job.retrySeconds = .25;
         const approach = this.attackApproach(pawn, job.target);
         if (approach) {
           job.goal = approach.goal; job.targetPosition = positionKey(job.target.movement.tile);
           setRoute(pawn.movement, approach.path.tiles);
-        } else if(job.predation) {
+        } else if(job.predation||job.retaliation) {
           this.cancel(pawn);
           stopAtNextSafeTile(pawn.movement,this.construction.walls.cannotStop);
           return false;

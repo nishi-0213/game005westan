@@ -320,3 +320,7 @@ canvas { touch-action: none; }
 #meat-target { width:64px; background:#152019; color:#f4e9cc; border:1px solid #708268; padding:5px; }
 #station-work button[aria-pressed="true"] { border-color:#f2c66d; background:#475b3e; }
 .pawn-roster-button[hidden] { display:none; }
+
+.pawn-roster-button.under-attack { border-color: #f23e3e; box-shadow: inset 0 0 0 1px #f23e3e; }
+
+#game-time { position: fixed; right: 0; top: 50%; transform: translateY(-50%); padding: 6px 8px; background: #151d19cc; color: #f4e9cc; font: 12px system-ui, sans-serif; pointer-events: none; }

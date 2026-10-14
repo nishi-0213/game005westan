@@ -32,6 +32,7 @@ export interface Animal extends EatingWorker, FactionMember {
 export type Deer=Animal & {kind:'deer'};
 export type Wolf=Animal & {kind:'wolf';prey?:CombatTarget};
 export function createWolf(tile:Tile,id:number):Wolf {return {...createDeer(tile,id),kind:'wolf'};}
+export type FleeingPawn=EatingWorker & FactionMember & {fleeGoal?:Tile;freeSeconds?:number};
 export const DEER_FLEE_DISTANCE = 8;
 const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row === b.row;
 const berries = (object: EnvironmentObject): boolean => object.type === 'wildStrawberry' && harvestYield(object) > 0;
@@ -46,6 +47,7 @@ export function deerAction(deer: Animal): string {
   if (deer.fleeGoal) return '逃走中';
   if (deer.leaving) return 'マップ外へ移動中';
   if (deer.eatJob) return '食事中';
+  if(deer.attackJob?.retaliation)return '反撃中';
   if(deer.attackJob?.predation)return '捕食対象を追跡中';
   if (deer.harvestJob) return deer.movement.nextTile || !sameTile(deer.movement.tile, deer.movement.destination) ? '収集へ移動中' : '収集中';
   return '自由';
@@ -134,7 +136,7 @@ export class Wildlife {
     deer.decisionSeconds = 0;
   }
 
-  flee(deer: Deer, attacker: Tile): boolean {
+  flee(deer: FleeingPawn & {departed?:boolean}, attacker: Tile): boolean {
     if (deer.dead || deer.departed) return false;
     const walls = this.construction.walls;
     walls.bindMovement(deer.movement,deer.faction);
@@ -162,6 +164,7 @@ export class Wildlife {
     best ??= lateral;
     if (!best) return false;
     this.harvesting.cancel(deer); this.hauling.cancel(deer); this.construction.cancel(deer);
+    this.combat?.cancel(deer);
     deer.eatJob = null; deer.freeSeconds = 0;
     deer.fleeGoal = best.goal;
     return setRoute(deer.movement, best.path.tiles);
@@ -171,7 +174,7 @@ export class Wildlife {
     if (deer.dead || deer.departed) return;
     const walls = this.construction.walls;
     walls.bindMovement(deer.movement,deer.faction);
-    const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, false);
+    const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, !deer.leaving&&!deer.fleeGoal,undefined,['strawberry','ration']);
     if (deer.dead) return;
     if (deer.fleeGoal) {
       if (deer.movement.nextTile || !sameTile(deer.movement.tile, deer.movement.destination)) return;
@@ -209,12 +212,12 @@ export class Wildlife {
   updateWolf(wolf:Wolf,seconds:number):void {
     if(wolf.dead||wolf.departed)return;
     const walls=this.construction.walls;walls.bindMovement(wolf.movement,wolf.faction);
-    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,false);
+    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,!wolf.leaving&&!wolf.attackJob?.retaliation,undefined,['meat','ration']);
     if(wolf.dead){this.combat?.cancel(wolf);return;}
     if(wolf.leaving){this.combat?.cancel(wolf);this.updateExit(wolf,seconds);return;}
-    if(eating)return;
+    if(eating){this.combat?.cancel(wolf);return;}
     wolf.decisionSeconds-=seconds;
-    if(wolf.attackJob?.predation&&this.combat?.update(wolf,seconds))return;
+    if((wolf.attackJob?.predation||wolf.attackJob?.retaliation)&&this.combat?.update(wolf,seconds))return;
     if(wolf.needs.satiety<=FOOD_THRESHOLD&&this.combat&&this.corpseEating){
       if(wolf.prey?.dead&&this.corpseEating.request(wolf,wolf.prey)){wolf.prey=undefined;return;}
       if(wolf.decisionSeconds<=0){

@@ -69,7 +69,7 @@ test('deer consume only their proportional harvest and ignore plants with zero y
   assert.equal(s.deer.needs.satiety, 37);
 });
 
-test('human and deer harvesting claims are exclusive and deer do not eat stored or ground food', () => {
+test('human and deer harvesting claims are exclusive; deer now eat reachable ground berries', () => {
   const s = scene(), berry = s.berry(); berry.collect = true;
   const human = createDeer({ column: 2, row: 3 }, 2);
   s.harvesting.update(human, 0);
@@ -77,7 +77,7 @@ test('human and deer harvesting claims are exclusive and deer do not eat stored 
   assert.equal(s.deer.harvestJob, null);
   s.harvesting.cancel(human); berry.collected = true;
   s.items.push({ column: 2, row: 3, type: 'strawberry', quantity: 5, collect: true });
-  s.tick(1); assert.equal(s.items[0].quantity, 5); assert.equal(s.deer.eatJob, null);
+  s.tick(0);assert.ok(s.deer.eatJob);s.tick(1);assert.equal(s.items[0].quantity,0);assert.equal(s.deer.eatJob,null);assert.equal(s.deer.needs.satiety,68);
 });
 
 test('departure cancels work and follows the shortest path to the closest map edge then outside', () => {

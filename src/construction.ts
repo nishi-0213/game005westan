@@ -11,6 +11,7 @@ import type { Storage } from './storage';
 export interface Builder {
   movement: Movement;
   dead?: boolean;
+  cookJob?: import('./cooking').CookingJob|null;
   butcherJob?: import('./butchery').ButcherJob | null;
   forcedCorpse?: import('./butchery').Corpse | null;
   carryingCorpse?: import('./butchery').Corpse | null;
