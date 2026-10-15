@@ -1,8 +1,10 @@
+import { diningTable, findDiningSeat } from './dining.ts';
+import type { DiningSeat } from './dining';
 import type { Construction } from './construction';
 import type { HarvestWorker, Harvesting } from './harvesting';
 import type { HaulWorker, Hauling } from './hauling';
 import type { MapItem, ItemType } from './items';
-import { foodNutrition, returnItems } from './items.ts';
+import { foodNutrition, returnItems, carryCapacity } from './items.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -22,7 +24,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   corpseStation?: Tile;
   dead?: boolean;
   deadPosition?: Tile;
-  eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number } | null;
+  eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number; held?:boolean; seatChecked?:boolean; seat?:DiningSeat } | null;
 };
 export const SATIETY_LOSS_PER_SECOND = 1;
 export const FOOD_THRESHOLD = 20;
@@ -33,6 +35,39 @@ const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 
 function interruptWork(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling): void {
   construction.cancel(worker); harvesting.cancel(worker); hauling.cancel(worker);
+}
+
+function heldFoodSource(worker: EatingWorker, goal: Tile): MapItem {
+  const held = worker.inventory!;
+  return { ...goal, type: held.type,
+    get quantity() { return worker.inventory === held ? held.quantity : 0; },
+    set quantity(value: number) { held.quantity = value; if (!value && worker.inventory === held) worker.inventory = null; },
+  };
+}
+
+function seekDiningSeat(worker: EatingWorker, construction: Construction): boolean {
+  const job = worker.eatJob!;
+  job.seatChecked = true;
+  if (!['strawberry','meat','ration'].includes(job.source.type)) return false;
+  const seat = findDiningSeat(construction.walls, worker.movement);
+  if (!seat) return false;
+  if (!job.held) {
+    // A pawn carries one material type: put work supplies down before picking up a meal.
+    if (worker.inventory) {
+      returnItems(construction.items,worker.movement.tile,worker.inventory.type,worker.inventory.quantity);
+      worker.inventory = null;
+    }
+    const quantity = Math.min(job.source.quantity, Math.ceil(100 / foodNutrition(job.source.type)), carryCapacity(worker, job.source.type));
+    job.source.quantity -= quantity;
+    worker.inventory = {type:job.source.type,quantity};
+    job.source = heldFoodSource(worker, worker.movement.tile);
+    job.held = true;
+  }
+  delete job.eatingSeconds;
+  job.seat = seat;
+  job.goal = {column:seat.chair.column,row:seat.chair.row};
+  setRoute(worker.movement,seat.path.tiles);
+  return seat.path.distance > 0;
 }
 
 export function killPawn(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling): void {
@@ -104,14 +139,9 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   }
   if (!worker.eatJob) {
     if (worker.inventory && foodNutrition(worker.inventory.type) > 0 && (!animalDiet||animalDiet.includes(worker.inventory.type)) && worker.inventory.quantity > 0) {
-      const held = worker.inventory;
       interruptWork(worker, construction, harvesting, hauling);
       const goal = { ...worker.movement.destination };
-      const source: MapItem = { ...goal, type: held.type,
-        get quantity() { return worker.inventory === held ? held.quantity : 0; },
-        set quantity(value: number) { held.quantity = value; if (!value && worker.inventory === held) worker.inventory = null; },
-      };
-      worker.eatJob = { source, goal };
+      worker.eatJob = { source:heldFoodSource(worker,goal), goal, held:true };
       return true;
     }
     const types:readonly ItemType[]=animalDiet??['strawberry','meat','ration'];
@@ -133,8 +163,16 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     return true;
   }
   const job = worker.eatJob;
+  if (job.seat && diningTable(construction.walls,job.seat.chair) !== job.seat.table) {
+    delete job.seat;
+    stopAtNextSafeTile(worker.movement,construction.walls.cannotStop);
+    job.goal = {...worker.movement.destination};
+    job.seatChecked = false;
+    if (seekDiningSeat(worker,construction)) return true;
+  }
   if (worker.movement.nextTile || !sameTile(worker.movement.tile, worker.movement.destination)) return true;
   if (!sameTile(worker.movement.tile, job.goal)) { worker.eatJob = null; return false; }
+  if (!animalDiet && !job.seatChecked && seekDiningSeat(worker,construction)) return true;
   job.eatingSeconds = Math.min(EATING_SECONDS, (job.eatingSeconds ?? 0) + elapsed);
   if (job.eatingSeconds < EATING_SECONDS) return true;
   const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));

@@ -3,7 +3,7 @@ import type { ItemType } from './items';
 import type { Movement, Tile } from './movement';
 
 export type WallMaterial = 'wood' | 'stone';
-export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher' | 'cooker' | 'torch' | 'bed';
+export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher' | 'cooker' | 'torch' | 'bed' | 'table' | 'chair';
 export interface Wall extends Tile {
   kind: ConstructionKind;
   orientation?: 0 | 1;
@@ -37,9 +37,12 @@ export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; se
   cooker: { materialCount:30,seconds:4 },
   torch:{materialCount:1,seconds:1},
   bed:{materialCount:5,seconds:3},
+  table:{materialCount:10,seconds:3},
+  chair:{materialCount:3,seconds:1},
 };
 
 export function footprint(wall: Pick<Wall, 'column' | 'row' | 'kind' | 'orientation'>): Tile[] {
+  if(wall.kind==='table')return [0,1].map(offset=>({column:wall.column+(wall.orientation?0:offset),row:wall.row+(wall.orientation?offset:0)}));
   if(wall.kind==='bed')return [0,1].map(offset=>({column:wall.column+(wall.orientation?offset:0),row:wall.row+(wall.orientation?0:offset)}));
   if (wall.kind !== 'butcher' && wall.kind !== 'cooker') return [{ column: wall.column, row: wall.row }];
   const horizontal=wall.kind==='cooker'?!wall.orientation:Boolean(wall.orientation);
@@ -106,7 +109,7 @@ export class Walls {
 
   isBlocked = (tile: Tile): boolean => {
     const item = this.at(tile);
-    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher' || item.kind==='cooker' || item.kind==='bed');
+    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher' || item.kind==='cooker' || item.kind==='bed' || item.kind==='table');
   };
 
   nonPlayerBlocked = (tile: Tile): boolean => {

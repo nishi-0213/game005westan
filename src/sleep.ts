@@ -52,7 +52,7 @@ export class Sleeping {
     if(state?.bed&&(state.bed.state!=='completed'||walls.at(state.bed)!==state.bed)){
       this.release(p);
       if(state.phase==='sleeping')state.bed=undefined;
-      else{p.sleep=undefined;state=undefined;stopAtNextSafeTile(p.movement,walls.cannotStop);}
+      else{p.sleep=undefined;state=undefined;p.sleepRetrySeconds=0;stopAtNextSafeTile(p.movement,walls.cannotStop);}
     }
     if(state?.phase==='exit'){
       if(stationary(p))p.sleep=undefined;

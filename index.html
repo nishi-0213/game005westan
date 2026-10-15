@@ -66,7 +66,15 @@
       <button id="defense-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="defense-options">防衛</button>
       <button id="demolition-button" class="construction-subtab" type="button" aria-pressed="false">破壊</button>
     </nav>
-    <nav id="furniture-options" class="building-options" aria-label="家具の選択" hidden><button id="bed-button" class="construction-subtab" type="button" aria-pressed="false">ベッド（木材）</button></nav>
+    <nav id="furniture-options" class="building-options" aria-label="家具の選択" hidden><button id="bed-button" class="construction-subtab" type="button" aria-pressed="false">ベッド（木材）</button><button id="table-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="table-materials">テーブル（木材）</button><button id="chair-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="chair-materials">椅子（木材）</button></nav>
+    <nav id="table-materials" class="wall-materials" aria-label="テーブルの素材" hidden>
+      <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
+      <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>
+    </nav>
+    <nav id="chair-materials" class="wall-materials" aria-label="椅子の素材" hidden>
+      <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>
+      <button class="construction-subtab" type="button" data-material="stone" aria-pressed="false">石材</button>
+    </nav>
     <nav id="bed-materials" class="wall-materials" hidden></nav>
     <nav id="workshop-options" class="building-options" aria-label="作業所の選択" hidden>
       <button id="butcher-button" class="construction-subtab" type="button" aria-pressed="false">解体所（木材）</button>

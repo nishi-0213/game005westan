@@ -685,7 +685,7 @@ function updatePawnPanels(): void {
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
   setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
-  const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
+  const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health, selectedPawn.needs.wakefulness??100].entries()) {
     needsMeters[index].update(value);
   }
@@ -999,13 +999,15 @@ let selectedConstruction: ConstructionKind | null = null;
 let demolitionSelected = false;
 const demolitionButton = document.querySelector<HTMLButtonElement>('#demolition-button')!;
 const demolitionMarks = new Map<Wall, Graphics>();
-const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood', cooker:'wood',torch:'wood',bed:'wood' };
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood', cooker:'wood',torch:'wood',bed:'wood',table:'wood',chair:'wood' };
 let stationOrientation: 0 | 1 = 0;
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
 const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
 const constructionChoices = [
+  {kind:'table' as const,tabId:'#furniture-tab',optionsId:'#furniture-options',buttonId:'#table-button',materialsId:'#table-materials'},
+  {kind:'chair' as const,tabId:'#furniture-tab',optionsId:'#furniture-options',buttonId:'#chair-button',materialsId:'#chair-materials'},
   {kind:'bed' as const,tabId:'#furniture-tab',optionsId:'#furniture-options',buttonId:'#bed-button',materialsId:'#bed-materials'},
   { kind:'cooker' as const,tabId:'#workshops-tab',optionsId:'#workshop-options',buttonId:'#cooker-button',materialsId:'#cooker-materials' },
   { kind: 'butcher' as const, tabId: '#workshops-tab', optionsId: '#workshop-options', buttonId: '#butcher-button', materialsId: '#butcher-materials' },
@@ -1025,7 +1027,7 @@ const constructionChoices = [
 function updateConstructionLabels(): void {
   for (const choice of constructionChoices) {
     if (choice.kind === 'storageArea') { choice.button.textContent = '保管エリア'; continue; }
-    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'door' ? '扉' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : choice.kind==='cooker'?'調理器':choice.kind==='torch'?'たいまつ':choice.kind==='bed'?'ベッド': 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
+    choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'door' ? '扉' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : choice.kind==='cooker'?'調理器':choice.kind==='torch'?'たいまつ':choice.kind==='bed'?'ベッド':choice.kind==='table'?'テーブル':choice.kind==='chair'?'椅子': 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
   }
 }
 updateConstructionLabels();
@@ -1186,6 +1188,8 @@ function placeConstruction(tile: Tile): void {
     for (const cell of footprint(wall)) view.rect((cell.column-tile.column)*TILE_SIZE, (cell.row-tile.row)*TILE_SIZE, TILE_SIZE, TILE_SIZE);
     view.fill(wall.kind==='cooker'?0x52626a:0x9c7953).rect(2,2,TILE_SIZE-4,TILE_SIZE-4).fill(wall.kind==='cooker'?0xe4944d:0xb1a091).stroke({color:0x43392f,width:2});
   }
+  if(wall.kind==='table'){const w=(wall.orientation?1:2)*TILE_SIZE,h=(wall.orientation?2:1)*TILE_SIZE;view.clear().rect(0,0,w,h).fill(WALL_COLORS[wall.material]).rect(3,3,w-6,h-6).stroke({color:0x463d34,width:2});}
+  if(wall.kind==='chair')view.clear().rect(5,6,TILE_SIZE-10,TILE_SIZE-11).fill(WALL_COLORS[wall.material]).rect(4,3,TILE_SIZE-8,4).fill(WALL_COLORS[wall.material]).stroke({color:0x463d34,width:1});
   if(wall.kind==='bed'){const w=(wall.orientation?2:1)*TILE_SIZE,h=(wall.orientation?1:2)*TILE_SIZE;view.clear().rect(0,0,w,h).fill(0x916039).rect(3,3,w-6,h-6).fill(0xc2d6df).rect(4,4,wall.orientation?8:w-8,wall.orientation?h-8:8).fill(0xf0e8d5);}
   if (wall.kind === 'storageArea') view.clear().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2).fill({ color: 0xd7b97d, alpha: 0.15 }).stroke({ color: 0xd7b97d, width: 1 });
   if (wall.kind === 'storage') view.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).stroke({ color: 0xd7b97d, width: 2 }).moveTo(2, 8).lineTo(TILE_SIZE - 2, 8).stroke({ color: 0xd7b97d, width: 1 }).rect(10, 7, 4, 5).fill(0xd7b97d);
@@ -1194,7 +1198,7 @@ function placeConstruction(tile: Tile): void {
   wallLayer.addChild(view);
   wallViews.set(`${tile.column},${tile.row}`, view);
   const { view: progressView, fill } = createProgressBar();
-  progressView.position.set(tile.column * TILE_SIZE, (wall.kind==='bed'?Math.max(...footprint(wall).map(cell=>cell.row))+1:tile.row+1) * TILE_SIZE + 1);
+  progressView.position.set(tile.column * TILE_SIZE, (wall.kind==='bed'||wall.kind==='table'?Math.max(...footprint(wall).map(cell=>cell.row))+1:tile.row+1) * TILE_SIZE + 1);
   progressView.visible = false;
   constructionProgressLayer.addChild(progressView);
   constructionProgressViews.set(`${tile.column},${tile.row}`, { view: progressView, fill, progress: -1 });
@@ -1585,7 +1589,7 @@ function drawStationPreview(): void {
   for (const cell of cells) stationPreview.rect(cell.column*TILE_SIZE,cell.row*TILE_SIZE,TILE_SIZE,TILE_SIZE);
   stationPreview.fill({color:valid?0xfff2a3:0xdc3548,alpha:.15}).stroke({color:valid?0xfff2a3:0xdc3548,width:1});
 }
-function isMultiTile(kind:ConstructionKind|null|undefined):kind is 'butcher'|'cooker'|'bed'{return kind==='bed'||isWorkshop(kind);}
+function isMultiTile(kind:ConstructionKind|null|undefined):kind is 'butcher'|'cooker'|'bed'|'table'{return kind==='table'||kind==='bed'||isWorkshop(kind);}
 function isWorkshop(kind:ConstructionKind|null|undefined):kind is 'butcher'|'cooker'{return kind==='butcher'||kind==='cooker';}
 const billState=(station:Wall|null)=>station?.cooking??station?.butcher;
 const stationInfo = document.querySelector<HTMLElement>('#station-info')!;
@@ -1603,7 +1607,7 @@ function updateStationInfo(): void {
     pawnPanelLayoutDirty=false;
   }
   if (selectedStation) {
-    const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所',cooker:'調理器',torch:'たいまつ',bed:'ベッド'};
+    const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所',cooker:'調理器',torch:'たいまつ',bed:'ベッド',table:'テーブル',chair:'椅子'};
     setText(document.querySelector<HTMLElement>('#station-info h2')!,names[selectedStation.kind]);
     setText(document.querySelector<HTMLElement>('#structure-hp')!,`HP ${Math.round(selectedStation.hp??100)}%`);
     document.querySelector<HTMLButtonElement>('#station-work-button')!.hidden=!isWorkshop(selectedStation.kind);

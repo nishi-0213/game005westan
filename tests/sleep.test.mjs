@@ -80,3 +80,6 @@ for(const create of [createDeer,createWolf]){
   assert.equal(animal.dead,true);assert.equal(animal.sleep,undefined);const last=animal.needs.wakefulness;update(10);assert.equal(animal.needs.wakefulness,last);assert.equal(deerAction(animal),'死亡');
  });
 }
+test('a bed destroyed while approaching triggers immediate reselection of another reachable bed',()=>{
+ const s=scene(),first=s.bed(),alternate=s.bed(7,2);s.worker.needs.wakefulness=10;s.tick(0);assert.equal(s.worker.sleep.bed,first);s.tick(.1);s.walls.erase(first);s.tick(0);assert.equal(s.worker.sleep.bed,alternate);assert.equal(s.sleeping.claims.has(first),false);assert.equal(s.sleeping.claims.get(alternate),s.worker);
+});
