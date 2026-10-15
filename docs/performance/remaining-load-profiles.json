@@ -1,0 +1,2180 @@
+[
+  {
+    "scenario": "free",
+    "speed": 3,
+    "render": false,
+    "measurement": {
+      "wallMs": 1570.1999999955297,
+      "simulationSeconds": 30,
+      "state": {
+        "pawns": 100,
+        "alive": 100,
+        "hungry": 0,
+        "sleeping": 0,
+        "minHP": 100,
+        "uniqueTiles": 100,
+        "simulationSeconds": -34519714.9,
+        "harvested": 4,
+        "moving": 12
+      }
+    },
+    "totalSampleMs": 1615.458,
+    "self": [
+      {
+        "function": "findPaths",
+        "file": "index-CMkNrQ4E.js",
+        "line": 317,
+        "ms": 649.515,
+        "percent": 40.20624491630237
+      },
+      {
+        "function": "isBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 541,
+        "ms": 327.605,
+        "percent": 20.27938826017142
+      },
+      {
+        "function": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 226.965,
+        "percent": 14.049576033545904
+      },
+      {
+        "function": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 44.574,
+        "percent": 2.7592175098331246
+      },
+      {
+        "function": "entries",
+        "file": "index-CMkNrQ4E.js",
+        "line": 296,
+        "ms": 39.175,
+        "percent": 2.425008882929794
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6563,
+        "ms": 28.752,
+        "percent": 1.7798048602934893
+      },
+      {
+        "function": "refresh",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1729,
+        "ms": 27.174,
+        "percent": 1.6821235835286337
+      },
+      {
+        "function": "at",
+        "file": "index-CMkNrQ4E.js",
+        "line": 532,
+        "ms": 24.272,
+        "percent": 1.5024841252449768
+      },
+      {
+        "function": "nonPlayerBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 545,
+        "ms": 19.411,
+        "percent": 1.2015787473273833
+      },
+      {
+        "function": "less",
+        "file": "index-CMkNrQ4E.js",
+        "line": 339,
+        "ms": 19.24,
+        "percent": 1.1909935139137011
+      },
+      {
+        "function": "key2",
+        "file": "index-CMkNrQ4E.js",
+        "line": 334,
+        "ms": 18.293,
+        "percent": 1.1323723674648303
+      },
+      {
+        "function": "updateRoaming",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3661,
+        "ms": 16.374,
+        "percent": 1.013582525822398
+      },
+      {
+        "function": "pop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 352,
+        "ms": 14.977,
+        "percent": 0.9271055019691009
+      },
+      {
+        "function": "movement.reservationBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1708,
+        "ms": 13.576,
+        "percent": 0.8403808703166532
+      },
+      {
+        "function": "key$1",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1702,
+        "ms": 13.541,
+        "percent": 0.8382143020740868
+      },
+      {
+        "function": "updateWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4498,
+        "ms": 12.853,
+        "percent": 0.795625760620208
+      },
+      {
+        "function": "keys",
+        "file": "index-CMkNrQ4E.js",
+        "line": 299,
+        "ms": 10.78,
+        "percent": 0.6673030187104833
+      },
+      {
+        "function": "advanceMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 224,
+        "ms": 10.561,
+        "percent": 0.6537464917069957
+      },
+      {
+        "function": "advancePathMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 417,
+        "ms": 9.042,
+        "percent": 0.5597174299796095
+      },
+      {
+        "function": "updateDoors",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4813,
+        "ms": 8.717,
+        "percent": 0.5395992962986348
+      },
+      {
+        "function": "walls.environmentCannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4800,
+        "ms": 8.401,
+        "percent": 0.5200382801657486
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6543,
+        "ms": 7.663,
+        "percent": 0.47435464122248916
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2528,
+        "ms": 7.44,
+        "percent": 0.46055050641985124
+      },
+      {
+        "function": "push",
+        "file": "index-CMkNrQ4E.js",
+        "line": 340,
+        "ms": 6.058,
+        "percent": 0.37500201181336806
+      },
+      {
+        "function": "cannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 557,
+        "ms": 5.992,
+        "percent": 0.3709164831273855
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3668,
+        "ms": 5.002,
+        "percent": 0.3096335528376472
+      },
+      {
+        "function": "updateNeeds",
+        "file": "index-CMkNrQ4E.js",
+        "line": 723,
+        "ms": 3.294,
+        "percent": 0.20390502260040186
+      },
+      {
+        "function": "updateMood",
+        "file": "index-CMkNrQ4E.js",
+        "line": 108,
+        "ms": 3.217,
+        "percent": 0.19913857246675556
+      },
+      {
+        "function": "_clamp",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 4889,
+        "ms": 2.408,
+        "percent": 0.14905989508857548
+      },
+      {
+        "function": "daylight",
+        "file": "index-CMkNrQ4E.js",
+        "line": 59,
+        "ms": 2.365,
+        "percent": 0.14639811124770807
+      },
+      {
+        "function": "cancel",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2328,
+        "ms": 2.253,
+        "percent": 0.13946509287149528
+      },
+      {
+        "function": "getAttribute",
+        "file": "",
+        "line": 0,
+        "ms": 2.161,
+        "percent": 0.13377011349103474
+      },
+      {
+        "function": "toggle",
+        "file": "",
+        "line": 0,
+        "ms": 2.132,
+        "percent": 0.13197495694719394
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3592,
+        "ms": 1.665,
+        "percent": 0.10306674639637799
+      },
+      {
+        "function": "advanceSegments",
+        "file": "index-CMkNrQ4E.js",
+        "line": 232,
+        "ms": 1.623,
+        "percent": 0.10046686450529818
+      },
+      {
+        "function": "set",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 318,
+        "ms": 1.523,
+        "percent": 0.09427666952653674
+      },
+      {
+        "function": "update",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 8286,
+        "ms": 1.398,
+        "percent": 0.08653892580308493
+      },
+      {
+        "function": "evaluate",
+        "file": "",
+        "line": 364,
+        "ms": 1.3,
+        "percent": 0.08047253472389873
+      },
+      {
+        "function": "get tiles",
+        "file": "index-CMkNrQ4E.js",
+        "line": 374,
+        "ms": 1.145,
+        "percent": 0.0708777325068185
+      },
+      {
+        "function": "get x",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 6678,
+        "ms": 1.143,
+        "percent": 0.07075392860724326
+      },
+      {
+        "function": "setAttribute",
+        "file": "index-CMkNrQ4E.js",
+        "line": 5256,
+        "ms": 1.075,
+        "percent": 0.06654459602168548
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2828,
+        "ms": 1.071,
+        "percent": 0.06629698822253503
+      },
+      {
+        "function": "automaticTarget",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2516,
+        "ms": 1.064,
+        "percent": 0.06586367457402173
+      },
+      {
+        "function": "innerSerialize",
+        "file": "",
+        "line": 214,
+        "ms": 1.012,
+        "percent": 0.06264477318506578
+      },
+      {
+        "function": "_onUpdate",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 6580,
+        "ms": 1,
+        "percent": 0.061901949787614416
+      },
+      {
+        "function": "get x",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 419,
+        "ms": 1,
+        "percent": 0.061901949787614416
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 870,
+        "ms": 0.999,
+        "percent": 0.061840047837826796
+      },
+      {
+        "function": "set visible",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7237,
+        "ms": 0.991,
+        "percent": 0.06134483223952587
+      },
+      {
+        "function": "remove",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1724,
+        "ms": 0.872,
+        "percent": 0.05397850021479976
+      },
+      {
+        "function": "emit",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7922,
+        "ms": 0.811,
+        "percent": 0.050202481277755284
+      }
+    ],
+    "inclusive": [
+      {
+        "function": "(root)",
+        "file": "",
+        "line": 0,
+        "ms": 1615.458,
+        "percent": 100
+      },
+      {
+        "function": "evaluate",
+        "file": "",
+        "line": 364,
+        "ms": 1343.919,
+        "percent": 83.19120645662098
+      },
+      {
+        "function": "(anonymous)",
+        "file": "",
+        "line": 1,
+        "ms": 1343.919,
+        "percent": 83.19120645662098
+      },
+      {
+        "function": "update",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 8286,
+        "ms": 1341.187,
+        "percent": 83.0220903298012
+      },
+      {
+        "function": "simulate",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6518,
+        "ms": 1341.187,
+        "percent": 83.0220903298012
+      },
+      {
+        "function": "emit",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7922,
+        "ms": 1339.789,
+        "percent": 82.93555140399812
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6543,
+        "ms": 1338.978,
+        "percent": 82.88534892272037
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6563,
+        "ms": 1313.127,
+        "percent": 81.28512161876074
+      },
+      {
+        "function": "advance",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2893,
+        "ms": 1313.127,
+        "percent": 81.28512161876074
+      },
+      {
+        "function": "updateRoaming",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3661,
+        "ms": 1162.485,
+        "percent": 71.96008809885492
+      },
+      {
+        "function": "updateWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4498,
+        "ms": 1121.684,
+        "percent": 69.43442664557048
+      },
+      {
+        "function": "findPaths",
+        "file": "index-CMkNrQ4E.js",
+        "line": 317,
+        "ms": 1089.863,
+        "percent": 67.4646447013788
+      },
+      {
+        "function": "isBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 541,
+        "ms": 327.605,
+        "percent": 20.27938826017142
+      },
+      {
+        "function": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 226.965,
+        "percent": 14.049576033545904
+      },
+      {
+        "function": "advancePathMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 417,
+        "ms": 79.323,
+        "percent": 4.910248363002937
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3754,
+        "ms": 55.907,
+        "percent": 3.460752306776158
+      },
+      {
+        "function": "keys",
+        "file": "index-CMkNrQ4E.js",
+        "line": 299,
+        "ms": 49.955,
+        "percent": 3.0923119016402776
+      },
+      {
+        "function": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 44.574,
+        "percent": 2.7592175098331246
+      },
+      {
+        "function": "entries",
+        "file": "index-CMkNrQ4E.js",
+        "line": 296,
+        "ms": 39.175,
+        "percent": 2.425008882929794
+      },
+      {
+        "function": "cannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 557,
+        "ms": 38.665,
+        "percent": 2.393438888538111
+      },
+      {
+        "function": "pop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 352,
+        "ms": 34.217,
+        "percent": 2.118099015882802
+      },
+      {
+        "function": "updateDeer",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3865,
+        "ms": 33.241,
+        "percent": 2.0576827128900907
+      },
+      {
+        "function": "advanceMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 224,
+        "ms": 28.75,
+        "percent": 1.779681056393914
+      },
+      {
+        "function": "refresh",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1729,
+        "ms": 28.046,
+        "percent": 1.7361020837434336
+      },
+      {
+        "function": "movement.reservationBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1708,
+        "ms": 27.117,
+        "percent": 1.67859517239074
+      },
+      {
+        "function": "at",
+        "file": "index-CMkNrQ4E.js",
+        "line": 532,
+        "ms": 24.272,
+        "percent": 1.5024841252449768
+      },
+      {
+        "function": "updateWolf",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3918,
+        "ms": 22.666,
+        "percent": 1.4030695938860682
+      },
+      {
+        "function": "nonPlayerBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 545,
+        "ms": 19.411,
+        "percent": 1.2015787473273833
+      },
+      {
+        "function": "less",
+        "file": "index-CMkNrQ4E.js",
+        "line": 339,
+        "ms": 19.24,
+        "percent": 1.1909935139137011
+      },
+      {
+        "function": "key2",
+        "file": "index-CMkNrQ4E.js",
+        "line": 334,
+        "ms": 18.293,
+        "percent": 1.1323723674648303
+      },
+      {
+        "function": "key$1",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1702,
+        "ms": 13.541,
+        "percent": 0.8382143020740868
+      },
+      {
+        "function": "updateDoors",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4813,
+        "ms": 8.717,
+        "percent": 0.5395992962986348
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2528,
+        "ms": 8.504,
+        "percent": 0.5264141809938729
+      },
+      {
+        "function": "walls.environmentCannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4800,
+        "ms": 8.401,
+        "percent": 0.5200382801657486
+      },
+      {
+        "function": "push",
+        "file": "index-CMkNrQ4E.js",
+        "line": 340,
+        "ms": 6.058,
+        "percent": 0.37500201181336806
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3668,
+        "ms": 5.002,
+        "percent": 0.3096335528376472
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2828,
+        "ms": 3.436,
+        "percent": 0.2126950994702431
+      },
+      {
+        "function": "updateNeeds",
+        "file": "index-CMkNrQ4E.js",
+        "line": 723,
+        "ms": 3.294,
+        "percent": 0.20390502260040186
+      },
+      {
+        "function": "advanceSegments",
+        "file": "index-CMkNrQ4E.js",
+        "line": 232,
+        "ms": 3.274,
+        "percent": 0.20266698360464955
+      },
+      {
+        "function": "setAttribute",
+        "file": "index-CMkNrQ4E.js",
+        "line": 5256,
+        "ms": 3.236,
+        "percent": 0.20031470951272023
+      },
+      {
+        "function": "updatePawnModeButton",
+        "file": "index-CMkNrQ4E.js",
+        "line": 5730,
+        "ms": 3.236,
+        "percent": 0.20031470951272023
+      },
+      {
+        "function": "updateMood",
+        "file": "index-CMkNrQ4E.js",
+        "line": 108,
+        "ms": 3.217,
+        "percent": 0.19913857246675556
+      },
+      {
+        "function": "updateDeerViews",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4897,
+        "ms": 2.943,
+        "percent": 0.1821774382249492
+      },
+      {
+        "function": "set",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 318,
+        "ms": 2.523,
+        "percent": 0.15617861931415117
+      },
+      {
+        "function": "_clamp",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 4889,
+        "ms": 2.408,
+        "percent": 0.14905989508857548
+      },
+      {
+        "function": "_refreshInt",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 4878,
+        "ms": 2.408,
+        "percent": 0.14905989508857548
+      },
+      {
+        "function": "_normalize",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 4831,
+        "ms": 2.408,
+        "percent": 0.14905989508857548
+      },
+      {
+        "function": "set value",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 4330,
+        "ms": 2.408,
+        "percent": 0.14905989508857548
+      },
+      {
+        "function": "set tint",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7155,
+        "ms": 2.408,
+        "percent": 0.14905989508857548
+      },
+      {
+        "function": "daylight",
+        "file": "index-CMkNrQ4E.js",
+        "line": 59,
+        "ms": 2.365,
+        "percent": 0.14639811124770807
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario": "harvesting",
+    "speed": 1,
+    "render": false,
+    "measurement": {
+      "wallMs": 549.2999999970198,
+      "simulationSeconds": 10,
+      "state": {
+        "pawns": 100,
+        "alive": 100,
+        "hungry": 0,
+        "sleeping": 0,
+        "minHP": 100,
+        "uniqueTiles": 99,
+        "simulationSeconds": -34519745,
+        "harvested": 61,
+        "moving": 10
+      }
+    },
+    "totalSampleMs": 590.358,
+    "self": [
+      {
+        "function": "findPaths",
+        "file": "index-CMkNrQ4E.js",
+        "line": 317,
+        "ms": 242.983,
+        "percent": 41.15858512970097
+      },
+      {
+        "function": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 79.552,
+        "percent": 13.475213345122791
+      },
+      {
+        "function": "isBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 541,
+        "ms": 42.87,
+        "percent": 7.261695445814236
+      },
+      {
+        "function": "at",
+        "file": "index-CMkNrQ4E.js",
+        "line": 532,
+        "ms": 37.325,
+        "percent": 6.32243486155858
+      },
+      {
+        "function": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 36.633,
+        "percent": 6.2052178508633755
+      },
+      {
+        "function": "key$1",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1702,
+        "ms": 13.404,
+        "percent": 2.2704867216163755
+      },
+      {
+        "function": "refresh",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1729,
+        "ms": 9.891,
+        "percent": 1.6754240647200511
+      },
+      {
+        "function": "cannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 557,
+        "ms": 8.068,
+        "percent": 1.3666283848105727
+      },
+      {
+        "function": "updateDeerViews",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4897,
+        "ms": 7.144,
+        "percent": 1.2101131855585934
+      },
+      {
+        "function": "entries",
+        "file": "index-CMkNrQ4E.js",
+        "line": 296,
+        "ms": 6.996,
+        "percent": 1.1850436514792722
+      },
+      {
+        "function": "occupied",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1744,
+        "ms": 6.868,
+        "percent": 1.1633618922755347
+      },
+      {
+        "function": "updateWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4498,
+        "ms": 6.83,
+        "percent": 1.156925120011925
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6563,
+        "ms": 6.597,
+        "percent": 1.1174575427113718
+      },
+      {
+        "function": "updateRoaming",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3661,
+        "ms": 5.748,
+        "percent": 0.9736464992428324
+      },
+      {
+        "function": "advanceSegments",
+        "file": "index-CMkNrQ4E.js",
+        "line": 232,
+        "ms": 4.686,
+        "percent": 0.7937556533493237
+      },
+      {
+        "function": "advancePathMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 417,
+        "ms": 4.424,
+        "percent": 0.7493758024791738
+      },
+      {
+        "function": "remove",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1724,
+        "ms": 4.366,
+        "percent": 0.7395512553399801
+      },
+      {
+        "function": "keys",
+        "file": "index-CMkNrQ4E.js",
+        "line": 299,
+        "ms": 4.201,
+        "percent": 0.7116021126164125
+      },
+      {
+        "function": "set",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 318,
+        "ms": 3.99,
+        "percent": 0.6758610876790017
+      },
+      {
+        "function": "movement.changed",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1714,
+        "ms": 3.83,
+        "percent": 0.6487588886743298
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6543,
+        "ms": 3.546,
+        "percent": 0.6006524854410376
+      },
+      {
+        "function": "push",
+        "file": "index-CMkNrQ4E.js",
+        "line": 340,
+        "ms": 3.229,
+        "percent": 0.5469562536630317
+      },
+      {
+        "function": "pop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 352,
+        "ms": 3.189,
+        "percent": 0.5401807039118637
+      },
+      {
+        "function": "get",
+        "file": "index-CMkNrQ4E.js",
+        "line": 289,
+        "ms": 3.117,
+        "percent": 0.5279847143597615
+      },
+      {
+        "function": "less",
+        "file": "index-CMkNrQ4E.js",
+        "line": 339,
+        "ms": 3.085,
+        "percent": 0.522564274558827
+      },
+      {
+        "function": "update",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 8286,
+        "ms": 2.356,
+        "percent": 0.3990798803437914
+      },
+      {
+        "function": "findWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3160,
+        "ms": 2.241,
+        "percent": 0.3796001748091836
+      },
+      {
+        "function": "movement.reservationBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1708,
+        "ms": 2.08,
+        "percent": 0.35232858706073267
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 870,
+        "ms": 2.042,
+        "percent": 0.34589181479712305
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3668,
+        "ms": 1.954,
+        "percent": 0.3309856053445537
+      },
+      {
+        "function": "setRoute",
+        "file": "index-CMkNrQ4E.js",
+        "line": 192,
+        "ms": 1.821,
+        "percent": 0.30845690242192025
+      },
+      {
+        "function": "Matrix",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 804,
+        "ms": 1.814,
+        "percent": 0.3072711812154659
+      },
+      {
+        "function": "updateWolf",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3918,
+        "ms": 1.748,
+        "percent": 0.2960915241260388
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3754,
+        "ms": 1.647,
+        "percent": 0.2789832610043398
+      },
+      {
+        "function": "movement.stopBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1707,
+        "ms": 1.532,
+        "percent": 0.259503555469732
+      },
+      {
+        "function": "(anonymous)",
+        "file": "",
+        "line": 1,
+        "ms": 1.315,
+        "percent": 0.2227461980696459
+      },
+      {
+        "function": "serializeAsCallArgument",
+        "file": "",
+        "line": 200,
+        "ms": 1.314,
+        "percent": 0.2225768093258667
+      },
+      {
+        "function": "renderedPosition",
+        "file": "index-CMkNrQ4E.js",
+        "line": 259,
+        "ms": 1.195,
+        "percent": 0.2024195488161421
+      },
+      {
+        "function": "movementHasSafeExit",
+        "file": "index-CMkNrQ4E.js",
+        "line": 201,
+        "ms": 1.158,
+        "percent": 0.19615216529631174
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2828,
+        "ms": 1.156,
+        "percent": 0.19581338780875332
+      },
+      {
+        "function": "advanceMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 224,
+        "ms": 1.095,
+        "percent": 0.18548067443822225
+      },
+      {
+        "function": "hasAvailableWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2317,
+        "ms": 1.087,
+        "percent": 0.18412556448798864
+      },
+      {
+        "function": "findTransport",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1816,
+        "ms": 1.086,
+        "percent": 0.18395617574420947
+      },
+      {
+        "function": "key2",
+        "file": "index-CMkNrQ4E.js",
+        "line": 334,
+        "ms": 1.071,
+        "percent": 0.18141534458752148
+      },
+      {
+        "function": "getAttribute",
+        "file": "",
+        "line": 0,
+        "ms": 1.04,
+        "percent": 0.17616429353036633
+      },
+      {
+        "function": "findWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4036,
+        "ms": 1.037,
+        "percent": 0.17565612729902874
+      },
+      {
+        "function": "updatePawnModeButton",
+        "file": "index-CMkNrQ4E.js",
+        "line": 5730,
+        "ms": 1,
+        "percent": 0.16938874377919838
+      },
+      {
+        "function": "bindMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 554,
+        "ms": 0.845,
+        "percent": 0.14313348849342264
+      },
+      {
+        "function": "updateDeer",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3865,
+        "ms": 0.792,
+        "percent": 0.13415588507312515
+      },
+      {
+        "function": "set visible",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7237,
+        "ms": 0.771,
+        "percent": 0.13059872145376197
+      }
+    ],
+    "inclusive": [
+      {
+        "function": "(root)",
+        "file": "",
+        "line": 0,
+        "ms": 590.358,
+        "percent": 100
+      },
+      {
+        "function": "(anonymous)",
+        "file": "",
+        "line": 1,
+        "ms": 471.817,
+        "percent": 79.92048892367005
+      },
+      {
+        "function": "evaluate",
+        "file": "",
+        "line": 364,
+        "ms": 471.817,
+        "percent": 79.92048892367005
+      },
+      {
+        "function": "update",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 8286,
+        "ms": 471.544,
+        "percent": 79.87424579661833
+      },
+      {
+        "function": "emit",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7922,
+        "ms": 469.188,
+        "percent": 79.47516591627453
+      },
+      {
+        "function": "simulate",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6518,
+        "ms": 469.188,
+        "percent": 79.47516591627453
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6543,
+        "ms": 468.434,
+        "percent": 79.34744680346503
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6563,
+        "ms": 446.151,
+        "percent": 75.57295742583314
+      },
+      {
+        "function": "advance",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2893,
+        "ms": 446.151,
+        "percent": 75.57295742583314
+      },
+      {
+        "function": "updateRoaming",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3661,
+        "ms": 358.089,
+        "percent": 60.65624587114937
+      },
+      {
+        "function": "updateWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4498,
+        "ms": 334.877,
+        "percent": 56.724394350546625
+      },
+      {
+        "function": "findPaths",
+        "file": "index-CMkNrQ4E.js",
+        "line": 317,
+        "ms": 323.735,
+        "percent": 54.83706496735879
+      },
+      {
+        "function": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 79.552,
+        "percent": 13.475213345122791
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3754,
+        "ms": 56.645,
+        "percent": 9.595025391372694
+      },
+      {
+        "function": "isBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 541,
+        "ms": 52.902,
+        "percent": 8.961003323407155
+      },
+      {
+        "function": "advancePathMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 417,
+        "ms": 45.805,
+        "percent": 7.7588514088061835
+      },
+      {
+        "function": "at",
+        "file": "index-CMkNrQ4E.js",
+        "line": 532,
+        "ms": 37.325,
+        "percent": 6.32243486155858
+      },
+      {
+        "function": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 36.633,
+        "percent": 6.2052178508633755
+      },
+      {
+        "function": "advanceMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 224,
+        "ms": 33.71,
+        "percent": 5.710094552796778
+      },
+      {
+        "function": "updateDeer",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3865,
+        "ms": 32.135,
+        "percent": 5.4433072813445404
+      },
+      {
+        "function": "keys",
+        "file": "index-CMkNrQ4E.js",
+        "line": 299,
+        "ms": 24.58,
+        "percent": 4.163575322092696
+      },
+      {
+        "function": "updateWolf",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3918,
+        "ms": 22.863,
+        "percent": 3.872734849023813
+      },
+      {
+        "function": "movement.changed",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1714,
+        "ms": 21.657,
+        "percent": 3.6684520240260996
+      },
+      {
+        "function": "refresh",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1729,
+        "ms": 20.822,
+        "percent": 3.5270124229704694
+      },
+      {
+        "function": "entries",
+        "file": "index-CMkNrQ4E.js",
+        "line": 296,
+        "ms": 20.379,
+        "percent": 3.451973209476284
+      },
+      {
+        "function": "findWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3160,
+        "ms": 17.978,
+        "percent": 3.045270835662429
+      },
+      {
+        "function": "hasAvailableWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3179,
+        "ms": 16.808,
+        "percent": 2.8470860054407665
+      },
+      {
+        "function": "nonPlayerBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 545,
+        "ms": 16.156,
+        "percent": 2.736644544496729
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3162,
+        "ms": 15.737,
+        "percent": 2.6656706608532454
+      },
+      {
+        "function": "key$1",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1702,
+        "ms": 13.404,
+        "percent": 2.2704867216163755
+      },
+      {
+        "function": "has",
+        "file": "index-CMkNrQ4E.js",
+        "line": 293,
+        "ms": 13.383,
+        "percent": 2.266929557997012
+      },
+      {
+        "function": "get",
+        "file": "index-CMkNrQ4E.js",
+        "line": 289,
+        "ms": 12.765,
+        "percent": 2.1622473143414678
+      },
+      {
+        "function": "cannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 557,
+        "ms": 10.07,
+        "percent": 1.705744649856528
+      },
+      {
+        "function": "movement.stopBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1707,
+        "ms": 9.648,
+        "percent": 1.6342625999817062
+      },
+      {
+        "function": "advanceSegments",
+        "file": "index-CMkNrQ4E.js",
+        "line": 232,
+        "ms": 8.214,
+        "percent": 1.3913591414023356
+      },
+      {
+        "function": "occupied",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1744,
+        "ms": 8.116,
+        "percent": 1.3747590445119742
+      },
+      {
+        "function": "movement.reservationBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1708,
+        "ms": 7.671,
+        "percent": 1.2993810535302308
+      },
+      {
+        "function": "updateDeerViews",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4897,
+        "ms": 7.252,
+        "percent": 1.2284071698867467
+      },
+      {
+        "function": "pop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 352,
+        "ms": 6.274,
+        "percent": 1.0627449784706908
+      },
+      {
+        "function": "remove",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1724,
+        "ms": 4.366,
+        "percent": 0.7395512553399801
+      },
+      {
+        "function": "set",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 318,
+        "ms": 3.99,
+        "percent": 0.6758610876790017
+      },
+      {
+        "function": "push",
+        "file": "index-CMkNrQ4E.js",
+        "line": 340,
+        "ms": 3.229,
+        "percent": 0.5469562536630317
+      },
+      {
+        "function": "less",
+        "file": "index-CMkNrQ4E.js",
+        "line": 339,
+        "ms": 3.085,
+        "percent": 0.522564274558827
+      },
+      {
+        "function": "createItemView",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4738,
+        "ms": 2.441,
+        "percent": 0.4134779235650233
+      },
+      {
+        "function": "updateItemSummary",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4773,
+        "ms": 2.441,
+        "percent": 0.4134779235650233
+      },
+      {
+        "function": "_tick",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7988,
+        "ms": 2.356,
+        "percent": 0.3990798803437914
+      },
+      {
+        "function": "movementHasSafeExit",
+        "file": "index-CMkNrQ4E.js",
+        "line": 201,
+        "ms": 2.21,
+        "percent": 0.37434912375202845
+      },
+      {
+        "function": "setRoute",
+        "file": "index-CMkNrQ4E.js",
+        "line": 192,
+        "ms": 2.072,
+        "percent": 0.3509734771104991
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 870,
+        "ms": 2.042,
+        "percent": 0.34589181479712305
+      },
+      {
+        "function": "updatePawnModeButton",
+        "file": "index-CMkNrQ4E.js",
+        "line": 5730,
+        "ms": 2.04,
+        "percent": 0.3455530373095647
+      }
+    ],
+    "errors": []
+  },
+  {
+    "scenario": "free",
+    "speed": 3,
+    "render": true,
+    "measurement": {
+      "wallMs": 10014,
+      "simulationSeconds": 26.149999998509884,
+      "state": {
+        "pawns": 100,
+        "alive": 100,
+        "hungry": 0,
+        "sleeping": 0,
+        "minHP": 100,
+        "uniqueTiles": 100,
+        "simulationSeconds": -34519722.21666667,
+        "harvested": 4,
+        "moving": 0
+      }
+    },
+    "totalSampleMs": 10109.232,
+    "self": [
+      {
+        "function": "(idle)",
+        "file": "",
+        "line": 0,
+        "ms": 7380.19,
+        "percent": 73.00445770756868
+      },
+      {
+        "function": "findPaths",
+        "file": "index-CMkNrQ4E.js",
+        "line": 317,
+        "ms": 815.085,
+        "percent": 8.062778656182784
+      },
+      {
+        "function": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 554.113,
+        "percent": 5.481257132094703
+      },
+      {
+        "function": "isBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 541,
+        "ms": 389.055,
+        "percent": 3.8485119344377496
+      },
+      {
+        "function": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 246.646,
+        "percent": 2.4398094731627484
+      },
+      {
+        "function": "getProgramParameter",
+        "file": "",
+        "line": 0,
+        "ms": 89.41,
+        "percent": 0.8844390948788197
+      },
+      {
+        "function": "refresh",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1729,
+        "ms": 74.958,
+        "percent": 0.7414806584713853
+      },
+      {
+        "function": "occupied",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1744,
+        "ms": 45.952,
+        "percent": 0.4545548069329104
+      },
+      {
+        "function": "at",
+        "file": "index-CMkNrQ4E.js",
+        "line": 532,
+        "ms": 37.405,
+        "percent": 0.3700083250636646
+      },
+      {
+        "function": "movement.reservationBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1708,
+        "ms": 37.049,
+        "percent": 0.3664867914793131
+      },
+      {
+        "function": "nonPlayerBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 545,
+        "ms": 29.847,
+        "percent": 0.2952449800340916
+      },
+      {
+        "function": "bindFramebuffer",
+        "file": "",
+        "line": 0,
+        "ms": 28.492,
+        "percent": 0.2818413901273608
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6563,
+        "ms": 28.316,
+        "percent": 0.2801004072317264
+      },
+      {
+        "function": "keys",
+        "file": "index-CMkNrQ4E.js",
+        "line": 299,
+        "ms": 23.058,
+        "percent": 0.2280885432246485
+      },
+      {
+        "function": "less",
+        "file": "index-CMkNrQ4E.js",
+        "line": 339,
+        "ms": 19.449,
+        "percent": 0.19238850191587256
+      },
+      {
+        "function": "updateRoaming",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3661,
+        "ms": 18.342,
+        "percent": 0.18143811518026293
+      },
+      {
+        "function": "key2",
+        "file": "index-CMkNrQ4E.js",
+        "line": 334,
+        "ms": 17.449,
+        "percent": 0.17260460537457248
+      },
+      {
+        "function": "clear",
+        "file": "",
+        "line": 0,
+        "ms": 17.003,
+        "percent": 0.16819279644586255
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3668,
+        "ms": 15.307,
+        "percent": 0.1514160521788401
+      },
+      {
+        "function": "updateWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4498,
+        "ms": 11.88,
+        "percent": 0.11751634545532244
+      },
+      {
+        "function": "cannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 557,
+        "ms": 10.367,
+        "percent": 0.10254982772182893
+      },
+      {
+        "function": "entries",
+        "file": "index-CMkNrQ4E.js",
+        "line": 296,
+        "ms": 10.182,
+        "percent": 0.10071981729175866
+      },
+      {
+        "function": "requestAnimationFrame",
+        "file": "",
+        "line": 0,
+        "ms": 9.916,
+        "percent": 0.09808855905176575
+      },
+      {
+        "function": "pop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 352,
+        "ms": 9.074,
+        "percent": 0.08975953860787843
+      },
+      {
+        "function": "appendFrom",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 1174,
+        "ms": 9.048,
+        "percent": 0.08950234795284152
+      },
+      {
+        "function": "bindTexture",
+        "file": "",
+        "line": 0,
+        "ms": 8.573,
+        "percent": 0.08480367252428277
+      },
+      {
+        "function": "updateMood",
+        "file": "index-CMkNrQ4E.js",
+        "line": 108,
+        "ms": 8.072,
+        "percent": 0.07984780644068708
+      },
+      {
+        "function": "uniformMatrix3fv",
+        "file": "",
+        "line": 0,
+        "ms": 7.673,
+        "percent": 0.07590091908069772
+      },
+      {
+        "function": "addFrame",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 3401,
+        "ms": 7.013,
+        "percent": 0.0693722332220687
+      },
+      {
+        "function": "bind",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 1168,
+        "ms": 6.212,
+        "percent": 0.06144878265727802
+      },
+      {
+        "function": "render",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 1677,
+        "ms": 6.112,
+        "percent": 0.060459587830213025
+      },
+      {
+        "function": "key$1",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1702,
+        "ms": 6.071,
+        "percent": 0.06005401795111636
+      },
+      {
+        "function": "_callContextMethod",
+        "file": "CanvasTextGenerator-BsfUbFJn.js",
+        "line": 9587,
+        "ms": 5.972,
+        "percent": 0.05907471507232201
+      },
+      {
+        "function": "_tick",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7988,
+        "ms": 5.71,
+        "percent": 0.0564830246254117
+      },
+      {
+        "function": "packAttributes",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 11070,
+        "ms": 5.585,
+        "percent": 0.05524653109158045
+      },
+      {
+        "function": "advance",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2893,
+        "ms": 5.071,
+        "percent": 0.050162069680466326
+      },
+      {
+        "function": "initGpuRenderTarget",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 1373,
+        "ms": 4.53,
+        "percent": 0.04481052566604467
+      },
+      {
+        "function": "drawElements",
+        "file": "",
+        "line": 0,
+        "ms": 4.474,
+        "percent": 0.04425657656288826
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6543,
+        "ms": 4.395,
+        "percent": 0.0434751126495069
+      },
+      {
+        "function": "push",
+        "file": "index-CMkNrQ4E.js",
+        "line": 340,
+        "ms": 4.346,
+        "percent": 0.04299040718424506
+      },
+      {
+        "function": "get",
+        "file": "index-CMkNrQ4E.js",
+        "line": 289,
+        "ms": 4.131,
+        "percent": 0.0408636383060553
+      },
+      {
+        "function": "collectRenderablesSimple",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 5363,
+        "ms": 4.06,
+        "percent": 0.04016130997883914
+      },
+      {
+        "function": "(anonymous)",
+        "file": "",
+        "line": 1,
+        "ms": 4.033,
+        "percent": 0.039894227375531596
+      },
+      {
+        "function": "bind",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 2583,
+        "ms": 3.854,
+        "percent": 0.03812356863508524
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 870,
+        "ms": 3.236,
+        "percent": 0.032010344603823515
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2528,
+        "ms": 3.139,
+        "percent": 0.03105082562157046
+      },
+      {
+        "function": "updateDoors",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4813,
+        "ms": 3.006,
+        "percent": 0.029735196501574006
+      },
+      {
+        "function": "clearColor",
+        "file": "",
+        "line": 0,
+        "ms": 2.98,
+        "percent": 0.029478005846537106
+      },
+      {
+        "function": "walls.environmentCannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4800,
+        "ms": 2.95,
+        "percent": 0.02918124739841761
+      },
+      {
+        "function": "uniform3f",
+        "file": "",
+        "line": 0,
+        "ms": 2.897,
+        "percent": 0.028656974140073153
+      }
+    ],
+    "inclusive": [
+      {
+        "function": "(root)",
+        "file": "",
+        "line": 0,
+        "ms": 10109.232,
+        "percent": 100
+      },
+      {
+        "function": "(idle)",
+        "file": "",
+        "line": 0,
+        "ms": 7380.19,
+        "percent": 73.00445770756868
+      },
+      {
+        "function": "_tick",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7988,
+        "ms": 1927.238,
+        "percent": 19.064138601231033
+      },
+      {
+        "function": "emit",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 7922,
+        "ms": 1911.612,
+        "percent": 18.909567017553858
+      },
+      {
+        "function": "update",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 8286,
+        "ms": 1911.612,
+        "percent": 18.909567017553858
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6543,
+        "ms": 1678.217,
+        "percent": 16.60083575092549
+      },
+      {
+        "function": "advance",
+        "file": "index-CMkNrQ4E.js",
+        "line": 2893,
+        "ms": 1648.101,
+        "percent": 16.302929836806594
+      },
+      {
+        "function": "(anonymous)",
+        "file": "index-CMkNrQ4E.js",
+        "line": 6563,
+        "ms": 1643.03,
+        "percent": 16.252767767126127
+      },
+      {
+        "function": "updateRoaming",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3661,
+        "ms": 1455.135,
+        "percent": 14.39412014681234
+      },
+      {
+        "function": "updateWork",
+        "file": "index-CMkNrQ4E.js",
+        "line": 4498,
+        "ms": 1397.214,
+        "percent": 13.821168611028018
+      },
+      {
+        "function": "findPaths",
+        "file": "index-CMkNrQ4E.js",
+        "line": 317,
+        "ms": 1333.009,
+        "percent": 13.186056072310933
+      },
+      {
+        "function": "(garbage collector)",
+        "file": "",
+        "line": 0,
+        "ms": 554.113,
+        "percent": 5.481257132094703
+      },
+      {
+        "function": "isBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 541,
+        "ms": 389.055,
+        "percent": 3.8485119344377496
+      },
+      {
+        "function": "(program)",
+        "file": "",
+        "line": 0,
+        "ms": 246.646,
+        "percent": 2.4398094731627484
+      },
+      {
+        "function": "render",
+        "file": "globalHooks-BDuwquz6.js",
+        "line": 183,
+        "ms": 233.395,
+        "percent": 2.308731266628365
+      },
+      {
+        "function": "render",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1189,
+        "ms": 233.395,
+        "percent": 2.308731266628365
+      },
+      {
+        "function": "emit",
+        "file": "globalHooks-BDuwquz6.js",
+        "line": 53,
+        "ms": 230.543,
+        "percent": 2.280519430160471
+      },
+      {
+        "function": "render",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 1677,
+        "ms": 199.686,
+        "percent": 1.975283582373023
+      },
+      {
+        "function": "executeInstructions",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 1453,
+        "ms": 165.18,
+        "percent": 1.633952015345973
+      },
+      {
+        "function": "execute",
+        "file": "webworkerAll-5ezzymWa.js",
+        "line": 858,
+        "ms": 141.161,
+        "percent": 1.3963573098332298
+      },
+      {
+        "function": "advancePathMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 417,
+        "ms": 124.649,
+        "percent": 1.2330214599882563
+      },
+      {
+        "function": "applyFilter",
+        "file": "webworkerAll-5ezzymWa.js",
+        "line": 1118,
+        "ms": 117.355,
+        "percent": 1.160869589302135
+      },
+      {
+        "function": "apply",
+        "file": "DefaultBatcher-DsjxjmST.js",
+        "line": 9496,
+        "ms": 117.355,
+        "percent": 1.160869589302135
+      },
+      {
+        "function": "_applyFiltersToTexture",
+        "file": "webworkerAll-5ezzymWa.js",
+        "line": 1356,
+        "ms": 117.355,
+        "percent": 1.160869589302135
+      },
+      {
+        "function": "pop",
+        "file": "webworkerAll-5ezzymWa.js",
+        "line": 1063,
+        "ms": 117.355,
+        "percent": 1.160869589302135
+      },
+      {
+        "function": "bind",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 2006,
+        "ms": 108.073,
+        "percent": 1.0690525254539613
+      },
+      {
+        "function": "draw",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 1050,
+        "ms": 101.067,
+        "percent": 0.999749535869787
+      },
+      {
+        "function": "_setupBindGroupsAndRender",
+        "file": "webworkerAll-5ezzymWa.js",
+        "line": 1182,
+        "ms": 101.067,
+        "percent": 0.999749535869787
+      },
+      {
+        "function": "_setProgram",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 2058,
+        "ms": 91.463,
+        "percent": 0.904747264678464
+      },
+      {
+        "function": "getProgramParameter",
+        "file": "",
+        "line": 0,
+        "ms": 89.41,
+        "percent": 0.8844390948788197
+      },
+      {
+        "function": "generateProgram",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 1940,
+        "ms": 89.41,
+        "percent": 0.8844390948788197
+      },
+      {
+        "function": "_createProgramData",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 2072,
+        "ms": 89.41,
+        "percent": 0.8844390948788197
+      },
+      {
+        "function": "_getProgramData",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 2069,
+        "ms": 89.41,
+        "percent": 0.8844390948788197
+      },
+      {
+        "function": "keys",
+        "file": "index-CMkNrQ4E.js",
+        "line": 299,
+        "ms": 85.828,
+        "percent": 0.8490061361733513
+      },
+      {
+        "function": "advanceMovement",
+        "file": "index-CMkNrQ4E.js",
+        "line": 224,
+        "ms": 81.582,
+        "percent": 0.8070049238161712
+      },
+      {
+        "function": "refresh",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1729,
+        "ms": 75.387,
+        "percent": 0.7457243042794942
+      },
+      {
+        "function": "update",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3754,
+        "ms": 72.892,
+        "percent": 0.7210438933442224
+      },
+      {
+        "function": "movement.changed",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1714,
+        "ms": 72.766,
+        "percent": 0.7197975078621206
+      },
+      {
+        "function": "entries",
+        "file": "index-CMkNrQ4E.js",
+        "line": 296,
+        "ms": 62.77,
+        "percent": 0.6209175929487027
+      },
+      {
+        "function": "bind",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 1168,
+        "ms": 62.032,
+        "percent": 0.613617335124963
+      },
+      {
+        "function": "get",
+        "file": "index-CMkNrQ4E.js",
+        "line": 289,
+        "ms": 52.588,
+        "percent": 0.520197775656944
+      },
+      {
+        "function": "has",
+        "file": "index-CMkNrQ4E.js",
+        "line": 293,
+        "ms": 52.588,
+        "percent": 0.520197775656944
+      },
+      {
+        "function": "startRenderPass",
+        "file": "WebGLRenderer-q5PSU8-M.js",
+        "line": 1320,
+        "ms": 51.29,
+        "percent": 0.5073580268016403
+      },
+      {
+        "function": "cannotStop",
+        "file": "index-CMkNrQ4E.js",
+        "line": 557,
+        "ms": 50.722,
+        "percent": 0.501739400183911
+      },
+      {
+        "function": "occupied",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1744,
+        "ms": 48.457,
+        "percent": 0.47933413735088876
+      },
+      {
+        "function": "movement.stopBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1707,
+        "ms": 48.457,
+        "percent": 0.47933413735088876
+      },
+      {
+        "function": "updateDeer",
+        "file": "index-CMkNrQ4E.js",
+        "line": 3865,
+        "ms": 46.179,
+        "percent": 0.456800279190348
+      },
+      {
+        "function": "movement.reservationBlocked",
+        "file": "index-CMkNrQ4E.js",
+        "line": 1708,
+        "ms": 40.615,
+        "percent": 0.4017614790124512
+      },
+      {
+        "function": "at",
+        "file": "index-CMkNrQ4E.js",
+        "line": 532,
+        "ms": 37.405,
+        "percent": 0.3700083250636646
+      },
+      {
+        "function": "push",
+        "file": "SharedSystems-DRjpPYV1.js",
+        "line": 1235,
+        "ms": 30.857,
+        "percent": 0.30523584778744817
+      }
+    ],
+    "errors": []
+  }
+]
