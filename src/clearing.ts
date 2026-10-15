@@ -28,14 +28,20 @@ export class Clearing {
   readonly hauling: Hauling;
   constructor(items: MapItem[], hauling: Hauling) { this.items = items; this.hauling = hauling; }
 
+  plannedAt(tile: Tile): Wall | undefined {
+    const walls = this.hauling.storage.walls;
+    const structure = walls.at(tile);
+    return structure?.state === 'planned' ? structure : walls.floorAt(tile)?.state === 'planned' ? walls.floorAt(tile) : undefined;
+  }
+
   isClearing(tile: Tile): boolean {
-    const target = this.hauling.storage.walls.at(tile);
+    const target = this.plannedAt(tile);
     return target !== undefined && this.claims.has(target);
   }
 
   canPlace(tile: Tile, type: ItemType, worker: ClearWorker): boolean {
     const walls = this.hauling.storage.walls;
-    return !walls.at(tile) && !walls.isBlocked(tile) && !walls.cannotStop(tile)
+    return !walls.at(tile) && walls.floorAt(tile)?.state !== 'planned' && !walls.isBlocked(tile) && !walls.cannotStop(tile)
       && (!this.destinations.has(key(tile)) || this.destinations.get(key(tile)) === worker)
       && !this.items.some(item => item.quantity > 0 && sameTile(item, tile) && item.type !== type);
   }
@@ -61,13 +67,13 @@ export class Clearing {
 
   findWork(worker: ClearWorker): { target: Wall; source: MapItem; goal: Tile; path: Path } | null {
     const walls = this.hauling.storage.walls;
-    if (!this.items.some(item => item.quantity > 0 && walls.at(item)?.state === 'planned')) return null;
+    if (!this.items.some(item => item.quantity > 0 && this.plannedAt(item))) return null;
     const from = worker.movement.nextTile ?? worker.movement.tile;
     let paths: Map<number, Path> | undefined;
     let best: { target: Wall; source: MapItem; goal: Tile; path: Path } | null = null;
     for (const source of this.items) {
       if (source.quantity <= 0) continue;
-      const target = walls.at(source);
+      const target = this.plannedAt(source);
       if (!target || target.state !== 'planned' || this.claims.has(target) && this.claims.get(target) !== worker) continue;
       // A live environment object is cleared through harvesting before the item is approached.
       if (walls.cannotStop(source)) continue;

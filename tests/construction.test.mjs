@@ -161,3 +161,19 @@ test('immediate construction keeps the selected plan across multiple supply trip
  assert.equal(target.state,'completed');assert.equal(near.delivered,0);assert.equal(builder.forcedConstruction,undefined);assert.equal(engine.claims.has(target),false);
  assert.equal(engine.request(builder,near),true);engine.cancel(builder);assert.equal(builder.forcedConstruction,undefined);assert.equal(engine.claims.has(near),false);
 });
+
+test('a full load supplies nearby matching plans before starting construction',()=>{
+ const items=[{type:'wood',quantity:100,column:2,row:2}],{walls,tick}=scene(items),builder=pawn();
+ const first=walls.plan({column:3,row:2},'wood'),second=walls.plan({column:4,row:2},'wood');
+ for(let i=0;i<100&&second.delivered<10;i++){tick([builder]);if(second.delivered<10)assert.equal(first.workSeconds,0);}
+ assert.equal(first.delivered,10);assert.equal(second.delivered,10);assert.equal(items[0].quantity,80);assert.equal(builder.inventory,null);
+ for(let i=0;i<200;i++)tick([builder]);assert.equal(first.state,'completed');assert.equal(second.state,'completed');
+});
+
+test('batch delivery excludes different kinds and materials and respects claims',()=>{
+ const {walls,engine}=scene(),builder=pawn();builder.inventory={type:'wood',quantity:20};
+ const first=walls.plan({column:3,row:2},'wood');first.delivered=10;
+ walls.plan({column:4,row:2},'wood','barricade');walls.plan({column:3,row:3},'stone');
+ const claimed=walls.plan({column:4,row:3},'wood');engine.claims.set(claimed,pawn());
+ assert.equal(engine.assignDelivery(builder,'all',first),false);
+});

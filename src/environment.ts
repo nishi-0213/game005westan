@@ -1,7 +1,7 @@
 import type { Tile } from './movement';
 import type { ItemType } from './items';
 
-export type EnvironmentType = 'tree' | 'rock' | 'wildStrawberry';
+export type EnvironmentType = 'tree' | 'rock' | 'wildStrawberry' | 'grass';
 export interface EnvironmentObject extends Tile {
   type: EnvironmentType;
   collect: boolean;
@@ -11,7 +11,8 @@ export interface EnvironmentObject extends Tile {
   ageSeconds?: number;
   clusterId?: number;
 }
-export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; material: ItemType; quantity: number; seconds: number }> = {
+export const ENVIRONMENT_PROPERTIES: Record<EnvironmentType, { name: string; material: ItemType | null; quantity: number; seconds: number }> = {
+  grass: { name: '雑草', material: null, quantity: 0, seconds: 1 },
   tree: { name: '木', material: 'wood', quantity: 12, seconds: 4 },
   wildStrawberry: { name: '野苺', material: 'strawberry', quantity: 5, seconds: 1 },
   rock: { name: '岩', material: 'stone', quantity: 8, seconds: 5 },
@@ -83,6 +84,10 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
     const index = Math.floor(random() * berries.length);
     const tile = berries.splice(index, 1)[0];
     result.push({ ...createEnvironment('wildStrawberry', tile), hp:1+Math.floor(random()*100),ageSeconds:random()*180 });
+  }
+  for (let i = 0; i < 16 && berries.length; i++) {
+    const tile = berries.splice(Math.floor(random() * berries.length), 1)[0];
+    result.push({ ...createEnvironment('grass', tile), hp: 1 + Math.floor(random()*100), ageSeconds: random()*180 });
   }
   return result;
 }

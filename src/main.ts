@@ -96,6 +96,9 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 }
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
+// Grass sits above terrain and below floors and other map objects.
+const grassLayer = new Container();
+map.addChild(grassLayer);
 const floorLayer=new Container();map.addChild(floorLayer);
 const shadowLayer=new Container();map.addChild(shadowLayer);
 const environmentObjects = initialEnvironment(MAP_SIZE);
@@ -114,9 +117,10 @@ function createEnvironmentView(object: EnvironmentObject) {
   outline.visible = false;
   const shape = new Graphics();
   if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x8fba7a);
+  else if (object.type === 'grass') shape.moveTo(-4, 7).lineTo(-9, -4).moveTo(0, 7).lineTo(0, -8).moveTo(4, 7).lineTo(9, -4).stroke({ color: 0x91b86b, width: 2.5 });
   else if (object.type === 'wildStrawberry') shape.ellipse(0, 3, 9, 5).fill(0x8fba7a).circle(-4, 1, 3).circle(3, -1, 3).circle(1, 5, 3).fill(0xe75b70);
   else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
-  if (object.type !== 'rock') shape.scale.set(.35 + .65 * object.hp / 100);
+  if (object.type !== 'rock') shape.scale.set(object.type === 'grass' ? .6 + .4 * object.hp / 100 : .35 + .65 * object.hp / 100);
   const collectIcon = new Graphics()
     .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
     .moveTo(0, -3).lineTo(-3, 3).stroke({ color: 0xf2c66d, width: 2 });
@@ -127,7 +131,7 @@ function createEnvironmentView(object: EnvironmentObject) {
   progressBar.visible = false;
   view.addChild(outline, shape);
   environmentHud.addChild(collectIcon, progressBar);
-  environmentLayer.addChild(view);
+  (object.type === 'grass' ? grassLayer : environmentLayer).addChild(view);
   return { object, view, shape, outline, collectIcon, progressBar, progressFill, progress: -1 };
 }
 const environmentViews = new Map(environmentObjects.map(object => [object, createEnvironmentView(object)]));
@@ -230,7 +234,7 @@ function updateItemSummary(): void {
 }
 updateItemSummary();
 
-walls.environmentCannotStop = tile => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false;
+walls.environmentCannotStop = tile => { const object = environmentByTile.get(`${tile.column},${tile.row}`); return Boolean(object && !object.collected && object.type !== 'grass'); };
 const structureShadows=new StructureShadows(walls,TILE_SIZE);
 shadowLayer.addChild(structureShadows.view);
 const wallLayer = new Container();
@@ -412,12 +416,11 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   movementPathLayer.addChild(movementPath);
   return { view, selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
-const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
-  || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
+const needsClearingCell = (tile: Tile) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
+  || ((walls.at(tile)?.state === 'planned' || walls.floorAt(tile)?.state === 'planned') && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
   || clearing.isClearing(tile);
 const needsClearing = (tile: Tile): boolean => {
-  const building = walls.at(tile);
-  if(building&&isFloor(building.kind))return false;
+  const building = 'kind' in tile && isFloor((tile as Wall).kind) ? walls.floorAt(tile) : walls.at(tile);
   return (building ? footprint(building) : [tile]).some(needsClearingCell);
 };
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
@@ -941,7 +944,8 @@ function updateEnvironmentViews(): void {
       continue;
     }
     entry.outline.visible = selectedEnvironment.has(entry.object);
-    if (entry.object.type !== 'rock') entry.shape.scale.set(.35 + .65 * entry.object.hp / 100);
+    if (entry.object.type !== 'rock') entry.shape.scale.set(entry.object.type === 'grass' ? .6 + .4 * entry.object.hp / 100 : .35 + .65 * entry.object.hp / 100);
+    if (entry.object.type === 'grass') entry.view.visible = walls.floorAt(entry.object)?.state !== 'completed';
     entry.collectIcon.visible = entry.object.collect && !entry.object.collected;
     const progress = Math.min(1, entry.object.workSeconds / ENVIRONMENT_PROPERTIES[entry.object.type].seconds);
     entry.progressBar.visible = !entry.object.collected && progress > 0 && progress < 1;
@@ -1261,9 +1265,9 @@ function placeConstruction(tile: Tile): void {
   if (!selectedConstruction) return;
   const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction, stationOrientation);
   if (!wall) return;
-  if(!isFloor(wall.kind))for (const cell of footprint(wall)) {
+  for (const cell of footprint(wall)) {
     const environment = environmentByTile.get(`${cell.column},${cell.row}`);
-    if (environment && !environment.collected) environment.collect = true;
+    if (environment && !environment.collected && environment.type !== 'grass') environment.collect = true;
   }
   const lowerHalf = wall.kind === 'barricade';
   const view = new Graphics()
@@ -1458,7 +1462,7 @@ function hitSelection(event: MouseEvent) {
   }
   if(building?.state==='completed')return {kind:'structure' as const,value:building};
   const environment = environmentByTile.get(`${tile.column},${tile.row}`);
-  if(environment&&!environment.collected)return {kind:'environment' as const,value:environment};
+  if(environment&&!environment.collected&&environment.type!=='grass')return {kind:'environment' as const,value:environment};
   const floor=walls.floorAt(tile);return floor?{kind:'structure' as const,value:floor}:null;
 }
 

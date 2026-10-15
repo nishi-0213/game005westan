@@ -15,7 +15,7 @@ export interface HarvestWorker extends Builder {
   harvestRetrySeconds: number;
 }
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
-const markedForHarvest = (target: EnvironmentObject): boolean => target.collect;
+const markedForHarvest = (target: EnvironmentObject): boolean => target.type !== 'grass' && target.collect;
 export class Harvesting {
   readonly objects: EnvironmentObject[];
   readonly items: MapItem[];
@@ -71,8 +71,8 @@ export class Harvesting {
     if (active.target.workSeconds >= properties.seconds) {
       active.target.collected = true;
       invalidatePaths(this.walls.isBlocked);
-      returnItems(this.items, { column: active.target.column, row: active.target.row }, properties.material, harvestYield(active.target));
-      {
+      if (properties.material) {
+        returnItems(this.items, { column: active.target.column, row: active.target.row }, properties.material, harvestYield(active.target));
         const stack = this.items.find(item => item.type === properties.material && item.column === active.target.column && item.row === active.target.row);
         if (stack) stack.collect = true;
       }

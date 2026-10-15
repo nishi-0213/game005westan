@@ -32,6 +32,11 @@ export class PlantGrowth {
       let expired = false;
       for (const object of this.living) {
         if (object.collected) { this.living.delete(object); continue; }
+        if (object.type === 'grass' && (this.walls.floorAt(object)?.state === 'completed' || this.walls.at(object)?.state === 'completed')) {
+          object.collected = true; object.collect = false;
+          this.living.delete(object); this.growing.delete(object);
+          continue;
+        }
         object.ageSeconds = (object.ageSeconds ?? 0) + step;
         if (object.ageSeconds >= 180 - 1e-9) {
           object.collected = true; object.collect = false;
@@ -56,10 +61,10 @@ export class PlantGrowth {
     const available: Tile[] = [];
     for (let row = 0; row < this.walls.mapSize; row++) for (let column = 0; column < this.walls.mapSize; column++) {
       const tile = { column, row }, key = `${column},${row}`;
-      if (!occupied.has(key) && !this.walls.at(tile) && !this.occupied(tile)) available.push(tile);
+      if (!occupied.has(key) && !this.walls.at(tile) && !this.walls.floorAt(tile) && !this.occupied(tile)) available.push(tile);
     }
     let spawned = false;
-    for (const type of ['tree', 'wildStrawberry'] as const) {
+    for (const type of ['tree', 'wildStrawberry', 'grass'] as const) {
       const count = (2 + Math.floor(this.random() * 2)) * (type === 'tree' ? 5 : 1);
       for (let i = 0; i < count && available.length; i++) {
         const tile = available.splice(Math.floor(this.random() * available.length), 1)[0];

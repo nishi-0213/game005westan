@@ -22,7 +22,7 @@ export interface Builder {
   weapon?: 'unarmed' | 'rifle' | 'knife';
   mode: 'drafted' | 'automatic';
   inventory: { type: ItemType; quantity: number } | null;
-  job: { target: Wall; phase: 'gather' | 'deliver' | 'build' | 'demolish'; source?: MapItem; goal: Tile } | null;
+  job: { target: Wall; phase: 'gather' | 'deliver' | 'build' | 'demolish'; source?: MapItem; goal: Tile; batch?: boolean } | null;
   retrySeconds: number;
   dropRequested?: boolean;
 }
@@ -110,7 +110,7 @@ export class Construction {
     return best;
   }
 
-  nearestPlan(builder: Builder, material?: ItemType, work: ConstructionWork = 'all'): { target: Wall; goal: Tile; path: Path } | null {
+  nearestPlan(builder: Builder, material?: ItemType, work: ConstructionWork = 'all', batch?: Wall): { target: Wall; goal: Tile; path: Path } | null {
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
     let paths: Map<number, Path> | undefined;
     const sourcesByMaterial = new Map<ItemType, MapItem[]>();
@@ -118,6 +118,7 @@ export class Construction {
     for (const {target,order,lowerBound} of rankedTargets([...this.walls.items.values()],builder.movement.tile)) {
       if(best&&lowerBound>best.path.distance+1e-10)break;
       if(builder.forcedConstruction&&target!==builder.forcedConstruction)continue;
+      if (batch && (target === batch || target.kind !== batch.kind || target.material !== batch.material || Math.max(Math.abs(target.column-batch.column), Math.abs(target.row-batch.row)) > 5)) continue;
       const recipe = BUILD_RECIPES[target.kind];
       const destroying = target.state === 'completed' && target.demolition;
       if ((!destroying && target.state !== 'planned') || !recipe || this.needsClearing(target) || (material && (destroying || target.material !== material))) continue;
@@ -142,14 +143,14 @@ export class Construction {
     return best;
   }
 
-  assignDelivery(builder: Builder, work: ConstructionWork = 'all'): boolean {
+  assignDelivery(builder: Builder, work: ConstructionWork = 'all', batch?: Wall): boolean {
     const material = builder.inventory?.quantity ? builder.inventory.type : undefined;
-    const plan = this.nearestPlan(builder, material, work);
+    const plan = this.nearestPlan(builder, material, batch ? 'transport' : work, batch);
     if (!plan) return false;
     if (builder.job && this.claims.get(builder.job.target) === builder) this.claims.delete(builder.job.target);
     this.claims.set(plan.target, builder);
     const recipe = BUILD_RECIPES[plan.target.kind]!;
-    builder.job = { target: plan.target, phase: plan.target.delivered >= recipe.materialCount ? 'build' : 'deliver', goal: plan.goal };
+    builder.job = { target: plan.target, phase: plan.target.delivered >= recipe.materialCount ? 'build' : 'deliver', goal: plan.goal, batch: Boolean(batch) };
     setRoute(builder.movement, plan.path.tiles);
     return true;
   }
@@ -226,7 +227,10 @@ export class Construction {
       builder.inventory.quantity -= 1;
       job.target.delivered += 1;
       if (!builder.inventory.quantity) builder.inventory = null;
-      if (job.target.delivered >= recipe.materialCount) { if (work === 'transport') this.cancel(builder); else job.phase = 'build'; }
+      if (job.target.delivered >= recipe.materialCount) {
+        if (builder.inventory?.quantity && !builder.forcedConstruction && this.assignDelivery(builder, work, job.target)) return;
+        if (work === 'transport') this.cancel(builder); else job.phase = 'build';
+      }
       return;
     }
     if (job.phase === 'demolish') {

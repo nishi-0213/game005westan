@@ -11,7 +11,7 @@ test('initial plants have independently randomized growth and remaining lifetime
  let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
  const objects=initialEnvironment(32,random),plants=objects.filter(o=>o.type!=='rock');
  assert.ok(plants.every(o=>o.hp>=1&&o.hp<=100&&o.ageSeconds>=0&&o.ageSeconds<180));
- for(const type of ['tree','wildStrawberry']){const group=plants.filter(o=>o.type===type);assert.ok(new Set(group.map(o=>o.hp)).size>5);assert.ok(new Set(group.map(o=>o.ageSeconds)).size>5);}
+ for(const type of ['tree','wildStrawberry','grass']){const group=plants.filter(o=>o.type===type);assert.ok(new Set(group.map(o=>o.hp)).size>5);assert.ok(new Set(group.map(o=>o.ageSeconds)).size>5);}
  assert.ok(objects.filter(o=>o.type==='rock').every(o=>o.hp===100&&o.ageSeconds===undefined));
 });
 
@@ -34,15 +34,15 @@ test('each minute spawns five times as many trees as berries without overlapping
     growth.update(59.9); assert.equal(objects.length, 1);
     growth.update(.1);
     const count = random() === 0 ? 2 : 3;
-    for (const type of ['tree', 'wildStrawberry']) assert.equal(objects.filter(object => object.type === type).length, count * (type === 'tree' ? 5 : 1));
+    for (const type of ['tree', 'wildStrawberry', 'grass']) assert.equal(objects.filter(object => object.type === type).length, count * (type === 'tree' ? 5 : 1));
     assert.equal(new Set(objects.map(object => `${object.column},${object.row}`)).size, objects.length);
     for (const object of objects.slice(1)) {
       assert.equal(object.hp, 1);
       assert.ok(object.row !== 0 || object.column > 2);
     }
     growth.update(60);
-    for (const object of objects.slice(1, 1 + count * 6)) assert.equal(object.hp, 100);
-    assert.equal(objects.length, 1 + count * 12);
+    for (const object of objects.slice(1, 1 + count * 7)) assert.equal(object.hp, 100);
+    assert.equal(objects.length, 1 + count * 14);
   }
 });
 
@@ -113,4 +113,33 @@ test('long updates split dawn, dusk and spawn boundaries without night growth',(
 });
 test('a plant with little remaining lifetime expires at night without growing',()=>{
  const tree={...createEnvironment('tree',{column:2,row:2}),hp:32,ageSeconds:179},growth=new PlantGrowth([tree],new Walls(8),()=>true);growth.update(1,0);assert.equal(tree.collected,true);assert.equal(tree.hp,32);assert.equal(growth.living.size,0);
+});
+
+test('grass shares berry daylight growth and lifetime and cannot be harvested by players',()=>{
+ const grass=createEnvironment('grass',{column:3,row:2}),berry=createEnvironment('wildStrawberry',{column:4,row:2});
+ const walls=new Walls(8),growth=new PlantGrowth([grass,berry],walls,()=>true);
+ growth.update(30,6);assert.equal(grass.hp,berry.hp);growth.update(12,20);assert.equal(grass.hp,berry.hp);
+ grass.collect=true;
+ const harvesting=new Harvesting([grass],[],walls),worker={movement:createMovement({column:2,row:2}),mode:'automatic',inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0};
+ harvesting.update(worker,10);assert.equal(worker.harvestJob,null);assert.equal(grass.collected,false);
+ growth.update(138);assert.equal(grass.collected,true);assert.equal(berry.collected,true);
+});
+
+test('neither planned nor completed floors allow plants to spawn',()=>{
+ for(const kind of ['stoneFloor','woodFloor'])for(const completed of [false,true]){
+  const walls=new Walls(8),objects=[];
+  for(let row=0;row<8;row++)for(let column=0;column<8;column++){const floor=walls.plan({column,row},'wood',kind);if(completed)walls.complete(floor);}
+  new PlantGrowth(objects,walls,()=>false).update(120);assert.equal(objects.length,0);
+ }
+});
+
+test('laying either floor over existing grass removes it and prevents regrowth',()=>{
+ for(const kind of ['woodFloor','stoneFloor']){
+  const walls=new Walls(8),grass=createEnvironment('grass',{column:3,row:3}),objects=[grass];
+  const growth=new PlantGrowth(objects,walls,()=>false,()=>{},()=>0);
+  const floor=walls.plan(grass,'wood',kind);walls.complete(floor);
+  growth.update(.1);assert.equal(grass.collected,true);assert.equal(growth.living.has(grass),false);assert.equal(growth.growing.has(grass),false);
+  growth.update(180);
+  assert.ok(objects.every(object=>object.collected||object.column!==3||object.row!==3));
+ }
 });

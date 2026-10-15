@@ -42,3 +42,37 @@ test('drafting releases relocation reservations without losing cargo',()=>{
 test('a changed placement destination is reselected while retaining cargo',()=>{
  const s=scene([{column:3,row:3,type:'wood',quantity:20}]);for(let i=0;i<20&&s.worker.clearJob?.phase!=='drop';i++)s.tick();const old=s.worker.clearJob.goal;s.walls.plan(old,'wood');s.tick(100);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items).wood+(s.worker.inventory?.quantity??0),20);assert.ok(!s.items.some(i=>i.quantity>0&&i.column===old.column&&i.row===old.row));
 });
+
+test('floor sites relocate loose harvested materials before construction',()=>{
+ for(const kind of ['woodFloor','stoneFloor']){
+  const s=scene([{column:3,row:3,type:'stone',quantity:8,collect:true}],kind);
+  const box=s.walls.plan({column:6,row:6},'wood','storage');s.walls.complete(box);s.hauling.storage.deposit(box,'wood',1);s.tick(150);
+  assert.equal(s.plan.state,'completed');assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.column!==3||i.row!==3));
+  assert.equal(countItems(s.items).stone+s.hauling.storage.totals().stone,8);
+ }
+});
+
+test('automatic workers finish batch deliveries even when building has higher priority',()=>{
+ const s=scene([],'woodFloor'),second=s.walls.plan({column:4,row:3},'wood','woodFloor');
+ const box=s.walls.plan({column:0,row:3},'wood','storage');s.walls.complete(box);s.hauling.storage.deposit(box,'wood',20);
+ let beganSecond=false;
+ for(let i=0;i<150&&second.delivered<1;i++){s.tick();if(s.worker.job?.target===second)beganSecond=true;assert.equal(s.plan.workSeconds,0);}
+ assert.ok(beganSecond);assert.equal(second.delivered,1);assert.equal(s.plan.delivered,1);
+ s.tick(150);assert.equal(s.plan.state,'completed');assert.equal(second.state,'completed');
+});
+
+test('floor construction waits for tree or rock harvesting and removal of the resulting resources',()=>{
+ for(const [type,material,quantity] of [['tree','wood',12],['rock','stone',8]]){
+  const s=scene([],'woodFloor'),object={type,column:3,row:3,hp:100,collected:false,collect:true,workSeconds:0};
+  s.plan.delivered=1;
+  s.walls.environmentCannotStop=tile=>!object.collected&&tile.column===3&&tile.row===3;
+  const harvesting=new Harvesting([object],s.items,s.walls),original=s.construction.needsClearing;
+  const construction=new Construction(s.walls,s.items,t=>s.walls.complete(t),tile=>!object.collected||original(tile));
+  for(let i=0;i<300&&s.plan.state!=='completed';i++){
+   updateWork(s.worker,construction,harvesting,.1,()=>0,.1,s.hauling,s.clearing);
+   advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);
+   if(!object.collected||s.items.some(item=>item.quantity>0&&item.column===3&&item.row===3))assert.equal(s.plan.workSeconds,0);
+  }
+  assert.equal(object.collected,true);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items)[material],quantity);
+ }
+});

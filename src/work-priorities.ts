@@ -50,6 +50,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
     for (const choice of choices) {
       if (choice.task==='hunt'&&!hunting?.hasAvailableWork(worker))continue;
       if (choice.task === 'harvest' && !worker.harvestJob && !harvesting.hasAvailableWork(worker)) continue;
+      if (choice.task === 'build' && worker.job?.batch && worker.job.phase === 'deliver' && worker.inventory?.quantity) continue;
       if (choice.task === 'build' && !(worker.job && isBuildingPhase(worker.job.phase)) && !construction.nearestPlan(worker, undefined, 'build')) continue;
       if (choice.task === 'butcher' && !(worker.butcherJob?.phase === 'process') && !butchery?.findProcessing(worker)) continue;
       if(choice.task==='cook'&&worker.cookJob?.phase!=='process'&&!cooking?.findProcessing(worker))continue;

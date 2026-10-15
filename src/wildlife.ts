@@ -38,7 +38,7 @@ export function createWolf(tile:Tile,id:number):Wolf {return {...createDeer(tile
 export type FleeingPawn=EatingWorker & FactionMember & {fleeGoal?:Tile;freeSeconds?:number};
 export const DEER_FLEE_DISTANCE = 8;
 const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row === b.row;
-const berries = (object: EnvironmentObject): boolean => object.type === 'wildStrawberry' && harvestYield(object) > 0;
+const deerForage = (object: EnvironmentObject): boolean => object.type === 'grass' || object.type === 'wildStrawberry' && harvestYield(object) > 0;
 export function createDeer(tile: Tile, id: number): Deer {
   return { kind: 'deer', id, faction: 'wild', movement: createMovement(tile), mode: 'automatic', inventory: null,
     job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0, needs: initialNeeds(false), hp: 100, eatJob: null,
@@ -198,7 +198,7 @@ export class Wildlife {
         deer.decisionSeconds -= seconds;
         if (deer.decisionSeconds <= 0 && canPlan(deer.movement)) {
           deer.decisionSeconds = .25;
-          const work = this.harvesting.findWork(deer, berries);
+          const work = this.harvesting.findWork(deer, deerForage);
           if (work) {
             stopAtNextSafeTile(deer.movement, walls.cannotStop);
             this.harvesting.claims.set(work.target, deer);
@@ -208,7 +208,7 @@ export class Wildlife {
         }
       }
       if (deer.harvestJob) {
-        const harvested = this.harvesting.update(deer, seconds, berries);
+        const harvested = this.harvesting.update(deer, seconds, deerForage);
         if (harvested) this.eatHarvest(deer, harvested);
         return;
       }
@@ -260,6 +260,11 @@ export class Wildlife {
   }
 
   private eatHarvest(deer: Deer, target: EnvironmentObject): void {
+    if (target.type === 'grass') {
+      deer.needs.satiety = Math.min(100, deer.needs.satiety + 5);
+      deer.freeSeconds = 0;
+      return;
+    }
     const source = this.harvesting.items.find(item => item.type === 'strawberry' && sameTile(item, target) && item.quantity > 0);
     if (!source) return;
     const quantity = Math.min(source.quantity, harvestYield(target));

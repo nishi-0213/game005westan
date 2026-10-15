@@ -132,3 +132,12 @@ test('random waves spawn2to3deer on unoccupied edges and mark2to3for departure a
   }
   assert.equal(ids.size, 6); assert.equal(exiting.size, 3);
 });
+
+test('deer graze grass at any growth stage for five nutrition without dropping items',()=>{
+ for(const hp of [1,50,100]){
+  const s=scene(),grass={...createEnvironment('grass',{column:3,row:3}),hp};s.objects.push(grass);
+  s.deer.needs.satiety=19;s.tick(0);assert.equal(s.deer.harvestJob.target,grass);
+  s.tick(.9);assert.equal(grass.collected,false);s.tick(.1);
+  assert.equal(grass.collected,true);assert.equal(s.deer.needs.satiety,23);assert.equal(s.deer.inventory,null);assert.equal(s.items.length,0);
+ }
+});
