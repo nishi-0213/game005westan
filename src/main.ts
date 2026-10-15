@@ -1693,7 +1693,7 @@ app.ticker.add((ticker) => {
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !resting && !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse,corpseEating.automatic,undefined,!resting);
       updateMood(pawn,0);
       const blocked=!canGiveOrders(pawn)&&!pawn.dead;
-      if(blocked&&!pawn.controlBlocked){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
+      if(blocked&&!pawn.controlBlocked&&(pawn.mode==='drafted'||pawn.manualMove||pawn.equipJob||pawn.forcedHaulSource||pawn.forcedCorpse||pawn.eatJob?.manual||pawn.dropRequested||pawn.attackJob?.manual)){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
       if(blocked!==pawn.controlBlocked){const row=prioritiesRows.children[pawns.indexOf(pawn)];for(const button of row?.querySelectorAll('button')??[])button.disabled=blocked;}
       pawn.controlBlocked=blocked;
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
