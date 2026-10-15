@@ -1,14 +1,14 @@
 import { canPlan, canRoam } from './path-schedule.ts';
 import type { Movement } from './movement';
 import { setRoute } from './movement.ts';
-import { findPath, findPaths } from './pathfinding.ts';
+import { findPath, findPaths, commandMove } from './pathfinding.ts';
 import type { Walls } from './walls';
 
 export interface Roamer { movement: Movement; freeSeconds?: number }
 export function updateRoaming(pawn: Roamer, walls: Walls, seconds: number, random: () => number = Math.random): void {
   pawn.freeSeconds = (pawn.freeSeconds ?? 0) + seconds;
   const movement = pawn.movement;
-  if (pawn.freeSeconds + 1e-9 < 5 || movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row) return;
+  if (movement.pendingRoute || pawn.freeSeconds + 1e-9 < 5 || movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row) return;
   if(!canPlan(movement)||!canRoam(movement))return;
   pawn.freeSeconds = 0;
   const candidates=[];
@@ -21,6 +21,7 @@ export function updateRoaming(pawn: Roamer, walls: Walls, seconds: number, rando
   let fallback:ReturnType<typeof findPaths>|undefined;
   while(candidates.length){
     const goal=candidates.splice(Math.floor(random()*candidates.length),1)[0];
+    if(movement.queuedPlanning){if(commandMove(movement,goal,walls.mapSize,blocked,walls.cannotStop))return;continue;}
     const path=fallback?fallback.get(goal.row*walls.mapSize+goal.column):findPath(movement.tile,goal,walls.mapSize,blocked,walls.cannotStop,movement);
     if(path){setRoute(movement,path.tiles);return;}
     // Reuse a single reachable-component search if the first candidate is sealed off.

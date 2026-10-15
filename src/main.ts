@@ -4,7 +4,7 @@ import { Sleeping, type SleepState } from './sleep';
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
-import { advancePathMovement } from './pathfinding';
+import { advancePathMovement, advancePathRequests } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { CorpseEating } from './corpse-eating';
 import { Cooking,COOK_SECONDS,stagedNutrition } from './cooking';
@@ -432,8 +432,8 @@ hauling.onCommand = worker => {
   if (pawn) { harvesting.cancel(pawn); combat.cancel(pawn); pawn.eatJob = null; pawn.manualMove = false; }
 };
 const pawnOccupancy = new PawnOccupancy();
-for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
-wildlife.onSpawn = deer => {pathSearchSchedule.assign(deer.movement);pawnOccupancy.track(deer.movement);};
+for (const pawn of pawns) {pawn.movement.queuedPlanning=true;pawnOccupancy.track(pawn.movement);}
+wildlife.onSpawn = deer => {deer.movement.queuedPlanning=true;pathSearchSchedule.assign(deer.movement);pawnOccupancy.track(deer.movement);};
 wildlife.onDepart = deer => pawnOccupancy.untrack(deer.movement);
 const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
 const butchery = new Butchery(construction, hauling, () => [...pawns, ...wildlife.animals], () => pawns);
@@ -1540,9 +1540,9 @@ app.canvas.addEventListener('pointerdown', (event) => {
   } else if (event.button === 2) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const movements = controlledSelection().filter(pawn => pawn.mode === 'drafted' && !pawn.sleep).map(pawn => pawn.movement);
-    const previousRoutes = new Map(movements.map(movement => [movement, movement.route]));
+    const previousRoutes = new Map(movements.map(movement => [movement, {route:movement.route,pending:movement.pendingRoute}]));
     for (const goal of commandGroup(movements, tile, MAP_SIZE, walls.isBlocked, walls.cannotStop, pawnOccupancy)) showDestination(goal.column, goal.row);
-    for (const pawn of selectedPawns) if (previousRoutes.has(pawn.movement) && pawn.movement.route !== previousRoutes.get(pawn.movement)) { pawn.manualMove = true; combat.cancel(pawn); pawn.eatJob = null; }
+    for (const pawn of selectedPawns) if (previousRoutes.has(pawn.movement) && (pawn.movement.route !== previousRoutes.get(pawn.movement)!.route || pawn.movement.pendingRoute !== previousRoutes.get(pawn.movement)!.pending)) { pawn.manualMove = true; combat.cancel(pawn); pawn.eatJob = null; }
   }
 });
 app.canvas.addEventListener('dblclick', event => {
@@ -1572,7 +1572,7 @@ function showAttackCommand(target: CombatPawn): void {
 function updateMovementPaths(): void {
   for (const pawn of pawns) {
     const movement = pawn.movement;
-    const moving = movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row;
+    const moving = movement.pendingRoute || movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row;
     if (!pawn.manualMove || pawn.mode !== 'drafted' || pawn.dead || !moving || pawn.eatJob || pawn.attackJob || pawn.equipJob) {
       if (pawn.pathSignature) { pawn.movementPath.clear(); pawn.pathSignature = ''; }
       if (!moving || pawn.dead || pawn.mode !== 'drafted') pawn.manualMove = false;
@@ -1750,8 +1750,9 @@ app.ticker.add((ticker) => {
       pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
       if(pawn.fleeGoal){
         const m=pawn.movement;
-        const arrived=!m.nextTile&&m.tile.column===m.destination.column&&m.tile.row===m.destination.row;
-        const redirected=m.destination.column!==pawn.fleeGoal.column||m.destination.row!==pawn.fleeGoal.row;
+        const arrived=!m.pendingRoute&&!m.nextTile&&m.tile.column===m.destination.column&&m.tile.row===m.destination.row;
+        const destination=m.pendingRoute?.goal??m.destination;
+        const redirected=destination.column!==pawn.fleeGoal.column||destination.row!==pawn.fleeGoal.row;
         if(arrived||redirected)pawn.fleeGoal=undefined;
       }
       const fleeing=Boolean(pawn.fleeGoal);
@@ -1779,6 +1780,7 @@ app.ticker.add((ticker) => {
     for (const deer of wildlife.animals) if (!deer.dead && deer.sleep?.phase!=='sleeping') advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     updateDoors(seconds);
   });
+  if(simulationClock.speed!==0)advancePathRequests();
   walls.rooms.update();
   worldLighting.update(gameTime.hour,map.x,map.y,map.scale.x,TILE_SIZE);
   structureShadows.update(gameTime.hour);

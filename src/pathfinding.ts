@@ -1,9 +1,13 @@
 import { canPlan } from './path-schedule.ts';
 import type { Movement, Tile } from './movement';
-import { advanceMovement, setRoute } from './movement.ts';
+import {HierarchicalMap} from './hierarchical-path.ts';
+import { advanceMovement, setRoute, stopAtNextSafeTile } from './movement.ts';
 
 export interface Path { tiles: Tile[]; distance: number }
 type TileRule = (tile: Tile) => boolean;
+const hierarchies=new WeakMap<TileRule,HierarchicalMap>();
+export function registerHierarchy(blocked:TileRule,size:number,snapshot:()=>Uint8Array):void{hierarchies.set(blocked,new HierarchicalMap(size,snapshot));}
+export function invalidateHierarchy(blocked:TileRule,tiles:readonly Tile[]):void{hierarchies.get(blocked)?.invalidate(tiles);}
 const reachability = new WeakMap<TileRule,(start:Tile,goal:Tile)=>boolean>();
 export function registerReachability(blocked:TileRule,connected:(start:Tile,goal:Tile)=>boolean):void{reachability.set(blocked,connected);}
 const caches = new WeakMap<TileRule, WeakMap<TileRule, Map<string, Map<number, Path>>>>();
@@ -45,7 +49,7 @@ class AvailablePaths extends Map<number, Path> {
 
 // Expand only when a caller asks for another settled endpoint.
 function* search(start: Tile, size: number, blocked: TileRule, cannotStop: TileRule,
-  heuristic: (tile: Tile) => number = () => 0, onLarge?:()=>void): Generator<[number, Path]> {
+  heuristic: (tile: Tile) => number = () => 0, onLarge?:()=>void, endpoint?:number): Generator<[number, Path|undefined]> {
   const key = ({ column, row }: Tile) => row * size + column;
   const distances = new Map<number, number>([[key(start), 0]]);
   const previous = new Map<number, Tile>();
@@ -77,7 +81,7 @@ function* search(start: Tile, size: number, blocked: TileRule, cannotStop: TileR
   while (open.length) {
     const node = pop(), current = node.tile, currentKey = key(current);
     if (closed.has(currentKey) || node.cost !== distances.get(currentKey)) continue;
-    if (!blocked(current) && !cannotStop(current)) {
+    if ((endpoint===undefined||currentKey===endpoint) && !blocked(current) && !cannotStop(current)) {
       let tiles: Tile[] | undefined;
       yield [currentKey, { distance: node.cost, get tiles() {
         if (!tiles) {
@@ -87,7 +91,7 @@ function* search(start: Tile, size: number, blocked: TileRule, cannotStop: TileR
         }
         return tiles;
       } }];
-    }
+    }else yield [currentKey,undefined];
     closed.add(currentKey);
     if(closed.size===4096)onLarge?.();
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
@@ -102,7 +106,7 @@ function* search(start: Tile, size: number, blocked: TileRule, cannotStop: TileR
 }
 
 class IncrementalPaths extends Map<number, Path> {
-  private readonly iterator: Generator<[number, Path]>;
+  private readonly iterator: Generator<[number, Path|undefined]>;
   private readonly ordered: [number, Path][] = [];
   private readonly valid: (index: number) => boolean;
   private finished = false;
@@ -121,9 +125,10 @@ class IncrementalPaths extends Map<number, Path> {
   }
   private advance(): boolean {
     if(this.finished)return false;
-    const next=this.iterator.next();
+    let next=this.iterator.next();
+    while(!next.done&&!next.value[1])next=this.iterator.next();
     if(next.done){this.finished=true;return false;}
-    const [index,path]=next.value;super.set(index,path);this.ordered.push(next.value);
+    const [index,path]=next.value;super.set(index,path!);this.ordered.push([index,path!]);
     return true;
   }
   override get(index:number):Path|undefined {
@@ -168,18 +173,28 @@ export function findPaths(start: Tile, size: number, blocked: TileRule, cannotSt
   return paths;
 }
 
-/** A*: exact diagonal shortest distance; stopping occupancy never blocks passage. */
-export function findPath(start: Tile, goal: Tile, size: number, blocked: TileRule, cannotStop: TileRule, movement?: Movement): Path | null {
+/** First try exact A*. A difficult large-map query switches to a chunk corridor. */
+export function* pathSearch(start:Tile,goal:Tile,size:number,blocked:TileRule,cannotStop:TileRule,movement?:Movement):Generator<void,Path|null>{
   blocked=movement?.terrainBlocked??blocked;
   if(goal.column<0||goal.row<0||goal.column>=size||goal.row>=size||blocked(goal)||cannotStop(goal)||movement?.stopBlocked?.(goal))return null;
   if(reachability.get(blocked)?.(start,goal)===false)return null;
-  const failures=failurePolicy(blocked,cannotStop);
-  const failureKey=`${size}:${start.column},${start.row}:${goal.column},${goal.row}`;
+  const failures=failurePolicy(blocked,cannotStop),failureKey=`${size}:${start.column},${start.row}:${goal.column},${goal.row}`;
   if(failures?.has(failureKey))return null;
   const heuristic=(tile:Tile)=>{const dx=Math.abs(tile.column-goal.column),dy=Math.abs(tile.row-goal.row);return Math.max(dx,dy)+(Math.SQRT2-1)*Math.min(dx,dy);};
-  for(const [index,path]of search(start,size,blocked,cannotStop,heuristic))if(index===goal.row*size+goal.column)return path;
+  const target=goal.row*size+goal.column,direct=search(start,size,blocked,cannotStop,heuristic,undefined,target);let expanded=0;
+  while(true){const next=direct.next();if(next.done)break;if(next.value[0]===target&&next.value[1])return next.value[1];yield;
+    if(++expanded===256&&size>=64){const hierarchy=hierarchies.get(blocked);if(hierarchy){const corridor=yield* hierarchy.corridor(start,goal);if(corridor){
+      const restricted=(tile:Tile)=>blocked(tile)||!corridor.has(hierarchy.labels[tile.row*size+tile.column]);
+      for(const [index,path]of search(start,size,restricted,cannotStop,heuristic,undefined,target)){if(index===target&&path)return path;yield;}
+    }}}
+  }
   if(failures){failures.add(failureKey);if(failures.size>256)failures.delete(failures.values().next().value!);}
   return null;
+}
+
+/** Synchronous query API; queued movement requests drain the same generator over frames. */
+export function findPath(start:Tile,goal:Tile,size:number,blocked:TileRule,cannotStop:TileRule,movement?:Movement):Path|null{
+  const job=pathSearch(start,goal,size,blocked,cannotStop,movement);while(true){const next=job.next();if(next.done)return next.value;}
 }
 
 export interface PathCandidate<T>{target:T;goal:Tile}
@@ -207,7 +222,43 @@ export function findNearest<T>(start:Tile,size:number,blocked:TileRule,cannotSto
   return best;
 }
 
+interface RouteRequest{movement:Movement;goal:Tile;size:number;blocked:TileRule;cannotStop:TileRule;revision:number;task?:Generator<void,Path|null>;token:{goal:Tile;cancel:()=>void}}
+const requests=new Set<RouteRequest>();
+const activeRequests=new Set<RouteRequest>();
+const revisionOf=(blocked:TileRule)=>hierarchies.get(blocked)?.revision??0;
+
+/** One shared real-frame budget. Four active searches bound retained frontier memory. */
+export function advancePathRequests(maxSteps=4096,maxMs=2):{steps:number;pending:number;elapsedMs:number}{
+  const started=performance.now();let steps=0,waiting=0;
+  while(requests.size&&steps<maxSteps&&performance.now()-started<maxMs){
+    const job=activeRequests.size<4?requests.values().next().value!:[...requests].find(request=>activeRequests.has(request));
+    if(!job)break;
+    requests.delete(job);const m=job.movement;
+    if(m.pendingRoute!==job.token){activeRequests.delete(job);continue;}
+    if(m.nextTile||m.tile.column!==m.destination.column||m.tile.row!==m.destination.row){requests.add(job);if(++waiting>=requests.size)break;continue;}
+    waiting=0;const blocked=m.terrainBlocked??job.blocked,revision=revisionOf(blocked);
+    if(!job.task||job.blocked!==blocked||job.revision!==revision){job.blocked=blocked;job.revision=revision;job.task=pathSearch({...m.tile},job.goal,job.size,blocked,job.cannotStop,m);}
+    activeRequests.add(job);
+    // Small quanta reduce generator switching while retaining a shared time budget.
+    let finished=false;
+    for(let quantum=0;quantum<32&&steps<maxSteps&&performance.now()-started<maxMs;quantum++){
+      const next=job.task.next();steps++;
+      if(next.done){finished=true;job.token.cancel();if(next.value&&!blocked(job.goal)&&!job.cannotStop(job.goal)&&!m.stopBlocked?.(job.goal))setRoute(m,next.value.tiles);break;}
+    }
+    if(!finished)requests.add(job);
+  }
+  return {steps,pending:requests.size,elapsedMs:performance.now()-started};
+}
+
 export function commandMove(movement: Movement, goal: Tile, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): boolean {
+  if(movement.queuedPlanning){
+    blocked=movement.terrainBlocked??blocked;
+    if(goal.column<0||goal.row<0||goal.column>=size||goal.row>=size||blocked(goal)||cannotStop(goal)||movement.stopBlocked?.(goal)||reachability.get(blocked)?.(movement.nextTile??movement.tile,goal)===false)return false;
+    stopAtNextSafeTile(movement,cannotStop);delete movement.pendingRepath;
+    const token={goal:{...goal},cancel:()=>{requests.delete(job);activeRequests.delete(job);if(movement.pendingRoute===token){delete movement.pendingRoute;movement.changed?.();}}};
+    const job:RouteRequest={movement,goal:token.goal,size,blocked,cannotStop,revision:revisionOf(blocked),token};
+    movement.pendingRoute=token;requests.add(job);movement.changed?.();return true;
+  }
   const path = findPath(movement.nextTile ?? movement.tile, goal, size, blocked, cannotStop, movement);
   if (!path) return false;
   return setRoute(movement, path.tiles);
@@ -215,6 +266,7 @@ export function commandMove(movement: Movement, goal: Tile, size: number, blocke
 
 export function advancePathMovement(movement: Movement, seconds: number, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): void {
   blocked = movement?.terrainBlocked ?? blocked;
+  if(movement.pendingRoute&&!movement.nextTile&&movement.tile.column===movement.destination.column&&movement.tile.row===movement.destination.row)return;
   if(movement.pendingRepath){
     if(!canPlan(movement))return;
     const pending=movement.pendingRepath;delete movement.pendingRepath;

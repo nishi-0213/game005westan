@@ -24,6 +24,7 @@ export class Rooms {
   private roomsDirty=true;
   private playerDirty=true;
   private otherDirty=true;
+  private otherMaskDirty=true;
   constructor(size:number,structures:()=>Iterable<Wall>,footprint:(wall:Wall)=>Tile[]){
     this.size=size;this.structures=structures;this.footprint=footprint;
     this.queue=new Int32Array(size*size);
@@ -32,10 +33,10 @@ export class Rooms {
   }
   structureChanged(wall:Wall):void{
     if(wall.kind!=='door'&&!movementObstacle.has(wall.kind))return;
-    this.masksDirty=true;this.playerDirty=true;this.otherDirty=true;
+    this.masksDirty=true;this.playerDirty=true;this.otherDirty=true;this.otherMaskDirty=true;
     if(wall.kind==='wall'||wall.kind==='door')this.roomsDirty=true;
   }
-  doorChanged():void{this.otherDirty=true;}
+  doorChanged():void{this.otherDirty=true;this.otherMaskDirty=true;}
   private masks():void{
     if(!this.masksDirty)return;
     this.roomMask.fill(0);this.playerMask.fill(0);
@@ -82,6 +83,11 @@ export class Rooms {
     this.update();const index=this.index(tile);return index<0?undefined:this.roomList[this.roomLabels[index]-1];
   }
   private index(tile:Tile):number{return tile.column>=0&&tile.row>=0&&tile.column<this.size&&tile.row<this.size?tile.row*this.size+tile.column:-1;}
+  obstacles(player:boolean):Uint8Array{
+    this.masks();if(player)return this.playerMask;
+    if(this.otherMaskDirty){this.otherMask.set(this.playerMask);for(const door of this.structures())if(door.kind==='door'&&door.state==='completed'&&(door.openness??0)<=0)this.otherMask[door.row*this.size+door.column]=1;this.otherMaskDirty=false;}
+    return this.otherMask;
+  }
   reachable(start:Tile,goal:Tile,player:boolean):boolean{
     const from=this.index(start),to=this.index(goal);
     // A pawn waking inside a bed or leaving the map still uses the existing route search.
@@ -89,8 +95,7 @@ export class Rooms {
     this.masks();
     if(player&&this.playerDirty){this.flood(this.playerMask,this.playerLabels,false);this.playerDirty=false;}
     if(!player&&this.otherDirty){
-      this.otherMask.set(this.playerMask);
-      for(const door of this.structures())if(door.kind==='door'&&door.state==='completed'&&(door.openness??0)<=0)this.otherMask[door.row*this.size+door.column]=1;
+      this.obstacles(false);
       this.flood(this.otherMask,this.otherLabels,false);this.otherDirty=false;
     }
     const labels=player?this.playerLabels:this.otherLabels;

@@ -1,5 +1,5 @@
 import {Rooms} from './rooms.ts';
-import { invalidatePaths, registerPathCache, registerReachability } from './pathfinding.ts';
+import { invalidatePaths, registerPathCache, registerReachability, registerHierarchy, invalidateHierarchy } from './pathfinding.ts';
 import type { ItemType } from './items';
 import type { Movement, Tile } from './movement';
 
@@ -66,6 +66,8 @@ export class Walls {
     registerPathCache(this.nonPlayerBlocked,this.isBlocked);
     registerReachability(this.isBlocked,(from,to)=>this.rooms.reachable(from,to,true));
     registerReachability(this.nonPlayerBlocked,(from,to)=>this.rooms.reachable(from,to,false));
+    registerHierarchy(this.isBlocked,mapSize,()=>this.rooms.obstacles(true));
+    registerHierarchy(this.nonPlayerBlocked,mapSize,()=>this.rooms.obstacles(false));
   }
 
   plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall', orientation: 0 | 1 = 0): Wall | null {
@@ -91,6 +93,7 @@ export class Walls {
     wall.state = 'completed';
     this.completed.add(wall);
     this.rooms.structureChanged(wall);
+    this.invalidateChunks(wall);
     this.revision++;
     invalidatePaths(this.isBlocked);
     return true;
@@ -106,10 +109,15 @@ export class Walls {
     return item;
   }
 
+  private invalidateChunks(wall:Wall):void{
+    if(!['wall','door','storage','butcher','cooker','bed','table'].includes(wall.kind))return;
+    const cells=footprint(wall);invalidateHierarchy(this.isBlocked,cells);invalidateHierarchy(this.nonPlayerBlocked,cells);
+  }
+
   at(tile: Tile): Wall | undefined { return this.occupied.get(`${tile.column},${tile.row}`) ?? this.items.get(`${tile.column},${tile.row}`); }
 
   erase(item: Wall): void {
-    if(this.completed.has(item)||item.state==='completed'){this.rooms.structureChanged(item);this.completed.delete(item);}
+    if(this.completed.has(item)||item.state==='completed'){this.rooms.structureChanged(item);this.invalidateChunks(item);this.completed.delete(item);}
     this.revision++;
     this.items.delete(`${item.column},${item.row}`);
     for (const cell of footprint(item)) this.occupied.delete(`${cell.column},${cell.row}`);
@@ -129,7 +137,7 @@ export class Walls {
   setDoorOpenness(door:Wall,openness:number):void {
     const wasOpen=(door.openness??0)>0;
     door.openness=Math.max(0,Math.min(1,openness));
-    if(wasOpen!==(door.openness>0)){this.rooms.doorChanged();invalidatePaths(this.nonPlayerBlocked);}
+    if(wasOpen!==(door.openness>0)){this.rooms.doorChanged();invalidateHierarchy(this.nonPlayerBlocked,[door]);invalidatePaths(this.nonPlayerBlocked);}
   }
 
   bindMovement(movement: Movement, faction: import('./factions').Faction): void {
