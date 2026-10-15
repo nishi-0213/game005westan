@@ -1,0 +1,335 @@
+[
+  {
+    "pawns": 100,
+    "simulationSeconds": 180,
+    "totalCpuMs": 2006.400000013411,
+    "meanUpdateMs": 0.1841759259239943,
+    "p95UpdateMs": 0.30000000447034836,
+    "maxUpdateMs": 10.5,
+    "updatesOver16ms": 0,
+    "updatesOver50ms": 0,
+    "heapEndMB": 9.606666564941406,
+    "finalState": {
+      "rooms": 1,
+      "enclosedRooms": 0,
+      "pawns": 99,
+      "alive": 99,
+      "hungry": 98,
+      "sleeping": 0,
+      "minHP": 49.999999999989576,
+      "uniqueTiles": 99,
+      "simulationSeconds": -34519580,
+      "harvested": 40,
+      "moving": 18
+    },
+    "intervals": [
+      {
+        "seconds": 10,
+        "cpuMs": 244.69999999552965,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 98,
+          "simulationSeconds": -34519750,
+          "harvested": 1,
+          "moving": 14
+        }
+      },
+      {
+        "seconds": 20,
+        "cpuMs": 103.89999999850988,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519740,
+          "harvested": 2,
+          "moving": 13
+        }
+      },
+      {
+        "seconds": 30,
+        "cpuMs": 80.20000000298023,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 98,
+          "simulationSeconds": -34519730,
+          "harvested": 4,
+          "moving": 14
+        }
+      },
+      {
+        "seconds": 40,
+        "cpuMs": 68.10000000149012,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519720,
+          "harvested": 4,
+          "moving": 16
+        }
+      },
+      {
+        "seconds": 50,
+        "cpuMs": 74.60000000149012,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 97,
+          "simulationSeconds": -34519710,
+          "harvested": 5,
+          "moving": 13
+        }
+      },
+      {
+        "seconds": 60,
+        "cpuMs": 82,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519700,
+          "harvested": 7,
+          "moving": 15
+        }
+      },
+      {
+        "seconds": 70,
+        "cpuMs": 92.70000000298023,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519690,
+          "harvested": 11,
+          "moving": 13
+        }
+      },
+      {
+        "seconds": 80,
+        "cpuMs": 77,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519680,
+          "harvested": 12,
+          "moving": 14
+        }
+      },
+      {
+        "seconds": 90,
+        "cpuMs": 226.60000000149012,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 91,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 97,
+          "simulationSeconds": -34519670,
+          "harvested": 17,
+          "moving": 20
+        }
+      },
+      {
+        "seconds": 100,
+        "cpuMs": 136.70000000298023,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 97,
+          "simulationSeconds": -34519660,
+          "harvested": 23,
+          "moving": 13
+        }
+      },
+      {
+        "seconds": 110,
+        "cpuMs": 55.5,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 100,
+          "minHP": 93.74999999999991,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519650,
+          "harvested": 24,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 120,
+        "cpuMs": 82.90000000596046,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 88,
+          "sleeping": 0,
+          "minHP": 87.49999999999707,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519640,
+          "harvested": 27,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 130,
+        "cpuMs": 133.89999999850988,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 88,
+          "sleeping": 0,
+          "minHP": 51.24999999999611,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519630,
+          "harvested": 31,
+          "moving": 11
+        }
+      },
+      {
+        "seconds": 140,
+        "cpuMs": 116.30000000447035,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 88,
+          "sleeping": 0,
+          "minHP": 34.999999999997534,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519620,
+          "harvested": 32,
+          "moving": 12
+        }
+      },
+      {
+        "seconds": 150,
+        "cpuMs": 92.39999999850988,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 88,
+          "sleeping": 0,
+          "minHP": 18.749999999997844,
+          "uniqueTiles": 98,
+          "simulationSeconds": -34519610,
+          "harvested": 35,
+          "moving": 14
+        }
+      },
+      {
+        "seconds": 160,
+        "cpuMs": 97.80000000447035,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 100,
+          "alive": 99,
+          "hungry": 88,
+          "sleeping": 0,
+          "minHP": 0,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519600,
+          "harvested": 36,
+          "moving": 17
+        }
+      },
+      {
+        "seconds": 170,
+        "cpuMs": 126.79999999701977,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 99,
+          "alive": 99,
+          "hungry": 95,
+          "sleeping": 0,
+          "minHP": 56.249999999988155,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519590,
+          "harvested": 38,
+          "moving": 14
+        }
+      },
+      {
+        "seconds": 180,
+        "cpuMs": 114.29999999701977,
+        "state": {
+          "rooms": 1,
+          "enclosedRooms": 0,
+          "pawns": 99,
+          "alive": 99,
+          "hungry": 98,
+          "sleeping": 0,
+          "minHP": 49.999999999989576,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519580,
+          "harvested": 40,
+          "moving": 18
+        }
+      }
+    ],
+    "errors": []
+  }
+]

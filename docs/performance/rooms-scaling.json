@@ -1,0 +1,695 @@
+{
+  "baseline": "df27a3d",
+  "node": "v24.19.0",
+  "runs": 3,
+  "results": [
+    {
+      "size": 32,
+      "scenario": "open",
+      "version": "before",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.0005173333333298539,
+      "meanFirstQueryMs": 0.1587226666666671,
+      "meanRemainingQueriesMs": 2.009147666666666,
+      "meanTotalMs": 2.168387666666663,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.0008709999999965135,
+          "firstQueryMs": 0.43215299999999957,
+          "remainingQueriesMs": 2.280444999999993,
+          "totalMs": 2.7134689999999893,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 4000,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.0003409999999988145,
+          "firstQueryMs": 0.03553200000000345,
+          "remainingQueriesMs": 2.7607,
+          "totalMs": 2.796573000000002,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 4000,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.0003399999999942338,
+          "firstQueryMs": 0.008482999999998242,
+          "remainingQueriesMs": 0.986298000000005,
+          "totalMs": 0.9951209999999975,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 4000,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "open",
+      "version": "after",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.21411866666666177,
+      "meanFirstQueryMs": 0.2814686666666641,
+      "meanRemainingQueriesMs": 1.9457933333333368,
+      "meanTotalMs": 2.4413806666666624,
+      "meanRebuildMs": 0.1395140000000031,
+      "samples": [
+        {
+          "roomBuildMs": 0.46762599999999566,
+          "firstQueryMs": 0.5634680000000003,
+          "remainingQueriesMs": 2.583877000000001,
+          "totalMs": 3.614970999999997,
+          "rebuildMs": 0.2675580000000011,
+          "roomCount": 1,
+          "structureLookups": 4002,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.14589699999999794,
+          "firstQueryMs": 0.2455049999999943,
+          "remainingQueriesMs": 2.3969979999999964,
+          "totalMs": 2.7883999999999887,
+          "rebuildMs": 0.09531100000000947,
+          "roomCount": 1,
+          "structureLookups": 4002,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.02883299999999167,
+          "firstQueryMs": 0.035432999999997605,
+          "remainingQueriesMs": 0.8565050000000127,
+          "totalMs": 0.920771000000002,
+          "rebuildMs": 0.05567299999999875,
+          "roomCount": 1,
+          "structureLookups": 4002,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "rooms",
+      "version": "before",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.00038366666666433957,
+      "meanFirstQueryMs": 0.03125933333333345,
+      "meanRemainingQueriesMs": 1.2996780000000048,
+      "meanTotalMs": 1.3313210000000026,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.0008610000000004447,
+          "firstQueryMs": 0.07229699999999184,
+          "remainingQueriesMs": 2.064433000000008,
+          "totalMs": 2.1375910000000005,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 3400,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.0001699999999971169,
+          "firstQueryMs": 0.011155999999999722,
+          "remainingQueriesMs": 0.8740609999999975,
+          "totalMs": 0.8853869999999944,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 3400,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.00011999999999545707,
+          "firstQueryMs": 0.0103250000000088,
+          "remainingQueriesMs": 0.9605400000000088,
+          "totalMs": 0.9709850000000131,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 3400,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "rooms",
+      "version": "after",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.0998753333333345,
+      "meanFirstQueryMs": 0.0415616666666665,
+      "meanRemainingQueriesMs": 0.8363619999999988,
+      "meanTotalMs": 0.9777989999999998,
+      "meanRebuildMs": 0.11050800000000531,
+      "samples": [
+        {
+          "roomBuildMs": 0.10227299999999673,
+          "firstQueryMs": 0.06318400000000679,
+          "remainingQueriesMs": 0.7410940000000039,
+          "totalMs": 0.9065510000000074,
+          "rebuildMs": 0.10975299999999777,
+          "roomCount": 16,
+          "structureLookups": 3402,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.14133999999999958,
+          "firstQueryMs": 0.03528199999999515,
+          "remainingQueriesMs": 0.5541949999999929,
+          "totalMs": 0.7308169999999876,
+          "rebuildMs": 0.10865200000000641,
+          "roomCount": 16,
+          "structureLookups": 3402,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.056013000000007196,
+          "firstQueryMs": 0.02621899999999755,
+          "remainingQueriesMs": 1.2137969999999996,
+          "totalMs": 1.2960290000000043,
+          "rebuildMs": 0.11311900000001174,
+          "roomCount": 16,
+          "structureLookups": 3402,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "sealed",
+      "version": "before",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.00023033333333444261,
+      "meanFirstQueryMs": 1.4140856666666697,
+      "meanRemainingQueriesMs": 17.355637666666667,
+      "meanTotalMs": 18.76995366666667,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.00030999999999892225,
+          "firstQueryMs": 2.35149100000001,
+          "remainingQueriesMs": 21.03574599999999,
+          "totalMs": 23.387546999999998,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 138600,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 0.00020100000000411455,
+          "firstQueryMs": 0.9408209999999997,
+          "remainingQueriesMs": 14.735626999999994,
+          "totalMs": 15.676648999999998,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 138600,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 0.00018000000000029104,
+          "firstQueryMs": 0.9499449999999996,
+          "remainingQueriesMs": 16.295540000000017,
+          "totalMs": 17.245665000000017,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 138600,
+          "distance": null
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "sealed",
+      "version": "after",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.015256000000012667,
+      "meanFirstQueryMs": 0.02121133333331689,
+      "meanRemainingQueriesMs": 0.027947999999999713,
+      "meanTotalMs": 0.06441533333332927,
+      "meanRebuildMs": 0.02993133333334678,
+      "samples": [
+        {
+          "roomBuildMs": 0.020390000000020336,
+          "firstQueryMs": 0.014921999999984337,
+          "remainingQueriesMs": 0.02701999999999316,
+          "totalMs": 0.062331999999997834,
+          "rebuildMs": 0.025488000000024158,
+          "roomCount": 2,
+          "structureLookups": 202,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 0.012909000000007609,
+          "firstQueryMs": 0.011626999999975851,
+          "remainingQueriesMs": 0.02679900000001112,
+          "totalMs": 0.05133499999999458,
+          "rebuildMs": 0.040490000000005466,
+          "roomCount": 2,
+          "structureLookups": 202,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 0.012469000000010055,
+          "firstQueryMs": 0.03708499999999049,
+          "remainingQueriesMs": 0.03002499999999486,
+          "totalMs": 0.0795789999999954,
+          "rebuildMs": 0.023816000000010717,
+          "roomCount": 2,
+          "structureLookups": 202,
+          "distance": null
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "detour",
+      "version": "before",
+      "queryCount": 8,
+      "meanRoomBuildMs": 0.00017399999998701787,
+      "meanFirstQueryMs": 1.3443713333333374,
+      "meanRemainingQueriesMs": 7.865739999999998,
+      "meanTotalMs": 9.210285333333323,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.000160999999991418,
+          "firstQueryMs": 0.9457280000000026,
+          "remainingQueriesMs": 8.967500000000001,
+          "totalMs": 9.913388999999995,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 65824,
+          "distance": 49.79898987322333
+        },
+        {
+          "roomBuildMs": 0.0002409999999883894,
+          "firstQueryMs": 2.0132169999999974,
+          "remainingQueriesMs": 6.581427999999988,
+          "totalMs": 8.594885999999974,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 65824,
+          "distance": 49.79898987322333
+        },
+        {
+          "roomBuildMs": 0.00011999999998124622,
+          "firstQueryMs": 1.074169000000012,
+          "remainingQueriesMs": 8.048292000000004,
+          "totalMs": 9.122580999999997,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 65824,
+          "distance": 49.79898987322333
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "detour",
+      "version": "after",
+      "queryCount": 8,
+      "meanRoomBuildMs": 0.015316333333326307,
+      "meanFirstQueryMs": 1.4262296666666714,
+      "meanRemainingQueriesMs": 6.709662333333331,
+      "meanTotalMs": 8.15120833333333,
+      "meanRebuildMs": 0.02956400000001243,
+      "samples": [
+        {
+          "roomBuildMs": 0.021551999999985583,
+          "firstQueryMs": 1.239465000000024,
+          "remainingQueriesMs": 6.688688000000013,
+          "totalMs": 7.949705000000023,
+          "rebuildMs": 0.03066599999999653,
+          "roomCount": 1,
+          "structureLookups": 65826,
+          "distance": 49.79898987322333
+        },
+        {
+          "roomBuildMs": 0.012498999999991156,
+          "firstQueryMs": 2.1492489999999975,
+          "remainingQueriesMs": 6.222953999999987,
+          "totalMs": 8.384701999999976,
+          "rebuildMs": 0.028732000000019298,
+          "roomCount": 1,
+          "structureLookups": 65826,
+          "distance": 49.79898987322333
+        },
+        {
+          "roomBuildMs": 0.011898000000002185,
+          "firstQueryMs": 0.8899749999999926,
+          "remainingQueriesMs": 7.217344999999995,
+          "totalMs": 8.11921799999999,
+          "rebuildMs": 0.02929400000002147,
+          "roomCount": 1,
+          "structureLookups": 65826,
+          "distance": 49.79898987322333
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "open",
+      "version": "before",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.00020033333332965716,
+      "meanFirstQueryMs": 0.008933333333326724,
+      "meanRemainingQueriesMs": 0.7968933333333439,
+      "meanTotalMs": 0.8060270000000003,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.00018099999999776628,
+          "firstQueryMs": 0.012107999999983576,
+          "remainingQueriesMs": 1.4991420000000062,
+          "totalMs": 1.5114309999999875,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 4000,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.00022000000001298758,
+          "firstQueryMs": 0.00940399999998931,
+          "remainingQueriesMs": 0.43502800000001685,
+          "totalMs": 0.44465200000001914,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 4000,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.0001999999999782176,
+          "firstQueryMs": 0.005288000000007287,
+          "remainingQueriesMs": 0.45651000000000863,
+          "totalMs": 0.46199799999999414,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 4000,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "open",
+      "version": "after",
+      "queryCount": 100,
+      "meanRoomBuildMs": 1.0721090000000022,
+      "meanFirstQueryMs": 1.0557949999999892,
+      "meanRemainingQueriesMs": 0.4521129999999971,
+      "meanTotalMs": 2.5800169999999887,
+      "meanRebuildMs": 2.08994766666666,
+      "samples": [
+        {
+          "roomBuildMs": 0.9474999999999909,
+          "firstQueryMs": 1.0168239999999855,
+          "remainingQueriesMs": 0.4579919999999902,
+          "totalMs": 2.4223159999999666,
+          "rebuildMs": 2.1483479999999986,
+          "roomCount": 1,
+          "structureLookups": 4002,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 1.0945490000000007,
+          "firstQueryMs": 1.102850999999987,
+          "remainingQueriesMs": 0.4752770000000055,
+          "totalMs": 2.672676999999993,
+          "rebuildMs": 2.0860449999999844,
+          "roomCount": 1,
+          "structureLookups": 4002,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 1.1742780000000153,
+          "firstQueryMs": 1.047709999999995,
+          "remainingQueriesMs": 0.4230699999999956,
+          "totalMs": 2.645058000000006,
+          "rebuildMs": 2.0354499999999973,
+          "roomCount": 1,
+          "structureLookups": 4002,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "rooms",
+      "version": "before",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.0005846666666684541,
+      "meanFirstQueryMs": 0.023491666666672018,
+      "meanRemainingQueriesMs": 0.8418333333333408,
+      "meanTotalMs": 0.8659096666666812,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.0007820000000151595,
+          "firstQueryMs": 0.028442999999981566,
+          "remainingQueriesMs": 0.9111159999999927,
+          "totalMs": 0.9403409999999894,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 3400,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.0003509999999948832,
+          "firstQueryMs": 0.018227000000024418,
+          "remainingQueriesMs": 0.7593610000000126,
+          "totalMs": 0.7779390000000319,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 3400,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 0.0006209999999953197,
+          "firstQueryMs": 0.023805000000010068,
+          "remainingQueriesMs": 0.855023000000017,
+          "totalMs": 0.8794490000000224,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 3400,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "rooms",
+      "version": "after",
+      "queryCount": 100,
+      "meanRoomBuildMs": 2.0115080000000014,
+      "meanFirstQueryMs": 1.1846636666666843,
+      "meanRemainingQueriesMs": 0.6909319999999752,
+      "meanTotalMs": 3.887103666666661,
+      "meanRebuildMs": 4.1178336666666935,
+      "samples": [
+        {
+          "roomBuildMs": 2.906076000000013,
+          "firstQueryMs": 1.1404679999999985,
+          "remainingQueriesMs": 0.7585490000000163,
+          "totalMs": 4.805093000000028,
+          "rebuildMs": 7.397783000000032,
+          "roomCount": 400,
+          "structureLookups": 3402,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 1.6360559999999964,
+          "firstQueryMs": 1.1222910000000184,
+          "remainingQueriesMs": 0.6132629999999608,
+          "totalMs": 3.3716099999999756,
+          "rebuildMs": 2.479822000000013,
+          "roomCount": 400,
+          "structureLookups": 3402,
+          "distance": 2.414213562373095
+        },
+        {
+          "roomBuildMs": 1.4923919999999953,
+          "firstQueryMs": 1.2912320000000364,
+          "remainingQueriesMs": 0.7009839999999485,
+          "totalMs": 3.48460799999998,
+          "rebuildMs": 2.4758960000000343,
+          "roomCount": 400,
+          "structureLookups": 3402,
+          "distance": 2.414213562373095
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "sealed",
+      "version": "before",
+      "queryCount": 100,
+      "meanRoomBuildMs": 0.0003000000005120758,
+      "meanFirstQueryMs": 123.27222400000052,
+      "meanRemainingQueriesMs": 12177.998086333333,
+      "meanTotalMs": 12301.270610333333,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.00024000000001933586,
+          "firstQueryMs": 130.30033299999997,
+          "remainingQueriesMs": 12348.013525,
+          "totalMs": 12478.314098,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 91585200,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 0.0003299999989394564,
+          "firstQueryMs": 118.82350299999962,
+          "remainingQueriesMs": 12141.361855,
+          "totalMs": 12260.185687999998,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 91585200,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 0.0003300000025774352,
+          "firstQueryMs": 120.69283600000199,
+          "remainingQueriesMs": 12044.618878999998,
+          "totalMs": 12165.312045000002,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 91585200,
+          "distance": null
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "sealed",
+      "version": "after",
+      "queryCount": 100,
+      "meanRoomBuildMs": 1.0003323333342753,
+      "meanFirstQueryMs": 1.254277333333448,
+      "meanRemainingQueriesMs": 0.03997633333347039,
+      "meanTotalMs": 2.294586000001194,
+      "meanRebuildMs": 2.0348396666668123,
+      "samples": [
+        {
+          "roomBuildMs": 0.9370950000011362,
+          "firstQueryMs": 1.0464980000033393,
+          "remainingQueriesMs": 0.05110599999898113,
+          "totalMs": 2.0346990000034566,
+          "rebuildMs": 2.0550399999992806,
+          "roomCount": 2,
+          "structureLookups": 202,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 1.0370340000008582,
+          "firstQueryMs": 1.66628099999798,
+          "remainingQueriesMs": 0.03750600000057602,
+          "totalMs": 2.740820999999414,
+          "rebuildMs": 2.0128570000015316,
+          "roomCount": 2,
+          "structureLookups": 202,
+          "distance": null
+        },
+        {
+          "roomBuildMs": 1.0268680000008317,
+          "firstQueryMs": 1.050052999999025,
+          "remainingQueriesMs": 0.03131700000085402,
+          "totalMs": 2.1082380000007106,
+          "rebuildMs": 2.0366219999996247,
+          "roomCount": 2,
+          "structureLookups": 202,
+          "distance": null
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "detour",
+      "version": "before",
+      "queryCount": 8,
+      "meanRoomBuildMs": 0.00037000000156695023,
+      "meanFirstQueryMs": 152.37236699999872,
+      "meanRemainingQueriesMs": 1086.0916969999987,
+      "meanTotalMs": 1238.4644339999988,
+      "meanRebuildMs": 0,
+      "samples": [
+        {
+          "roomBuildMs": 0.0004600000029313378,
+          "firstQueryMs": 147.2501409999968,
+          "remainingQueriesMs": 1105.005176999999,
+          "totalMs": 1252.2557779999988,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 8701919,
+          "distance": 541.4457428549497
+        },
+        {
+          "roomBuildMs": 0.00033999999868683517,
+          "firstQueryMs": 155.89558399999805,
+          "remainingQueriesMs": 1076.2533219999968,
+          "totalMs": 1232.1492459999936,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 8701919,
+          "distance": 541.4457428549497
+        },
+        {
+          "roomBuildMs": 0.0003100000030826777,
+          "firstQueryMs": 153.97137600000133,
+          "remainingQueriesMs": 1077.016592,
+          "totalMs": 1230.9882780000044,
+          "rebuildMs": 0,
+          "roomCount": 0,
+          "structureLookups": 8701919,
+          "distance": 541.4457428549497
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "detour",
+      "version": "after",
+      "queryCount": 8,
+      "meanRoomBuildMs": 2.197000666669434,
+      "meanFirstQueryMs": 145.0705293333352,
+      "meanRemainingQueriesMs": 1019.6288886666662,
+      "meanTotalMs": 1166.8964186666708,
+      "meanRebuildMs": 2.4366576666676942,
+      "samples": [
+        {
+          "roomBuildMs": 4.427171000003,
+          "firstQueryMs": 151.984209000002,
+          "remainingQueriesMs": 1035.1008819999988,
+          "totalMs": 1191.5122620000038,
+          "rebuildMs": 3.003330999999889,
+          "roomCount": 1,
+          "structureLookups": 8701921,
+          "distance": 541.4457428549497
+        },
+        {
+          "roomBuildMs": 1.0795070000021951,
+          "firstQueryMs": 145.48043600000528,
+          "remainingQueriesMs": 1003.6617780000015,
+          "totalMs": 1150.221721000009,
+          "rebuildMs": 2.1249540000062552,
+          "roomCount": 1,
+          "structureLookups": 8701921,
+          "distance": 541.4457428549497
+        },
+        {
+          "roomBuildMs": 1.0843240000031074,
+          "firstQueryMs": 137.74694299999828,
+          "remainingQueriesMs": 1020.1240059999982,
+          "totalMs": 1158.9552729999996,
+          "rebuildMs": 2.1816879999969387,
+          "roomCount": 1,
+          "structureLookups": 8701921,
+          "distance": 541.4457428549497
+        }
+      ]
+    }
+  ]
+}

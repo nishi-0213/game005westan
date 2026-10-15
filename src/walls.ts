@@ -1,4 +1,5 @@
-import { invalidatePaths, registerPathCache } from './pathfinding.ts';
+import {Rooms} from './rooms.ts';
+import { invalidatePaths, registerPathCache, registerReachability } from './pathfinding.ts';
 import type { ItemType } from './items';
 import type { Movement, Tile } from './movement';
 
@@ -51,15 +52,20 @@ export function footprint(wall: Pick<Wall, 'column' | 'row' | 'kind' | 'orientat
 
 export class Walls {
   readonly items = new Map<string, Wall>();
+  private readonly completed=new WeakSet<Wall>();
   private occupied = new Map<string, Wall>();
   readonly mapSize: number;
   revision=0;
+  readonly rooms:Rooms;
   environmentCannotStop: (tile: Tile) => boolean = () => false;
 
   constructor(mapSize: number) {
     this.mapSize = mapSize;
+    this.rooms=new Rooms(mapSize,()=>this.items.values(),footprint);
     registerPathCache(this.isBlocked);
     registerPathCache(this.nonPlayerBlocked,this.isBlocked);
+    registerReachability(this.isBlocked,(from,to)=>this.rooms.reachable(from,to,true));
+    registerReachability(this.nonPlayerBlocked,(from,to)=>this.rooms.reachable(from,to,false));
   }
 
   plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall', orientation: 0 | 1 = 0): Wall | null {
@@ -83,6 +89,8 @@ export class Walls {
     const wall = this.at(tile);
     if (!wall || wall.state === 'completed') return false;
     wall.state = 'completed';
+    this.completed.add(wall);
+    this.rooms.structureChanged(wall);
     this.revision++;
     invalidatePaths(this.isBlocked);
     return true;
@@ -101,6 +109,7 @@ export class Walls {
   at(tile: Tile): Wall | undefined { return this.occupied.get(`${tile.column},${tile.row}`) ?? this.items.get(`${tile.column},${tile.row}`); }
 
   erase(item: Wall): void {
+    if(this.completed.has(item)||item.state==='completed'){this.rooms.structureChanged(item);this.completed.delete(item);}
     this.revision++;
     this.items.delete(`${item.column},${item.row}`);
     for (const cell of footprint(item)) this.occupied.delete(`${cell.column},${cell.row}`);
@@ -120,7 +129,7 @@ export class Walls {
   setDoorOpenness(door:Wall,openness:number):void {
     const wasOpen=(door.openness??0)>0;
     door.openness=Math.max(0,Math.min(1,openness));
-    if(wasOpen!==(door.openness>0))invalidatePaths(this.nonPlayerBlocked);
+    if(wasOpen!==(door.openness>0)){this.rooms.doorChanged();invalidatePaths(this.nonPlayerBlocked);}
   }
 
   bindMovement(movement: Movement, faction: import('./factions').Faction): void {

@@ -4,6 +4,8 @@ import { advanceMovement, setRoute } from './movement.ts';
 
 export interface Path { tiles: Tile[]; distance: number }
 type TileRule = (tile: Tile) => boolean;
+const reachability = new WeakMap<TileRule,(start:Tile,goal:Tile)=>boolean>();
+export function registerReachability(blocked:TileRule,connected:(start:Tile,goal:Tile)=>boolean):void{reachability.set(blocked,connected);}
 const caches = new WeakMap<TileRule, WeakMap<TileRule, Map<string, Map<number, Path>>>>();
 const failedPaths = new WeakMap<TileRule, WeakMap<TileRule, Set<string>>>();
 const cacheGroups = new WeakMap<TileRule,Set<TileRule>>();
@@ -111,9 +113,11 @@ class IncrementalPaths extends Map<number, Path> {
     this.iterator = search(start, size, blocked, cannotStop,()=>0,onLarge);
     this.failures=failures;
     this.failureKey=index=>`${size}:${start.column},${start.row}:${index%size},${Math.floor(index/size)}`;
+    const connected=reachability.get(blocked);
     this.valid = index => Number.isInteger(index) && index >= 0 && index < size * size
       && !blocked({column:index % size,row:Math.floor(index / size)})
-      && !cannotStop({column:index % size,row:Math.floor(index / size)});
+      && !cannotStop({column:index % size,row:Math.floor(index / size)})
+      && (!connected||connected(start,{column:index%size,row:Math.floor(index/size)}));
   }
   private advance(): boolean {
     if(this.finished)return false;
@@ -168,6 +172,7 @@ export function findPaths(start: Tile, size: number, blocked: TileRule, cannotSt
 export function findPath(start: Tile, goal: Tile, size: number, blocked: TileRule, cannotStop: TileRule, movement?: Movement): Path | null {
   blocked=movement?.terrainBlocked??blocked;
   if(goal.column<0||goal.row<0||goal.column>=size||goal.row>=size||blocked(goal)||cannotStop(goal)||movement?.stopBlocked?.(goal))return null;
+  if(reachability.get(blocked)?.(start,goal)===false)return null;
   const failures=failurePolicy(blocked,cannotStop);
   const failureKey=`${size}:${start.column},${start.row}:${goal.column},${goal.row}`;
   if(failures?.has(failureKey))return null;
@@ -187,7 +192,7 @@ export function findNearest<T>(start:Tile,size:number,blocked:TileRule,cannotSto
   for(let order=0;order<candidates.length;order++){
     const candidate=candidates[order],g=candidate.goal;
     if(g.column<0||g.row<0||g.column>=size||g.row>=size||blocked(g)||cannotStop(g)||movement?.stopBlocked?.(g))continue;
-    if(failures?.has(`${prefix}${g.column},${g.row}`))continue;
+    if(reachability.get(blocked)?.(start,g)===false||failures?.has(`${prefix}${g.column},${g.row}`))continue;
     const key=g.row*size+g.column,list=goals.get(key)??[];list.push({candidate,order});goals.set(key,list);
   }
   if(!goals.size)return null;
