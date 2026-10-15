@@ -360,6 +360,19 @@ const spawnTiles = [
   { column: 16, row: 15, color: 0x82c6dc },
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
+// This branch defaults to100; ?pawns=3 provides the unchanged comparison case.
+const stressPawnCount = new URLSearchParams(location.search).get('pawns') === '3' ? 3 : 100;
+if(stressPawnCount===100){
+  const available: {column:number;row:number}[]=[];
+  for(let row=0;row<MAP_SIZE;row++)for(let column=0;column<MAP_SIZE;column++){
+    const tile={column,row};
+    if(!walls.cannotStop(tile)&&!spawnTiles.some(p=>p.column===column&&p.row===row)&&!mapItems.some(item=>item.column===column&&item.row===row))available.push(tile);
+  }
+  available.sort((a,b)=>Math.hypot(a.column-15.5,a.row-15.5)-Math.hypot(b.column-15.5,b.row-15.5));
+  const colors=spawnTiles.map(p=>p.color);
+  for(const tile of available.slice(0,97))spawnTiles.push({...tile,color:colors[spawnTiles.length%colors.length]});
+}
+app.canvas.setAttribute('aria-label',`れ・こんきすた。32×32マスのマップと${spawnTiles.length}人のポーン`);
 const pawnNames = generatePawnNames(spawnTiles.length);
 const attackRangeLayer = new Container();
 map.addChild(attackRangeLayer);
@@ -391,7 +404,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -1685,7 +1698,22 @@ for (const button of speedButtons) {
   });
 }
 
+let stressTickerTime=performance.now();
+// Opt-in production profiling for this isolated load-test branch.
+const stressTest=new URLSearchParams(location.search).has('benchmark')?{
+  recording:false,updates:[] as number[],
+  simulate(seconds:number){app.stop();app.ticker.remove(app.render,app);app.ticker.lastTime=stressTickerTime;for(let index=0;index<Math.round(seconds*60);index++){stressTickerTime+=1000/60;app.ticker.update(stressTickerTime);}},
+  configure(scenario:string,speed:1|3){
+    for(const pawn of pawns){pawn.mode='automatic';pawn.priorities={construction:4,harvesting:scenario==='harvesting'?1:4,hauling:4,butchery:4,cooking:4,hunting:4,free:scenario==='harvesting'?4:1};}
+    for(const object of environmentObjects)object.collect=scenario==='harvesting';
+    simulationClock.speed=speed;
+  },
+  state(){return {pawns:pawns.length,alive:pawns.filter(p=>!p.dead).length,hungry:pawns.filter(p=>p.needs.satiety<=20).length,sleeping:pawns.filter(p=>p.sleep?.phase==='sleeping').length,minHP:Math.min(...pawns.map(p=>p.hp)),uniqueTiles:new Set(pawns.map(p=>`${p.movement.tile.column},${p.movement.tile.row}`)).size,simulationSeconds:gameTime.date.getTime()/(30*60000),harvested:environmentObjects.filter(o=>o.collected).length,moving:pawns.filter(p=>p.movement.nextTile).length};}
+}:null;
+if(stressTest){simulationClock.speed=0;Object.assign(globalThis,{__stressTest:stressTest});}
+
 app.ticker.add((ticker) => {
+  const stressStart=stressTest?.recording?performance.now():0;
   for (let index = destinationMarkers.length - 1; index >= 0; index--) {
     const marker = destinationMarkers[index];
     marker.ageSeconds += ticker.deltaMS / 1000;
@@ -1783,6 +1811,7 @@ app.ticker.add((ticker) => {
   updatePawnModeButton();
   updateItemSummary();
   updateStationInfo();
+  if(stressTest?.recording)stressTest.updates.push(performance.now()-stressStart);
 });
 
 app.renderer.on('resize', applyCamera);
