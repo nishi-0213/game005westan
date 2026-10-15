@@ -11,7 +11,7 @@ import type { CombatPawn, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
 import { attackRangeEdges } from './attack-range';
 import { WorldLighting } from './world-lighting';
-import { draftExpired } from './draft-duration';
+import { draftExpired,resetDraftTimer } from './draft-duration';
 import { GameTime } from './game-time';
 import { StructureShadows } from './structure-shadows';
 import { SimulationClock } from './simulation-clock';
@@ -34,8 +34,8 @@ import { demolishStructure, destroyStructure } from './demolition';
 import { ENVIRONMENT_PROPERTIES, harvestYield, initialEnvironment, nearbySameType } from './environment';
 import type { EnvironmentObject } from './environment';
 import { PlantGrowth } from './plant-growth';
-import { Wildlife, deerAction } from './wildlife';
-import type { Deer, Animal } from './wildlife';
+import { Wildlife, deerAction,WOLF_RETALIATION_PROBABILITY } from './wildlife';
+import type { Deer, Animal, Wolf } from './wildlife';
 import { FACTIONS, isPlayerControlled } from './factions';
 import type { Faction } from './factions';
 import { Harvesting } from './harvesting';
@@ -372,7 +372,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, draftedSeconds:0, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -882,6 +882,8 @@ function updateItemSelection(): void {
   for (const element of document.querySelectorAll<HTMLElement>('[data-item-property]')) element.hidden = infoFocus !== 'item';
   for (const element of document.querySelectorAll<HTMLElement>('[data-environment-property]')) element.hidden = infoFocus !== 'environment';
   for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = infoFocus !== 'deer';
+  for(const element of document.querySelectorAll<HTMLElement>('[data-wolf-property]'))element.hidden=infoFocus!=='deer'||selectedDeer?.kind!=='wolf';
+  if(infoFocus==='deer'&&selectedDeer?.kind==='wolf')setText(document.querySelector<HTMLElement>('#wolf-retaliation')!,`${Math.round((selectedDeer.retaliationProbability??WOLF_RETALIATION_PROBABILITY)*100)}%`);
   for (const element of document.querySelectorAll<HTMLElement>('[data-corpse-property]')) element.hidden=!(infoFocus==='deer'&&selectedDeer?.dead);
   if(selectedDeer?.dead)setText(document.querySelector<HTMLElement>('#corpse-mass')!,`${ITEM_APPEARANCE[corpseItemType(selectedDeer)].massKg}kg`);
   for(const element of document.querySelectorAll<HTMLElement>('[data-food-property]'))element.hidden=infoFocus!=='item'||!selectedItem||foodNutrition(selectedItem.type)<=0;
@@ -945,8 +947,9 @@ function updatePawnModeButton(): void {
 }
 
 function setPawnMode(pawn:typeof pawns[number],mode:'drafted'|'automatic'):void {
-  if(pawn.mode!==mode)pawn.draftedSeconds=0;
+  const changed=pawn.mode!==mode;
   pawn.mode=mode;
+  if(changed)resetDraftTimer(pawn);
   if(mode==='drafted'&&pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
   pawn.manualMove=false;
   combat.cancel(pawn);
@@ -1512,7 +1515,7 @@ combat.onAttack = event => {
   if (pawn && event.weapon === 'rifle') { pawn.weaponView.rotation = Math.atan2(event.to.row - event.from.row, event.to.column - event.from.column); pawn.shotSeconds=.12; }
   if(pawn && event.weapon==='knife'){pawn.swingSeconds=.25;pawn.swingAngle=Math.atan2(event.to.row-event.from.row,event.to.column-event.from.column);}
   if ('kind' in event.target && event.target.kind === 'deer') wildlife.flee(event.target as Deer, event.from);
-  if(!event.target.dead&&'kind' in event.target&&event.target.kind==='wolf')combat.requestRetaliation(event.target,event.attacker);
+  if(!event.target.dead&&'kind' in event.target&&event.target.kind==='wolf')wildlife.reactToAttack(event.target as Wolf,event.attacker);
   const player=pawns.find(pawn=>pawn===event.target&&pawn.faction==='player');
   if(player){
     player.attackedSeconds=3;
@@ -1631,8 +1634,8 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    plantGrowth.update(seconds,gameTime.hour);
     gameTime.advance(seconds);
-    plantGrowth.update(seconds);
     corpseEating.updateClaims(seconds);
     for (const pawn of pawns) {
       if(pawn.faction==='player'&&draftExpired(pawn,seconds))setPawnMode(pawn,'automatic');

@@ -17,6 +17,7 @@ import type { MapItem } from './items';
 
 export interface Animal extends EatingWorker, FactionMember {
   kind: 'deer' | 'wolf';
+  retaliationProbability?:number;
   attackJob?: AttackOrder | null;
   hunt?: boolean;
   id: number;
@@ -30,8 +31,9 @@ export interface Animal extends EatingWorker, FactionMember {
   attackMotionSeconds?:number;
 }
 export type Deer=Animal & {kind:'deer'};
-export type Wolf=Animal & {kind:'wolf';prey?:CombatTarget};
-export function createWolf(tile:Tile,id:number):Wolf {return {...createDeer(tile,id),kind:'wolf'};}
+export type Wolf=Animal & {kind:'wolf';prey?:CombatTarget;retaliationProbability:number};
+export const WOLF_RETALIATION_PROBABILITY=.5;
+export function createWolf(tile:Tile,id:number):Wolf {return {...createDeer(tile,id),kind:'wolf',retaliationProbability:WOLF_RETALIATION_PROBABILITY};}
 export type FleeingPawn=EatingWorker & FactionMember & {fleeGoal?:Tile;freeSeconds?:number};
 export const DEER_FLEE_DISTANCE = 8;
 const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row === b.row;
@@ -209,11 +211,26 @@ export class Wildlife {
     updateRoaming(deer, walls, seconds, this.random);
   }
 
+  reactToAttack(wolf:Wolf,attacker:CombatTarget):'retaliate'|'flee'|null {
+    if(wolf.dead||wolf.departed||attacker.dead||attacker.departed)return null;
+    wolf.prey=undefined;
+    this.combat?.cancel(wolf);
+    if(this.random()<wolf.retaliationProbability){
+      wolf.fleeGoal=undefined;
+      return this.combat?.requestRetaliation(wolf,attacker)?'retaliate':null;
+    }
+    return this.flee(wolf,attacker.movement.tile)?'flee':null;
+  }
+
   updateWolf(wolf:Wolf,seconds:number):void {
     if(wolf.dead||wolf.departed)return;
     const walls=this.construction.walls;walls.bindMovement(wolf.movement,wolf.faction);
-    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,!wolf.leaving&&!wolf.attackJob?.retaliation,undefined,['meat','ration']);
+    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,!wolf.leaving&&!wolf.fleeGoal&&!wolf.attackJob?.retaliation,undefined,['meat','ration']);
     if(wolf.dead){this.combat?.cancel(wolf);return;}
+    if(wolf.fleeGoal){
+      if(wolf.movement.nextTile||!sameTile(wolf.movement.tile,wolf.movement.destination))return;
+      wolf.fleeGoal=undefined;wolf.freeSeconds=0;
+    }
     if(wolf.leaving){this.combat?.cancel(wolf);this.updateExit(wolf,seconds);return;}
     if(eating){this.combat?.cancel(wolf);return;}
     wolf.decisionSeconds-=seconds;

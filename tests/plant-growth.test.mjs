@@ -7,12 +7,15 @@ import { findPath } from '../src/pathfinding.ts';
 import { Harvesting } from '../src/harvesting.ts';
 import { createMovement } from '../src/movement.ts';
 
-test('initial trees, berries and rocks start fully grown at100HP', () => {
-  const objects = initialEnvironment(32);
-  for (const object of objects) assert.equal(object.hp, 100);
+test('initial plants have independently randomized growth and remaining lifetimes while rocks stay fully grown',()=>{
+ let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+ const objects=initialEnvironment(32,random),plants=objects.filter(o=>o.type!=='rock');
+ assert.ok(plants.every(o=>o.hp>=1&&o.hp<=100&&o.ageSeconds>=0&&o.ageSeconds<180));
+ for(const type of ['tree','wildStrawberry']){const group=plants.filter(o=>o.type===type);assert.ok(new Set(group.map(o=>o.hp)).size>5);assert.ok(new Set(group.map(o=>o.ageSeconds)).size>5);}
+ assert.ok(objects.filter(o=>o.type==='rock').every(o=>o.hp===100&&o.ageSeconds===undefined));
 });
 
-test('plants grow from1 to100HP in exactly60game seconds and pause without elapsed time', () => {
+test('plants grow from1 to100HP in exactly60daylight seconds and pause without elapsed time', () => {
   const tree = createEnvironment('tree', { column: 3, row: 3 });
   const berry = createEnvironment('wildStrawberry', { column: 4, row: 4 });
   const rock = createEnvironment('rock', { column: 5, row: 5 });
@@ -99,3 +102,15 @@ test('harvest yield uses theHP at completion, including growth during the harves
  assert.equal(tree.collected,true);assert.equal(berry.collected,true);assert.equal(rock.collected,false);assert.equal(newer.collected,false);assert.equal(growth.living.has(tree),false);
  growth.update(60);assert.equal(newer.collected,true);
  });
+
+test('plants stop growing at18and resume at6 while lifespan continues at night',()=>{
+ const tree=createEnvironment('tree',{column:2,row:2}),berry=createEnvironment('wildStrawberry',{column:3,row:2}),growth=new PlantGrowth([tree,berry],new Walls(8),()=>true);
+ growth.update(2,17);assert.equal(tree.hp,1+99/60*2);const before=tree.hp;growth.update(24,18);assert.equal(tree.hp,before);assert.equal(berry.hp,before);assert.equal(tree.ageSeconds,26);growth.update(2,6);assert.equal(tree.hp,before+99/60*2);assert.equal(berry.ageSeconds,28);
+});
+test('long updates split dawn, dusk and spawn boundaries without night growth',()=>{
+ const a=createEnvironment('tree',{column:2,row:2}),b={...a},ga=new PlantGrowth([a],new Walls(8),()=>true),gb=new PlantGrowth([b],new Walls(8),()=>true);
+ ga.update(100,17);for(let i=0;i<200;i++)gb.update(.5,(17+i*.25)%24);assert.ok(Math.abs(a.hp-b.hp)<1e-9);assert.equal(a.ageSeconds,100);assert.equal(b.ageSeconds,100);
+});
+test('a plant with little remaining lifetime expires at night without growing',()=>{
+ const tree={...createEnvironment('tree',{column:2,row:2}),hp:32,ageSeconds:179},growth=new PlantGrowth([tree],new Walls(8),()=>true);growth.update(1,0);assert.equal(tree.collected,true);assert.equal(tree.hp,32);assert.equal(growth.living.size,0);
+});

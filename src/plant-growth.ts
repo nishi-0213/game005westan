@@ -1,3 +1,4 @@
+import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 import { createEnvironment } from './environment.ts';
 import type { EnvironmentObject } from './environment';
 import type { Tile } from './movement';
@@ -21,10 +22,13 @@ export class PlantGrowth {
     for (const object of objects) if (object.type !== 'rock' && !object.collected) { this.living.add(object); if (object.hp < 100) this.growing.add(object); }
   }
 
-  update(seconds: number): void {
+  update(seconds: number, startHour?:number): void {
     let remaining = Math.max(0, seconds);
+    let hour=startHour===undefined?undefined:((startHour%24)+24)%24;
     while (remaining > 0) {
-      const step = Math.min(remaining, 60 - this.elapsed);
+      const daylight=hour===undefined||hour>=6&&hour<18;
+      const boundary=hour===undefined?Infinity:((daylight?18:hour<6?6:30)-hour)*60/GAME_MINUTES_PER_SECOND;
+      const step = Math.min(remaining, 60 - this.elapsed,boundary);
       let expired = false;
       for (const object of this.living) {
         if (object.collected) { this.living.delete(object); continue; }
@@ -37,10 +41,11 @@ export class PlantGrowth {
       if (expired) invalidatePaths(this.walls.isBlocked);
       for (const object of this.growing) {
         if (object.collected) { this.growing.delete(object); continue; }
-        object.hp = Math.min(100, object.hp + 99 * step / 60);
+        object.hp = Math.min(100, object.hp + (daylight?99 * step / 60:0));
         if (object.hp >= 100 - 1e-9) { object.hp = 100; this.growing.delete(object); }
       }
       remaining -= step;
+      if(hour!==undefined){hour=(hour+step*GAME_MINUTES_PER_SECOND/60)%24;for(const edge of [0,6,18,24])if(Math.abs(hour-edge)<1e-9)hour=edge%24;}
       this.elapsed += step;
       if (this.elapsed >= 60 - 1e-9) { this.elapsed = 0; this.spawn(); }
     }
