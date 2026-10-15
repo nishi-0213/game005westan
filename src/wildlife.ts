@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Combat, CombatTarget, AttackOrder } from './combat';
 import type { CorpseEating } from './corpse-eating';
 import type { FactionMember } from './factions';
@@ -195,7 +196,7 @@ export class Wildlife {
     if (deer.needs.satiety < FOOD_THRESHOLD) {
       if (!deer.harvestJob) {
         deer.decisionSeconds -= seconds;
-        if (deer.decisionSeconds <= 0) {
+        if (deer.decisionSeconds <= 0 && canPlan(deer.movement)) {
           deer.decisionSeconds = .25;
           const work = this.harvesting.findWork(deer, berries);
           if (work) {
@@ -242,8 +243,8 @@ export class Wildlife {
     wolf.decisionSeconds-=seconds;
     if((wolf.attackJob?.predation||wolf.attackJob?.retaliation)&&this.combat?.update(wolf,seconds))return;
     if(wolf.needs.satiety<=FOOD_THRESHOLD&&this.combat&&this.corpseEating){
-      if(wolf.prey?.dead&&this.corpseEating.request(wolf,wolf.prey)){wolf.prey=undefined;return;}
-      if(wolf.decisionSeconds<=0){
+      if(canPlan(wolf.movement)&&wolf.prey?.dead&&this.corpseEating.request(wolf,wolf.prey)){wolf.prey=undefined;return;}
+      if(wolf.decisionSeconds<=0&&canPlan(wolf.movement)){
         wolf.decisionSeconds=.25;
         const origin=wolf.movement.tile;
         const nearest=(targets:readonly CombatTarget[])=>[...targets].filter(target=>!target.departed&&!target.consumed&&target!==wolf).sort((a,b)=>Math.hypot(a.movement.tile.column-origin.column,a.movement.tile.row-origin.row)-Math.hypot(b.movement.tile.column-origin.column,b.movement.tile.row-origin.row)).find(target=>target.dead?this.corpseEating!.canEat(wolf,target):this.combat!.canReachAttack(wolf,target));
@@ -289,7 +290,7 @@ export class Wildlife {
       return;
     }
     deer.decisionSeconds -= seconds;
-    if (deer.decisionSeconds > 0) return;
+    if (deer.decisionSeconds > 0 || !canPlan(movement)) return;
     deer.decisionSeconds = .25;
     const paths = findPaths(movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, movement);
     let best: { goal: Tile; path: Path } | undefined;

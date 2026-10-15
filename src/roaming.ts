@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Movement } from './movement';
 import { setRoute } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
@@ -8,6 +9,7 @@ export function updateRoaming(pawn: Roamer, walls: Walls, seconds: number, rando
   pawn.freeSeconds = (pawn.freeSeconds ?? 0) + seconds;
   const movement = pawn.movement;
   if (pawn.freeSeconds < 5 || movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row) return;
+  if(!canPlan(movement))return;
   pawn.freeSeconds %= 5;
   const paths = findPaths(movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, movement);
   const nearby = [...paths.keys()].filter(index => {

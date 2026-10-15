@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Cooking } from './cooking';
 import type { Hunting } from './hunting';
 import type { Butchery } from './butchery';
@@ -21,6 +22,7 @@ export function nextPriority(value: number, direction: 1 | -1 = 1): number { ret
 
 export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling, clearing?: Clearing, butchery?: Butchery, hunting?: Hunting, cooking?:Cooking): void {
   if (worker.dead) {hunting?.cancel(worker);if(worker.cookJob)cooking?.cancel(worker);return;}
+  if(!worker.workTask&&!canPlan(worker.movement)&&worker.mode==='automatic'&&!worker.dropRequested)return;
   const wasFree = worker.freeActive;
   worker.freeActive = false;
   if (worker.mode !== 'automatic' || worker.dropRequested) {
@@ -34,7 +36,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
   const signature = `${worker.priorities.construction},${worker.priorities.harvesting},${worker.priorities.hauling ?? 3},${worker.priorities.free ?? 4},${worker.priorities.butchery ?? 3},${worker.priorities.hunting??3},${worker.priorities.cooking??3}`;
   worker.decisionSeconds = (worker.decisionSeconds ?? 0) - seconds;
   let task = worker.workTask;
-  if (!task || worker.decisionSeconds <= 0 || worker.prioritySignature !== signature) {
+  if ((!task || worker.decisionSeconds <= 0 || worker.prioritySignature !== signature) && canPlan(worker.movement)) {
     const choices = [
       { task: 'harvest', priority: worker.priorities.harvesting },
       { task: 'transport', priority: worker.priorities.hauling ?? 3 },

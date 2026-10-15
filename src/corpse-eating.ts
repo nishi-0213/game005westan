@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { EatingWorker } from './needs';
 import { requestEat } from './needs.ts';
 import type { Construction } from './construction';
@@ -17,12 +18,9 @@ export class CorpseEating {
   onConsume?:(corpse:Corpse)=>void;
   isReserved?:(corpse:Corpse)=>boolean;
   constructor(construction:Construction,harvesting:Harvesting,hauling:Hauling,corpses:()=>readonly Corpse[]){this.construction=construction;this.harvesting=harvesting;this.hauling=hauling;this.corpses=corpses;}
-  private reachabilitySeconds=0;
   updateClaims(seconds=0):void {
-    this.reachabilitySeconds-=seconds;
-    if(seconds>0&&this.reachabilitySeconds<=0){
-      this.reachabilitySeconds=.25;
-      for(const [corpse,{worker}]of this.claims)if(!this.approach(worker,corpse)){
+    if(seconds>0){
+      for(const [corpse,{worker}]of this.claims)if(canPlan(worker.movement)&&!this.approach(worker,corpse)){
         worker.eatJob=null;
         stopAtNextSafeTile(worker.movement,this.construction.walls.cannotStop);
       }

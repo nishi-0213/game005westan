@@ -4,6 +4,8 @@ export interface Tile {
 }
 
 export interface Movement {
+  planningAllowed?: boolean;
+  pendingRepath?: Tile;
   tile: Tile;
   destination: Tile;
   nextTile: Tile | null;
@@ -30,6 +32,7 @@ export function setDestination(movement: Movement, destination: Tile, isBlocked:
   // When already crossing a barricade, reject orders that would strand the pawn there.
   const start = movement.nextTile ?? movement.tile;
   if (cannotStop(start) && !hasSafeExit(start, destination, isBlocked, cannotStop)) return false;
+  delete movement.pendingRepath;
   movement.destination = { ...destination };
   movement.route = undefined;
   movement.changed?.();
@@ -65,6 +68,7 @@ export function stopAtNextSafeTile(movement: Movement, cannotStop: TileRule = al
 export function setRoute(movement: Movement, route: Tile[]): boolean {
   const destination = route.at(-1) ?? movement.nextTile ?? movement.tile;
   if (movement.stopBlocked?.(destination)) return false;
+  delete movement.pendingRepath;
   movement.route = route.map((tile) => ({ ...tile }));
   movement.destination = { ...destination };
   movement.changed?.();

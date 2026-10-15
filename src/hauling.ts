@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 import type { Clearing, ClearanceJob } from './clearing';
 import type { Builder } from './construction';
@@ -118,6 +119,7 @@ export class Hauling {
     const movement = worker.movement;
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!worker.haulJob) {
+      if(!canPlan(movement))return;
       const work = worker.forcedHaulSource ? this.forcedWork(worker, worker.forcedHaulSource) : this.findWork(worker);
       if (!work) { if (worker.forcedHaulSource) this.cancel(worker); return; }
       if (work.source) this.claims.set(work.source, worker);
@@ -128,6 +130,7 @@ export class Hauling {
     const active = worker.haulJob;
     if (!sameTile(movement.tile, active.goal)) { this.cancel(worker); return; }
     if (active.phase === 'pickup') {
+      if(!canPlan(movement))return;
       const source = active.source!;
       const quantity = Math.min(source.quantity, this.storage.capacity(active.target, source.type), carryCapacity(worker, source.type));
       worker.inventory = { type: source.type, quantity };

@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Builder, Construction } from './construction';
 import type { Hauling } from './hauling';
 import type { Wall } from './walls';
@@ -69,6 +70,7 @@ export class Cooking {
     if(active&&(!this.wantsWork(active.station)||this.claims.get(active.station)!==worker||(work==='process')!==(active.phase==='process'))){this.cancel(worker);return;}
     const m=worker.movement;if(m.nextTile||!same(m.tile,m.destination))return;
     if(!active){
+      if(!canPlan(m))return;
       const found=work==='process'?this.findProcessing(worker):this.findTransport(worker);if(!found)return;
       this.claims.set(found.station,worker);
       const source=(found as {source?:MapItem}).source;
@@ -78,6 +80,7 @@ export class Cooking {
     if(!same(m.tile,active.goal)){this.cancel(worker);return;}
     const state=active.station.cooking!;
     if(active.phase==='pickup'){
+      if(!canPlan(m))return;
       const source=active.source!;
       if(source.quantity<=0||!ingredient(source.type)||!this.construction.storage?.isSource(source)&&!source.collect){this.cancel(worker);return;}
       const approach=this.construction.approach(m.tile,active.station,this.paths(worker));if(!approach){this.cancel(worker);return;}

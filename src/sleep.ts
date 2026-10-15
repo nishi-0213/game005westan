@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type {EatingWorker} from './needs';
 import type {Construction} from './construction';
 import type {Wall} from './walls';
@@ -38,6 +39,7 @@ export class Sleeping {
     return best;
   }
   private exit(p:SleepWorker):boolean {
+    if(!canPlan(p.movement))return false;
     const walls=this.construction.walls;
     const paths=findPaths(p.movement.tile,walls.mapSize,walls.isBlocked,walls.cannotStop,p.movement);
     for(const path of paths.values())if(setRoute(p.movement,path.tiles)){
@@ -84,7 +86,7 @@ export class Sleeping {
     }
     if(useBeds&&p.mode==='automatic'&&(p.needs.wakefulness??100)<20){
       p.sleepRetrySeconds=(p.sleepRetrySeconds??0)-elapsed;
-      if(p.sleepRetrySeconds<=0){p.sleepRetrySeconds=.25;const bed=this.nearestBed(p);if(bed){
+      if(p.sleepRetrySeconds<=0&&canPlan(p.movement)){p.sleepRetrySeconds=.25;const bed=this.nearestBed(p);if(bed){
         this.interrupt(p);this.claims.set(bed.bed,p);p.sleep={phase:'approach',goal:bed.goal,bed:bed.bed};setRoute(p.movement,bed.tiles);return true;
       }}
     }

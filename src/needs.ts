@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 import { canGiveOrders, rememberMood, type MoodMemory } from './mood.ts';
 import { diningTable, findDiningSeat } from './dining.ts';
@@ -146,6 +147,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
       worker.eatJob = { source:heldFoodSource(worker,goal), goal, held:true };
       return true;
     }
+    if(!canPlan(worker.movement))return false;
     const types:readonly ItemType[]=animalDiet??['strawberry','meat','ration'];
     const sources = [...construction.items.filter(item => types.includes(item.type) && (animalDiet||item.collect) && item.quantity > 0), ...types.flatMap(type=>construction.storage?.sources(type)??[])];
     if (!sources.length) return fallbackFood?.(worker)??false;
@@ -170,11 +172,14 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     stopAtNextSafeTile(worker.movement,construction.walls.cannotStop);
     job.goal = {...worker.movement.destination};
     job.seatChecked = false;
-    if (seekDiningSeat(worker,construction)) return true;
+    if (canPlan(worker.movement)&&seekDiningSeat(worker,construction)) return true;
   }
   if (worker.movement.nextTile || !sameTile(worker.movement.tile, worker.movement.destination)) return true;
   if (!sameTile(worker.movement.tile, job.goal)) { worker.eatJob = null; return false; }
-  if (!animalDiet && !job.seatChecked && seekDiningSeat(worker,construction)) return true;
+  if (!animalDiet && !job.seatChecked) {
+    if(!canPlan(worker.movement))return true;
+    if(seekDiningSeat(worker,construction))return true;
+  }
   job.eatingSeconds = Math.min(EATING_SECONDS, (job.eatingSeconds ?? 0) + elapsed);
   if (job.eatingSeconds < EATING_SECONDS) return true;
   const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));

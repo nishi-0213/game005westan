@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import { canGiveOrders, rememberMood } from './mood.ts';
 import { footprint } from './walls.ts';
 import { rayTiles, shootingObstacles } from './shooting.ts';
@@ -241,7 +242,7 @@ export class Combat {
       const changedGoal = job.goal && positionKey(job.goal) !== positionKey(pawn.movement.destination);
       const blocked=pawn.movement.terrainBlocked??this.construction.walls.isBlocked;
       const sealedRoute=(job.predation||job.retaliation)&&job.retrySeconds<=0&&((pawn.movement.nextTile&&blocked(pawn.movement.nextTile))||pawn.movement.route?.some(blocked));
-      if (job.retrySeconds <= 0 && (movedTarget || stationary(pawn) || changedGoal || sealedRoute)) {
+      if (canPlan(pawn.movement) && job.retrySeconds <= 0 && (movedTarget || stationary(pawn) || changedGoal || sealedRoute)) {
         job.retrySeconds = .25;
         const approach = this.attackApproach(pawn, job.target);
         if (approach) {

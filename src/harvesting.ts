@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Builder } from './construction';
 import type { EnvironmentObject } from './environment';
 import { ENVIRONMENT_PROPERTIES, harvestYield } from './environment.ts';
@@ -33,6 +34,7 @@ export class Harvesting {
   }
 
   findWork(worker: HarvestWorker, eligible = markedForHarvest): { target: EnvironmentObject; goal: Tile; path: Path } | null {
+    if (!canPlan(worker.movement))return null;
     if (!this.objects.some(target => eligible(target) && !target.collected && !this.claims.has(target))) return null;
       const paths = findPaths(worker.movement.nextTile ?? worker.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, worker.movement);
       let best: { target: EnvironmentObject; goal: Tile; path: Path } | null = null;
@@ -58,7 +60,7 @@ export class Harvesting {
     if (worker.movement.nextTile || !sameTile(worker.movement.tile, worker.movement.destination)) return;
     if (!worker.harvestJob) {
       worker.harvestRetrySeconds -= seconds;
-      if (worker.harvestRetrySeconds > 0) return;
+      if (worker.harvestRetrySeconds > 0 || !canPlan(worker.movement)) return;
       worker.harvestRetrySeconds = 0.25;
       const best = this.findWork(worker, eligible);
       if (best) {

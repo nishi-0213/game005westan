@@ -19,6 +19,7 @@ import { GameTime } from './game-time';
 import { StructureShadows } from './structure-shadows';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
+import { PathSearchSchedule } from './path-schedule';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
 import type { EatingWorker } from './needs';
 import type { Corpse } from './butchery';
@@ -355,6 +356,7 @@ function updateDeerViews(): void {
   }
 }
 
+const pathSearchSchedule = new PathSearchSchedule();
 const spawnTiles = [
   { column: 15, row: 15, color: 0xf2c66d },
   { column: 16, row: 15, color: 0x82c6dc },
@@ -431,7 +433,7 @@ hauling.onCommand = worker => {
 };
 const pawnOccupancy = new PawnOccupancy();
 for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
-wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
+wildlife.onSpawn = deer => {pathSearchSchedule.assign(deer.movement);pawnOccupancy.track(deer.movement);};
 wildlife.onDepart = deer => pawnOccupancy.untrack(deer.movement);
 const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
 const butchery = new Butchery(construction, hauling, () => [...pawns, ...wildlife.animals], () => pawns);
@@ -1734,6 +1736,9 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    pathSearchSchedule.advance();
+    for(const pawn of pawns)pathSearchSchedule.assign(pawn.movement);
+    for(const animal of wildlife.animals)pathSearchSchedule.assign(animal.movement);
     plantGrowth.update(seconds,gameTime.hour);
     gameTime.advance(seconds);
     corpseEating.updateClaims(seconds);

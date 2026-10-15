@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Builder } from './construction';
 import type { Hauling } from './hauling';
 import type { ItemType, MapItem } from './items';
@@ -106,6 +107,7 @@ export class Clearing {
     const movement = worker.movement;
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!worker.clearJob) {
+      if(!canPlan(movement))return;
       const work = this.findWork(worker);
       if (!work) return;
       this.claims.set(work.target, worker);
@@ -120,6 +122,7 @@ export class Clearing {
     const job = worker.clearJob;
     if (!sameTile(movement.tile, job.goal)) { this.cancel(worker); return; }
     if (job.phase === 'pickup') {
+      if(!canPlan(movement))return;
       const source = job.source!;
       if (source.quantity <= 0 || !footprint(job.target).some(tile => sameTile(source, tile))) { this.cancel(worker); return; }
       const place = this.nearbyPlace(movement.tile, job.target, source.type, worker);
@@ -132,6 +135,7 @@ export class Clearing {
     }
     if (!worker.inventory?.quantity) { this.cancel(worker); return; }
     if (!this.canPlace(job.goal, worker.inventory.type, worker)) {
+      if(!canPlan(movement))return;
       this.destinations.delete(key(job.goal));
       if (!this.assignDrop(worker, job.target, job.collect)) this.cancel(worker);
       return;

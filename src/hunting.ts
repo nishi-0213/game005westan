@@ -1,3 +1,4 @@
+import {canPlan} from './path-schedule.ts';
 import type { AutonomousWorker } from './work-priorities';
 import type { CombatPawn } from './combat';
 import { Combat } from './combat.ts';
@@ -30,6 +31,7 @@ export class Hunting {
   update(worker:AutonomousWorker,seconds:number):void {
     const pawn=this.pawn(worker);if(!pawn){this.cancel(worker);return;}
     if(!pawn.attackJob?.hunting){
+      if(!canPlan(pawn.movement))return;
       const target=this.choices.get(worker);
       if(!target||!this.combat.requestHunt(pawn,target)){worker.decisionSeconds=0;return;}
     }

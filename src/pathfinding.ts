@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import type { Movement, Tile } from './movement';
 import { advanceMovement, setRoute } from './movement.ts';
 
@@ -118,6 +119,12 @@ export function commandMove(movement: Movement, goal: Tile, size: number, blocke
 
 export function advancePathMovement(movement: Movement, seconds: number, size: number, blocked: (tile: Tile) => boolean, cannotStop: (tile: Tile) => boolean): void {
   blocked = movement?.terrainBlocked ?? blocked;
+  if(movement.pendingRepath){
+    if(!canPlan(movement))return;
+    const pending=movement.pendingRepath;delete movement.pendingRepath;
+    commandMove(movement,pending,size,blocked,cannotStop);
+  }
+  if(!canPlan(movement)&&(movement.reservationBlocked?.(movement.destination)||movement.nextTile&&blocked(movement.nextTile)))return;
   // A death or blocked route can create a new stationary occupant after orders were issued.
   // Passing pawns do not displace a pawn that is waiting at its reserved destination.
   if (movement.reservationBlocked?.(movement.destination)) {
@@ -134,6 +141,7 @@ export function advancePathMovement(movement: Movement, seconds: number, size: n
   const hadRoute = movement.route !== undefined;
   advanceMovement(movement, seconds, blocked, cannotStop);
   if (hadRoute && (movement.destination.column !== goal.column || movement.destination.row !== goal.row)) {
+    if(!canPlan(movement)){movement.pendingRepath=goal;return;}
     if (!commandMove(movement, goal, size, blocked, cannotStop) && movement.stopBlocked?.(movement.destination)) {
       const paths = findPaths(movement.tile, size, blocked, cannotStop, movement);
       const nearest = paths.values().next().value;

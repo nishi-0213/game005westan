@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 import type { MapItem, ItemType } from './items';
 import { carryCapacity, returnItems } from './items.ts';
@@ -148,7 +149,7 @@ export class Construction {
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!builder.job) {
       builder.retrySeconds -= seconds;
-      if (builder.retrySeconds > 0) return;
+      if (builder.retrySeconds > 0 || !canPlan(movement)) return;
       builder.retrySeconds = 0.25;
       const plan = this.nearestPlan(builder, undefined, work);
       if (!plan) return;
@@ -181,6 +182,7 @@ export class Construction {
     const job = builder.job;
     if (!sameTile(movement.tile, job.goal)) { this.cancel(builder); return; }
     if (job.phase === 'gather') {
+      if(!canPlan(movement))return;
       const source = job.source!;
       if (source.quantity <= 0) { this.cancel(builder); return; }
       const quantity = Math.min(source.quantity, carryCapacity(builder, source.type));
