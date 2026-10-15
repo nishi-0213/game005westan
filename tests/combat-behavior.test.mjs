@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Combat, ATTACK_INTERVAL } from '../src/combat.ts';
 import { areHostile } from '../src/factions.ts';
 import { attackRangeEdges } from '../src/attack-range.ts';
-import { Wildlife, createDeer, deerAction } from '../src/wildlife.ts';
+import { Wildlife, createDeer, createWolf, deerAction } from '../src/wildlife.ts';
 import { createMovement } from '../src/movement.ts';
 import { advancePathMovement } from '../src/pathfinding.ts';
 import { Walls } from '../src/walls.ts';
@@ -89,4 +89,50 @@ test('unarmed range outlines exactly the3by3outer square and rifle outlines stay
  assert.ok(rifle.every(e=>[e.from,e.to].every(t=>t.column>=0&&t.row>=0&&t.column<=32&&t.row<=32)));
  assert.ok(rifle.some(e=>e.from.column===21||e.to.column===21));
  assert.equal(attackRangeEdges(tile(5,5),'unarmed',32).some(e=>e.from.column===5&&e.from.row===5),false);
+});
+
+test('drafted defenders prioritize animals preying on players over closer enemies and peaceful animals',()=>{
+ const s=scene(),defender=s.pawn(2,3,'player','rifle'),victim=s.pawn(9,3,'player','unarmed','automatic'),enemy=s.pawn(3,4,'enemy1'),wolf=createWolf(tile(8,3),1),peaceful=createWolf(tile(3,2),2);
+ assert.ok(s.combat.requestPredation(wolf,victim));
+ s.combat.update(defender,0,[enemy,peaceful,wolf,victim]);assert.equal(defender.attackJob.target,wolf);assert.equal(defender.attackJob.manual,false);
+ s.combat.update(defender,.4,[enemy,peaceful,wolf,victim]);assert.equal(wolf.hp,70);assert.equal(enemy.hp,100);assert.equal(peaceful.hp,100);
+});
+
+test('automatic player pawns do not acquire predators until drafted',()=>{
+ const s=scene(),defender=s.pawn(2,3,'player','rifle','automatic'),victim=s.pawn(9,3),wolf=createWolf(tile(8,3),1);s.combat.requestPredation(wolf,victim);
+ s.combat.update(defender,0,[wolf,victim]);assert.ok(!defender.attackJob);
+ defender.mode='drafted';s.combat.update(defender,.25,[wolf,victim]);assert.equal(defender.attackJob.target,wolf);
+ defender.mode='automatic';s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob,null);
+});
+
+test('manual attack targets are never replaced by an animal preying on a player',()=>{
+ const s=scene(),defender=s.pawn(2,3,'player','rifle'),victim=s.pawn(9,3),enemy=s.pawn(3,4,'enemy1'),wolf=createWolf(tile(8,3),1);
+ s.combat.requestAttack(defender,enemy);s.combat.requestPredation(wolf,victim);
+ s.combat.update(defender,.25,[wolf,victim,enemy]);assert.equal(defender.attackJob.target,enemy);assert.equal(defender.attackJob.manual,true);
+});
+
+test('automatic enemy targeting yields to a new predation threat and stops when predation ends',()=>{
+ const s=scene(),defender=s.pawn(2,3,'player','rifle'),victim=s.pawn(9,3),enemy=s.pawn(3,4,'enemy1'),wolf=createWolf(tile(8,3),1);
+ s.combat.update(defender,0,[enemy,wolf,victim]);assert.equal(defender.attackJob.target,enemy);
+ s.combat.requestPredation(wolf,victim);s.combat.update(defender,.25,[enemy,wolf,victim]);assert.equal(defender.attackJob.target,wolf);
+ s.combat.cancel(wolf);s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob,null);
+});
+
+test('preying on wildlife or enemies does not make an animal an automatic defense target',()=>{
+ for(const faction of ['wild','enemy1']){
+  const s=scene(),defender=s.pawn(2,3,'player','rifle'),victim=s.pawn(9,3,faction),wolf=createWolf(tile(8,3),1);
+  s.combat.requestPredation(wolf,victim);s.combat.update(defender,0,[wolf,victim]);
+  if(faction==='wild')assert.ok(!defender.attackJob);else assert.equal(defender.attackJob.target,victim);
+ }
+});
+
+test('defense targeting respects rifle range and walls and is independent of animal species names',()=>{
+ for(const scenario of ['range','wall','futureSpecies']){
+  const s=scene(),defender=s.pawn(1,3,'player','rifle'),column=scenario==='range'?24:8,victim=s.pawn(column+1,3),animal=createWolf(tile(column,3),1);
+  if(scenario==='futureSpecies')animal.kind='futurePredator';
+  s.combat.requestPredation(animal,victim);
+  if(scenario==='wall')s.walls.complete(s.walls.plan(tile(4,3),'wood'));
+  s.combat.update(defender,0,[animal,victim]);
+  if(scenario==='futureSpecies')assert.equal(defender.attackJob.target,animal);else assert.ok(!defender.attackJob);
+ }
 });

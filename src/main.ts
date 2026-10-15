@@ -1821,6 +1821,7 @@ app.ticker.add((ticker) => {
     plantGrowth.update(seconds,gameTime.hour);
     gameTime.advance(seconds);
     corpseEating.updateClaims(seconds);
+    const combatTargets = [...pawns, ...wildlife.animals];
     for (const pawn of pawns) {
       if(pawn.faction==='player'&&draftExpired(pawn,seconds))setPawnMode(pawn,'automatic');
       walls.bindMovement(pawn.movement,pawn.faction);
@@ -1846,7 +1847,7 @@ app.ticker.add((ticker) => {
       pawn.controlBlocked=blocked;
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
       if(pawn.dead)sleeping.cancel(pawn);
-      const commanding = resting||fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, pawns);
+      const commanding = resting||fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, combatTargets);
       if (!eating && !commanding && pawn.forcedConstruction) construction.update(pawn,seconds);
       else if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');
       else if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);

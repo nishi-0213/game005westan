@@ -31,7 +31,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   corpseStation?: Tile;
   dead?: boolean;
   deadPosition?: Tile;
-  eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number; held?:boolean; seatChecked?:boolean; seat?:DiningSeat } | null;
+  eatJob: { source: MapItem; goal: Tile; manual?: boolean; corpse?: EatingWorker; eatingSeconds?: number; held?:boolean; seatChecked?:boolean; seat?:DiningSeat } | null;
 };
 export const SATIETY_LOSS_PER_SECOND = 1;
 export const STARVATION_HP_LOSS_PER_SECOND = 30 / (24 * 60 / GAME_MINUTES_PER_SECOND);

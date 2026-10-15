@@ -141,3 +141,10 @@ test('automatic human corpse fallback also starts at40percent',()=>{
  p.needs.satiety=40.01;updateNeeds(p,s.construction,s.harvesting,s.hauling,0,true,s.eating.automatic);assert.equal(p.eatJob,null);
  p.needs.satiety=40;updateNeeds(p,s.construction,s.harvesting,s.hauling,0,true,s.eating.automatic);assert.equal(body.corpseEater,p);
 });
+
+test('a drafted defender also targets an animal eating a player corpse, and stops after interruption',()=>{
+ const s=scene(),defender=s.human(2,3),victim=s.human(5,3),wolf=createWolf(tile(4,3),1);defender.mode='drafted';defender.weapon='rifle';
+ killPawn(victim,s.construction,s.harvesting,s.hauling);assert.ok(s.eating.request(wolf,victim));assert.equal(wolf.eatJob.corpse,victim);
+ s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob.target,wolf);assert.equal(defender.attackJob.manual,false);
+ wolf.eatJob=null;s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob,null);
+});

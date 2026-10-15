@@ -75,6 +75,15 @@ export type CombatPawn = CombatTarget & {
   attackMotionSeconds?: number;
 };
 
+/** Predation is a behavior, shared by current and future animal species. */
+export function isPredationThreat(observer: CombatPawn, animal: CombatTarget): boolean {
+  if (observer.faction !== 'player' || observer.mode !== 'drafted' || animal.faction !== 'wild' || animal.dead || animal.departed) return false;
+  const attack = (animal as CombatPawn).attackJob;
+  if (attack?.predation && attack.target.faction === 'player' && !attack.target.structure && !attack.target.dead && !attack.target.departed) return true;
+  const meal = animal.eatJob?.corpse;
+  return Boolean(meal && 'faction' in meal && meal.faction === 'player' && !meal.consumed && animal.eatJob!.source.quantity > 0);
+}
+
 export function inWeaponRange(weapon: Weapon, from: Tile, target: Tile): boolean {
   const dc = Math.abs(from.column - target.column), dr = Math.abs(from.row - target.row);
   if (!dc && !dr) return false;
@@ -203,12 +212,13 @@ export class Combat {
   }
 
   private automaticTarget(pawn: CombatPawn, targets: readonly CombatTarget[]): CombatTarget | null {
-    let nearest: CombatTarget | null = null, distance = Infinity;
+    let nearest: CombatTarget | null = null, distance = Infinity, defending = false;
     for (const target of targets) {
-      if (target === pawn || target.dead || target.departed || !areHostile(pawn, target)
+      const threat = isPredationThreat(pawn, target);
+      if (target === pawn || target.dead || target.departed || (!areHostile(pawn, target) && !threat)
         || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, target.movement.tile,target.structure)) continue;
       const candidateDistance = Math.hypot(target.movement.tile.column - pawn.movement.tile.column, target.movement.tile.row - pawn.movement.tile.row);
-      if (candidateDistance < distance) { distance = candidateDistance; nearest = target; }
+      if (threat && !defending || threat === defending && candidateDistance < distance) { distance = candidateDistance; nearest = target; defending = threat; }
     }
     return nearest;
   }
@@ -231,13 +241,17 @@ export class Combat {
       }
       return true;
     }
-    if (!pawn.attackJob && (pawn.forcedHaulSource || pawn.forcedCorpse || pawn.forcedConstruction)) return false;
-    if (!pawn.attackJob) {
+    const forcedWork = Boolean(pawn.forcedHaulSource || pawn.forcedCorpse || pawn.forcedConstruction);
+    const defendingPlayer = pawn.faction === 'player' && pawn.mode === 'drafted';
+    if (!pawn.attackJob && forcedWork && !defendingPlayer) return false;
+    const current = pawn.attackJob;
+    if (!current || current.manual === false && !current.hunting && !current.predation && !current.retaliation) {
       pawn.combatDecisionSeconds = (pawn.combatDecisionSeconds ?? 0) - seconds;
       if (pawn.combatDecisionSeconds <= 0) {
         pawn.combatDecisionSeconds = .25;
         const target = this.automaticTarget(pawn, targets);
-        if (target) {
+        if (target && (!forcedWork || isPredationThreat(pawn, target))
+          && (!current || isPredationThreat(pawn, target) && !isPredationThreat(pawn, current.target))) {
           this.interrupt(pawn);
           pawn.attackJob = { target, cooldown: attackStats(pawn).interval, retrySeconds: .25, manual: false };
         }
@@ -248,7 +262,7 @@ export class Combat {
     const manual = job.manual !== false;
     if (manual && pawn.mode !== 'drafted' || job.target.dead || job.target.departed
       || job.hunting && (pawn.mode!=='automatic'||!job.target.hunt)
-      || !manual && !job.hunting && !job.predation && !job.retaliation && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
+      || !manual && !job.hunting && !job.predation && !job.retaliation && ((!areHostile(pawn, job.target) && !isPredationThreat(pawn, job.target)) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
     const weapon = pawn.kind === 'wolf' ? 'unarmed' : pawn.weapon ?? 'unarmed';
