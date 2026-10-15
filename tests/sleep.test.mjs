@@ -10,6 +10,7 @@ import {initialNeeds,updateNeeds,requestEat} from '../src/needs.ts';
 import {createMovement} from '../src/movement.ts';
 import {advancePathMovement,findPath} from '../src/pathfinding.ts';
 import {PawnOccupancy} from '../src/pawn-occupancy.ts';
+import {Wildlife,createDeer,createWolf,deerAction} from '../src/wildlife.ts';
 function scene(){
  const walls=new Walls(12),items=[],construction=new Construction(walls,items,t=>walls.complete(t)),storage=new Storage(walls);
  construction.storage=storage;const sleeping=new Sleeping(construction),harvesting=new Harvesting([],items,walls),hauling=new Hauling(items,storage);
@@ -60,3 +61,22 @@ test('bed construction consumes exactly5wood and preserves its3second progress a
  assert.equal(plan.delivered,5);assert.equal(s.worker.inventory,null);s.construction.update(s.worker,1);assert.equal(plan.workSeconds,1);
  s.construction.cancel(s.worker);assert.equal(plan.state,'planned');s.construction.update(s.worker,0);s.construction.update(s.worker,1.9);assert.equal(plan.state,'planned');s.construction.update(s.worker,.1);assert.equal(plan.state,'completed');
 });
+
+// Exercise each animal's real AI update with the same Sleeping instance used by humans.
+for(const create of [createDeer,createWolf]){
+ test(`${create.name}: animal AI shares human sleep, stops eating/roaming, and wakes after8game hours`,()=>{
+  const s=scene(),animal=create({column:2,row:2},1),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>.5);
+  wildlife.sleeping=s.sleeping;const update=dt=>animal.kind==='deer'?wildlife.updateDeer(animal,dt):wildlife.updateWolf(animal,dt);
+  s.bed();assert.equal(animal.needs.wakefulness,100);update(1);assert.equal(animal.needs.wakefulness,99);
+  animal.needs.wakefulness=0;animal.needs.satiety=10;s.items.push({column:2,row:2,type:'ration',quantity:10,collect:true});
+  update(0);assert.equal(animal.sleep.phase,'sleeping');assert.equal(animal.sleep.bed,undefined);assert.equal(deerAction(animal),'就寝中');const position={...animal.movement.tile};
+  update(8);assert.equal(animal.needs.wakefulness,50);assert.equal(animal.needs.satiety,2);assert.equal(animal.eatJob,null);assert.equal(s.items[0].quantity,10);assert.deepEqual(animal.movement.destination,position);
+  update(7.9);assert.equal(animal.sleep.phase,'sleeping');update(.1);assert.equal(animal.needs.wakefulness,100);assert.equal(animal.sleep,undefined);assert.notEqual(deerAction(animal),'就寝中');
+ });
+ test(`${create.name}: starvation continues during sleep and death stops recovery`,()=>{
+  const s=scene(),animal=create({column:2,row:2},1),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>.5);wildlife.sleeping=s.sleeping;
+  const update=dt=>animal.kind==='deer'?wildlife.updateDeer(animal,dt):wildlife.updateWolf(animal,dt);
+  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.needs.health=0;animal.hp=10;update(0);update(1);
+  assert.equal(animal.dead,true);assert.equal(animal.sleep,undefined);const last=animal.needs.wakefulness;update(10);assert.equal(animal.needs.wakefulness,last);assert.equal(deerAction(animal),'死亡');
+ });
+}

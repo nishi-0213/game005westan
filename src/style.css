@@ -283,7 +283,7 @@ canvas { display: block; width: 100%; height: 100%; }
 .pawn-specs-tabs button { flex: 1; border: 1px solid #708268; padding: 4px; background: #354936; color: #f4e9cc; cursor: pointer; }
 .pawn-specs-tabs button[aria-pressed="true"] { background: #475b3e; border-color: #f2c66d; }
 .pawn-needs label { display: grid; grid-template-columns: 42px 1fr 38px; align-items: center; gap: 6px; margin: 10px 0; font-size: 12px; }
-.pawn-needs progress { width: 100%; height: 12px; accent-color: #8fba7a; }
+.needs-gauge { width: 100%; height: 12px; accent-color: #8fba7a; }
 
 #food-command { position: fixed; inset: auto; margin: 0; padding: 24px 12px 12px; border: 1px solid #708268; background: #263529; color: #f4e9cc; z-index: 4; }
 #close-food-command { position: absolute; top: 2px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
@@ -330,3 +330,6 @@ canvas { touch-action: none; }
 .pawn-roster-button.under-attack { border-color: #f23e3e; box-shadow: inset 0 0 0 1px #f23e3e; }
 
 #game-time { position: fixed; right: 0; top: 50%; transform: translateY(-50%); padding: 6px 8px; background: #151d19cc; color: #f4e9cc; font: 12px system-ui, sans-serif; pointer-events: none; }
+
+.animal-needs-meter { display: grid; grid-template-columns: minmax(0, 1fr) 38px; align-items: center; gap: 6px; }
+.animal-needs-meter[hidden] { display: none; }

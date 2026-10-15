@@ -1,3 +1,4 @@
+import { createNeedsMeter } from './needs-meter';
 import { Sleeping, type SleepState } from './sleep';
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import './style.css';
@@ -576,10 +577,10 @@ pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
 const needsMeters = (['満腹感', '健康', '覚醒度'] as const).map(label => {
   const row = document.createElement('label');
   const title = document.createElement('span'); title.textContent = label;
-  const meter = document.createElement('progress'); meter.max = 100; meter.value = 100; meter.setAttribute('aria-label', label);
-  const value = document.createElement('span'); value.textContent = '100%';
+  const gauge = createNeedsMeter(label);
+  const {meter, value} = gauge;
   row.append(title, meter, value); pawnNeeds.appendChild(row);
-  return { meter, value };
+  return gauge;
 });
 function selectPawnInfoTab(needs: boolean): void {
   pawnOverview.hidden = needs; pawnNeeds.hidden = !needs;
@@ -670,8 +671,7 @@ function updatePawnPanels(): void {
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health, selectedPawn.needs.wakefulness??100].entries()) {
-    if (needsMeters[index].meter.value !== value) needsMeters[index].meter.value = value;
-    setText(needsMeters[index].value, `${Math.round(value)}%`);
+    needsMeters[index].update(value);
   }
   const fullName = formatPawnName(selectedPawn.name);
   if (pawnSpecsName.textContent !== fullName) pawnSpecsName.textContent = fullName;
@@ -716,6 +716,8 @@ const animalAction = document.querySelector<HTMLElement>('#animal-action')!;
 const animalSatiety = document.querySelector<HTMLElement>('#animal-satiety')!;
 const animalHp = document.querySelector<HTMLElement>('#animal-hp')!;
 const animalHealth = document.querySelector<HTMLElement>('#animal-health')!;
+const animalWakefulness = createNeedsMeter('覚醒度');
+document.querySelector<HTMLElement>('#animal-wakefulness')!.append(animalWakefulness.meter, animalWakefulness.value);
 function updateObjectProperties(): void {
   if (!itemProperties.open) return;
   const environment = selectedEnvironment.values().next().value;
@@ -728,6 +730,7 @@ function updateObjectProperties(): void {
     setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
     setText(animalHp, `${Math.round(selectedDeer.hp ?? 100)}%`);
     setText(animalHealth, `${Math.round(selectedDeer.needs.health)}%`);
+    animalWakefulness.update(selectedDeer.needs.wakefulness ?? 100);
   }
 }
 
@@ -922,6 +925,7 @@ function updateItemSelection(): void {
     animalSatiety.textContent = `${Math.round(selectedDeer.needs.satiety)}%`;
     animalHp.textContent = `${Math.round(selectedDeer.hp ?? 100)}%`;
     animalHealth.textContent = `${Math.round(selectedDeer.needs.health)}%`;
+    animalWakefulness.update(selectedDeer.needs.wakefulness ?? 100);
   } else itemProperties.close();
   updateEnvironmentViews();
 }

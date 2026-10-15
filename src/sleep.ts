@@ -68,6 +68,8 @@ export class Sleeping {
     }
     p.needs.wakefulness=Math.max(0,(p.needs.wakefulness??100)-elapsed*SATIETY_LOSS_PER_SECOND);
     if(p.needs.wakefulness<=0){if(state?.phase!=='settle')this.floor(p);state=p.sleep;}
+    // The first tick of an immediate collapse must also suspend the caller's AI.
+    if(state?.phase==='sleeping')return true;
     if(state?.phase==='settle'){
       if(stationary(p))state.phase='sleeping';
       return true;
