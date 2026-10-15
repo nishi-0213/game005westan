@@ -23,14 +23,14 @@ test('transport, harvesting and actual building use independent priorities',()=>
  }
 });
 test('a transport specialist supplies a plan but leaves construction to another pawn',()=>{
- const s=scene({construction:4,harvesting:4,hauling:1,free:2});s.tick(s.worker,200);assert.equal(s.plan.delivered,10);assert.equal(s.plan.workSeconds,0);assert.equal(s.plan.state,'planned');assert.equal(s.construction.claims.has(s.plan),false);
+ const s=scene({construction:4,harvesting:4,hauling:1,free:2});s.tick(s.worker,200);assert.equal(s.plan.delivered,2);assert.equal(s.plan.workSeconds,0);assert.equal(s.plan.state,'planned');assert.equal(s.construction.claims.has(s.plan),false);
  const builder={...s.worker,movement:createMovement({column:2,row:2}),job:null,haulJob:null,priorities:{construction:1,harvesting:4,hauling:4,free:2}};
- s.tick(builder,20);assert.equal(s.plan.state,'completed');assert.equal(s.storage.totals().wood,30);
+ s.tick(builder,20);assert.equal(s.plan.state,'completed');assert.equal(s.storage.totals().wood,38);
 });
 test('active ground hauling reaches storage before switching to construction delivery',()=>{
  const s=scene({construction:3,harvesting:3,hauling:1,free:4});const stack={column:3,row:3,type:'stone',quantity:2,collect:true};s.items.push(stack);s.hauling.update(s.worker);assert.ok(s.worker.haulJob);
  for(let i=0;i<100&&s.box.stored.stone<2;i++){s.tick();assert.equal(s.plan.delivered,0);}assert.equal(s.box.stored.stone,2);s.tick(s.worker,150);assert.equal(s.plan.state,'completed');
 });
 test('raising free priority interrupts transport without losing delivered or carried resources',()=>{
- const s=scene({construction:4,harvesting:4,hauling:1,free:3});for(let i=0;i<100&&s.plan.delivered<3;i++)s.tick();assert.equal(s.plan.delivered,3);const carried=s.worker.inventory.quantity;s.worker.priorities.hauling=2;s.worker.priorities.free=1;s.tick();assert.equal(s.worker.job,null);assert.equal(s.plan.delivered,3);assert.equal(s.worker.inventory.quantity,carried);s.worker.priorities.free=3;s.tick(s.worker,100);assert.equal(s.plan.delivered,10);
+ const s=scene({construction:4,harvesting:4,hauling:1,free:3});for(let i=0;i<100&&s.plan.delivered<1;i++)s.tick();assert.equal(s.plan.delivered,1);const carried=s.worker.inventory.quantity;s.worker.priorities.hauling=2;s.worker.priorities.free=1;s.tick();assert.equal(s.worker.job,null);assert.equal(s.plan.delivered,1);assert.equal(s.worker.inventory.quantity,carried);s.worker.priorities.free=3;s.tick(s.worker,100);assert.equal(s.plan.delivered,2);
 });

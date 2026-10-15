@@ -35,7 +35,7 @@ export const WALL_PLAN_ALPHA = 0.7;
 export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; seconds: number } | null> = {
   stoneFloor:{materialCount:1,seconds:.2},
   woodFloor:{materialCount:1,seconds:.2},
-  wall: { materialCount: 10, seconds: 1 },
+  wall: { materialCount: 2, seconds: 1 },
   door: { materialCount: 15, seconds: 1 },
   barricade: { materialCount: 5, seconds: 1 },
   storage: { materialCount: 30, seconds: 3 },

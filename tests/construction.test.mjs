@@ -19,11 +19,11 @@ test('a wall gathers the right stack, deposits units singly, then builds for a f
  for(let i=0;i<200&&target.state==='planned';i++){
   const before=target.delivered;tick([builder]);assert.ok(target.delivered-before<=1);
   if(builder.inventory){sawPickup=true;assert.equal(builder.inventory.type,'wood');assert.ok(builder.inventory.quantity<=20);}
-  if(target.workSeconds>0){sawBuilding=true;assert.equal(target.delivered,10);}
+  if(target.workSeconds>0){sawBuilding=true;assert.equal(target.delivered,2);}
   if(target.workSeconds<1)assert.equal(target.state,'planned');
  }
- assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
- assert.equal(builder.inventory.quantity,10);assert.equal(items[0].quantity,80);assert.equal(items[1].quantity,200);
+ assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,2);
+ assert.equal(builder.inventory.quantity,18);assert.equal(items[0].quantity,80);assert.equal(items[1].quantity,200);
  assert.ok(sawPickup&&sawBuilding);
 });
 
@@ -36,12 +36,12 @@ test('a barricade consumes five materials and one second',()=>{
 });
 
 test('an insufficient stack is delivered partially and construction waits for the remainder',()=>{
- const items=[{type:'wood',quantity:3,column:3,row:2}];const {walls,tick}=scene(items);const builder=pawn();const target=walls.plan({column:5,row:2},'wood');
+ const items=[{type:'wood',quantity:1,column:3,row:2}];const {walls,tick}=scene(items);const builder=pawn();const target=walls.plan({column:5,row:2},'wood');
  for(let i=0;i<100;i++)tick([builder]);
- assert.equal(target.delivered,3);assert.equal(target.workSeconds,0);assert.equal(target.state,'planned');
- items.push({type:'wood',quantity:7,column:4,row:2});
+ assert.equal(target.delivered,1);assert.equal(target.workSeconds,0);assert.equal(target.state,'planned');
+ items.push({type:'wood',quantity:1,column:4,row:2});
  for(let i=0;i<150&&target.state==='planned';i++)tick([builder]);
- assert.equal(target.state,'completed');assert.equal(target.delivered,10);
+ assert.equal(target.state,'completed');assert.equal(target.delivered,2);
 });
 
 test('nearest material is selected by shortest traversable route rather than straight-line distance',()=>{
@@ -65,7 +65,7 @@ test('multiple builders reserve distinct targets and do not duplicate material c
  for(const b of builders)engine.update(b,.05);
  assert.notEqual(builders[0].job.target,builders[1].job.target);
  for(let i=0;i<180;i++)tick(builders);
- assert.equal(first.state,'completed');assert.equal(second.state,'completed');assert.equal(first.delivered+second.delivered,20);
+ assert.equal(first.state,'completed');assert.equal(second.state,'completed');assert.equal(first.delivered+second.delivered,4);
 });
 
 test('drafted pawns do no work and switching to drafted releases the reservation',()=>{
@@ -91,7 +91,7 @@ test('one builder switches material types without losing the leftover stack',()=
  assert.equal(wood.state,'completed');assert.equal(stone.state,'completed');
  const woodRemaining=items.filter(i=>i.type==='wood').reduce((n,i)=>n+i.quantity,0)+(builder.inventory?.type==='wood'?builder.inventory.quantity:0);
  const stoneRemaining=items.filter(i=>i.type==='stone').reduce((n,i)=>n+i.quantity,0)+(builder.inventory?.type==='stone'?builder.inventory.quantity:0);
- assert.equal(woodRemaining,90);assert.equal(stoneRemaining,190);
+ assert.equal(woodRemaining,98);assert.equal(stoneRemaining,198);
 });
 
 test('construction target is reselected by arrival time after collecting materials',()=>{
@@ -103,20 +103,20 @@ test('construction target is reselected by arrival time after collecting materia
 });
 
 test('drafting interrupts construction without losing materials or work, then resumes from the remaining time',()=>{
- const {walls,engine}=scene();const builder=pawn();const target=walls.plan({column:3,row:2},'wood');target.delivered=10;
+ const {walls,engine}=scene();const builder=pawn();const target=walls.plan({column:3,row:2},'wood');target.delivered=2;
  engine.update(builder,0);engine.update(builder,.4);assert.equal(target.workSeconds,.4);
  builder.mode='drafted';engine.cancel(builder);engine.update(builder,2);
- assert.equal(target.workSeconds,.4);assert.equal(target.delivered,10);assert.equal(target.state,'planned');
+ assert.equal(target.workSeconds,.4);assert.equal(target.delivered,2);assert.equal(target.state,'planned');
  builder.mode='automatic';engine.update(builder,0);engine.update(builder,.59);
  assert.equal(target.state,'planned');assert.ok(target.workSeconds>.98);
- engine.update(builder,.02);assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
+ engine.update(builder,.02);assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,2);
 });
 
 test('a different automatic pawn can finish progress saved by an interrupted builder',()=>{
- const {walls,engine}=scene();const first=pawn();const second=pawn();const target=walls.plan({column:3,row:2},'stone');target.delivered=10;
+ const {walls,engine}=scene();const first=pawn();const second=pawn();const target=walls.plan({column:3,row:2},'stone');target.delivered=2;
  engine.update(first,0);engine.update(first,.25);first.mode='drafted';engine.cancel(first);
  engine.update(second,0);assert.equal(second.job.phase,'build');assert.equal(target.workSeconds,.25);
- engine.update(second,.75);assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,10);
+ engine.update(second,.75);assert.equal(target.state,'completed');assert.equal(target.workSeconds,1);assert.equal(target.delivered,2);
 });
 
 test('removing a plan stops its assigned builder and prevents completion',()=>{
@@ -145,7 +145,7 @@ test('dropping puts held materials on the ground at the next safe tile and relea
 });
 
 test('only the owning builder advances a single plan, and interruption allows handover',()=>{
- const {walls,engine}=scene();const target=walls.plan({column:3,row:2},'wood');target.delivered=10;const first=pawn(),second=pawn();
+ const {walls,engine}=scene();const target=walls.plan({column:3,row:2},'wood');target.delivered=2;const first=pawn(),second=pawn();
  engine.update(first,0);engine.update(second,0);assert.equal(second.job,null);
  engine.update(first,.25);engine.update(second,.25);assert.equal(target.workSeconds,.25);
  first.mode='drafted';engine.cancel(first);engine.update(second,.25);assert.equal(engine.claims.get(target),second);
@@ -165,15 +165,31 @@ test('immediate construction keeps the selected plan across multiple supply trip
 test('a full load supplies nearby matching plans before starting construction',()=>{
  const items=[{type:'wood',quantity:100,column:2,row:2}],{walls,tick}=scene(items),builder=pawn();
  const first=walls.plan({column:3,row:2},'wood'),second=walls.plan({column:4,row:2},'wood');
- for(let i=0;i<100&&second.delivered<10;i++){tick([builder]);if(second.delivered<10)assert.equal(first.workSeconds,0);}
- assert.equal(first.delivered,10);assert.equal(second.delivered,10);assert.equal(items[0].quantity,80);assert.equal(builder.inventory,null);
+ for(let i=0;i<100&&second.delivered<2;i++){tick([builder]);if(second.delivered<2)assert.equal(first.workSeconds,0);}
+ assert.equal(first.delivered,2);assert.equal(second.delivered,2);assert.equal(items[0].quantity,80);assert.equal(builder.inventory.quantity,16);
  for(let i=0;i<200;i++)tick([builder]);assert.equal(first.state,'completed');assert.equal(second.state,'completed');
 });
 
 test('batch delivery excludes different kinds and materials and respects claims',()=>{
  const {walls,engine}=scene(),builder=pawn();builder.inventory={type:'wood',quantity:20};
- const first=walls.plan({column:3,row:2},'wood');first.delivered=10;
+ const first=walls.plan({column:3,row:2},'wood');first.delivered=2;
  walls.plan({column:4,row:2},'wood','barricade');walls.plan({column:3,row:3},'stone');
  const claimed=walls.plan({column:4,row:3},'wood');engine.claims.set(claimed,pawn());
  assert.equal(engine.assignDelivery(builder,'all',first),false);
+});
+
+test('builders deliver and finish construction from all four diagonal tiles with cardinal access blocked',()=>{
+ for(const kind of ['wall','woodFloor','stoneFloor'])for(const [dc,dr] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+  const {walls,tick}=scene([],9),target=walls.plan({column:4,row:4},kind==='stoneFloor'?'stone':'wood',kind);
+  for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]])walls.complete(walls.plan({column:4+dx,row:4+dy},'stone'));
+  const builder=pawn(4+dc,4+dr);builder.inventory={type:target.material,quantity:kind==='wall'?2:1};
+  for(let i=0;i<80&&target.state==='planned';i++)tick([builder]);
+  assert.equal(target.state,'completed');assert.deepEqual(builder.movement.tile,{column:4+dc,row:4+dr});assert.equal(builder.inventory,null);
+ }
+});
+
+test('immediate construction releases a material-starved order instead of reserving the plan forever',()=>{
+ const {walls,engine}=scene(),builder=pawn(),target=walls.plan({column:3,row:2},'wood');
+ assert.equal(engine.request(builder,target),true);engine.update(builder,0);
+ assert.equal(builder.forcedConstruction,undefined);assert.equal(builder.job,null);assert.equal(engine.claims.has(target),false);assert.equal(target.state,'planned');
 });

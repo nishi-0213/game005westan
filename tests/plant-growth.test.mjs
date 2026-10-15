@@ -26,23 +26,23 @@ test('plants grow from1 to100HP in exactly60daylight seconds and pause without e
   growth.update(120); assert.equal(tree.hp, 100); assert.equal(growth.growing.size, 0);
 });
 
-test('each minute spawns 10-15 trees, 6-9 berries and 20-30 grass without overlapping objects, structures or occupied tiles', () => {
+test('each minute spawns 100-150 trees, 6-9 berries and 20-30 grass without overlapping objects, structures or occupied tiles', () => {
   for (const random of [() => 0, () => .999]) {
-    const walls = new Walls(16), objects = [createEnvironment('rock', { column: 0, row: 0 })];
+    const walls = new Walls(32), objects = [createEnvironment('rock', { column: 0, row: 0 })];
     walls.plan({ column: 1, row: 0 }, 'wood');
     const growth = new PlantGrowth(objects, walls, tile => tile.column === 2 && tile.row === 0, () => {}, random);
     growth.update(59.9); assert.equal(objects.length, 1);
     growth.update(.1);
     const count = random() === 0 ? 2 : 3;
-    for (const type of ['tree', 'wildStrawberry', 'grass']) assert.equal(objects.filter(object => object.type === type).length, count * (type === 'tree' ? 5 : type === 'grass' ? 10 : 3));
+    for (const type of ['tree', 'wildStrawberry', 'grass']) assert.equal(objects.filter(object => object.type === type).length, count * (type === 'tree' ? 50 : type === 'grass' ? 10 : 3));
     assert.equal(new Set(objects.map(object => `${object.column},${object.row}`)).size, objects.length);
     for (const object of objects.slice(1)) {
       assert.equal(object.hp, 1);
       assert.ok(object.row !== 0 || object.column > 2);
     }
     growth.update(60);
-    for (const object of objects.slice(1, 1 + count * 18)) assert.equal(object.hp, 100);
-    assert.equal(objects.length, 1 + count * 36);
+    for (const object of objects.slice(1, 1 + count * 63)) assert.equal(object.hp, 100);
+    assert.equal(objects.length, 1 + count * 126);
   }
 });
 

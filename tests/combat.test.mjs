@@ -111,8 +111,8 @@ test('equipped workers haul and build using real3stone batches without exceeding
  assert.equal(maximum,3);assert.equal(source.quantity,0);assert.equal(box.stored.stone,8);
  s.storage.deposit(box,'stone',12);const wall=s.walls.plan(tile(9,6),'stone');maximum=0;
  for(let i=0;i<300&&wall.state!=='completed';i++){s.construction.update(a,.1);s.move(a);maximum=Math.max(maximum,a.inventory?.quantity??0);assert.ok(5+(a.inventory?.quantity??0)*4<=20);}
- assert.equal(maximum,3);assert.equal(wall.delivered,10);assert.equal(wall.state,'completed');
- assert.equal(box.stored.stone+(a.inventory?.quantity??0),10);
+ assert.equal(maximum,3);assert.equal(wall.delivered,2);assert.equal(wall.state,'completed');
+ assert.equal(box.stored.stone+(a.inventory?.quantity??0),18);
 });
 
  test('knife has90percent accuracy,40damage and diagonal melee range; equip replacement and drop preserve both weapons',()=>{

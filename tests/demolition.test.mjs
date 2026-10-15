@@ -15,7 +15,7 @@ function scene(kind='wall',material='wood'){
  return {walls,items,target,construction,worker,tick};
 }
 test('marked wood and stone walls are demolished as construction and refund exactly half once',()=>{
- for(const material of ['wood','stone']){const s=scene('wall',material);s.tick(0);assert.equal(s.worker.job.phase,'demolish');s.tick(.9);assert.equal(s.walls.isBlocked(s.target),true);s.tick(.1);assert.equal(s.walls.isBlocked(s.target),false);assert.equal(countItems(s.items)[material],5);assert.equal(demolishStructure(s.walls,s.items,s.target),null);assert.equal(countItems(s.items)[material],5);}
+ for(const material of ['wood','stone']){const s=scene('wall',material);s.tick(0);assert.equal(s.worker.job.phase,'demolish');s.tick(.9);assert.equal(s.walls.isBlocked(s.target),true);s.tick(.1);assert.equal(s.walls.isBlocked(s.target),false);assert.equal(countItems(s.items)[material],1);assert.equal(demolishStructure(s.walls,s.items,s.target),null);assert.equal(countItems(s.items)[material],1);}
 });
 test('box demolition refunds15wood and returns all stored contents',()=>{
  const s=scene('storage');s.target.stored={wood:40,stone:23,strawberry:0,ration:0,rifle:0,knife:0,meat:0,humanCorpse:0,deerCorpse:0,wolfCorpse:0};s.tick(0);s.tick(3);assert.deepEqual(countItems(s.items),{wood:55,stone:23,strawberry:0,ration:0,rifle:0,knife:0,meat:0,humanCorpse:0,deerCorpse:0,wolfCorpse:0});assert.equal(s.walls.items.size,0);

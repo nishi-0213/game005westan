@@ -15,3 +15,17 @@ const s=scene(),a=s.worker(),b=s.worker(2,4),station=s.station();station.cooking
 test('short, ignored or unreachable ingredients do not fabricate output; destruction returns staged ingredients',()=>{
 const s=scene(),w=s.worker(),station=s.station();s.items.push({...tile(3,3),type:'meat',quantity:4,collect:true},{...tile(3,4),type:'strawberry',quantity:10,collect:false});for(let i=0;i<150;i++)s.tick(w);assert.equal(countItems(s.items).ration,0);assert.equal(stagedNutrition(station.cooking),80);assert.equal(station.cooking.seconds,0);for(let r=0;r<12;r++)s.walls.complete(s.walls.plan(tile(4,r),'wood'));w.movement=createMovement(tile(2,3));assert.equal(s.cooking.findTransport(w),null);destroyStructure(s.walls,s.items,station);assert.equal(countItems(s.items).meat,4);assert.equal(countItems(s.items).wood,15);
 });
+
+test('a cooking order without ingredients returns to free and resumes when ingredients arrive',()=>{
+ const s=scene(),w=s.worker(),station=s.station();
+ s.tick(w);assert.equal(w.freeActive,true);assert.ok(!w.cookJob);assert.equal(station.cooking.remaining,1);
+ s.items.push({...tile(3,3),type:'meat',quantity:5,collect:true});
+ for(let i=0;i<200&&station.cooking.remaining;i++)s.tick(w);
+ assert.equal(station.cooking.remaining,0);assert.equal(countItems(s.items).ration,4);
+});
+
+test('depleted cooking ingredients release the active trip and station before arrival',()=>{
+ const s=scene(),w=s.worker(),station=s.station(),source={...tile(9,3),type:'meat',quantity:5,collect:true};s.items.push(source);
+ s.tick(w);assert.equal(w.cookJob.phase,'pickup');source.quantity=0;
+ s.tick(w);assert.equal(w.cookJob,null);assert.equal(s.cooking.claims.size,0);assert.equal(w.freeActive,true);assert.equal(station.cooking.remaining,1);
+});

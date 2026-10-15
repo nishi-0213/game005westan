@@ -141,7 +141,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     return false;
   }
   if (!worker.eatJob) {
-    if (worker.inventory && foodNutrition(worker.inventory.type) > 0 && (!animalDiet||animalDiet.includes(worker.inventory.type)) && worker.inventory.quantity > 0) {
+    if (!animalDiet && worker.inventory && foodNutrition(worker.inventory.type) > 0 && worker.inventory.quantity > 0) {
       interruptWork(worker, construction, harvesting, hauling);
       const goal = { ...worker.movement.destination };
       worker.eatJob = { source:heldFoodSource(worker,goal), goal, held:true };
@@ -149,22 +149,27 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     }
     if(!canPlan(worker.movement))return false;
     const types:readonly ItemType[]=animalDiet??['strawberry','meat','ration'];
-    const sources = [...construction.items.filter(item => types.includes(item.type) && (animalDiet||item.collect) && item.quantity > 0), ...types.flatMap(type=>construction.storage?.sources(type)??[])];
+    const carried = animalDiet && worker.inventory?.quantity && types.includes(worker.inventory.type) ? heldFoodSource(worker, worker.movement.nextTile ?? worker.movement.tile) : undefined;
+    const sources = [...(carried ? [carried] : []), ...construction.items.filter(item => types.includes(item.type) && (animalDiet||item.collect) && item.quantity > 0), ...types.flatMap(type=>construction.storage?.sources(type)??[])];
     if (!sources.length) return fallbackFood?.(worker)??false;
     const walls = construction.walls;
     const from = worker.movement.nextTile ?? worker.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     let best: { source: MapItem; goal: Tile; path: Path } | null = null;
     let bestOrder=Infinity;
-    for (const {target:source,order,lowerBound} of rankedTargets(sources,from)) {
-      if(best&&lowerBound>best.path.distance+1e-10)break;
-      let approach = construction.sourceApproach(from, source, paths);
-      if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
-      if (approach && (!best || approach.path.distance < best.path.distance || approach.path.distance===best.path.distance&&order<bestOrder)) {best = { source, ...approach };bestOrder=order;}
+    // Animal diets are ordered preferences; distance only breaks ties within a food type.
+    for (const group of animalDiet ? types.map(type => sources.filter(source => source.type === type)) : [sources]) {
+      for (const {target:source,order,lowerBound} of rankedTargets(group,from)) {
+        if(best&&lowerBound>best.path.distance+1e-10)break;
+        let approach = construction.sourceApproach(from, source, paths);
+        if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
+        if (approach && (!best || approach.path.distance < best.path.distance || approach.path.distance===best.path.distance&&order<bestOrder)) {best = { source, ...approach };bestOrder=order;}
+      }
+      if (best) break;
     }
     if (!best) return fallbackFood?.(worker)??false;
     interruptWork(worker, construction, harvesting, hauling);
-    worker.eatJob = { source: best.source, goal: best.goal };
+    worker.eatJob = { source: best.source, goal: best.goal, held: best.source === carried };
     setRoute(worker.movement, best.path.tiles);
     return true;
   }

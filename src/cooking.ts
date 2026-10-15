@@ -64,7 +64,18 @@ export class Cooking {
     worker.cookJob=null;
     stopAtNextSafeTile(worker.movement,this.construction.walls.cannotStop);
   }
+  releaseUnavailable(worker:Builder):boolean {
+    const job=worker.cookJob;
+    if(!job)return false;
+    const unavailable=!this.wantsWork(job.station)
+      || job.phase==='pickup'&&(!job.source?.quantity||!ingredient(job.source.type)||!this.construction.storage?.isSource(job.source)&&!job.source.collect)
+      || job.phase==='carry'&&(!worker.inventory?.quantity||!ingredient(worker.inventory.type))
+      || job.phase==='process'&&stagedNutrition(job.station.cooking!)<COOK_NUTRITION;
+    if(!unavailable)return false;
+    this.cancel(worker);return true;
+  }
   update(worker:Builder,seconds:number,work:'transport'|'process'):void {
+    if(this.releaseUnavailable(worker))return;
     if(worker.dead||worker.mode!=='automatic'||worker.dropRequested){this.cancel(worker);return;}
     const active=worker.cookJob;
     if(active&&(!this.wantsWork(active.station)||this.claims.get(active.station)!==worker||(work==='process')!==(active.phase==='process'))){this.cancel(worker);return;}

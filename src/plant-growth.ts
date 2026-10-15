@@ -65,7 +65,7 @@ export class PlantGrowth {
     }
     let spawned = false;
     for (const type of ['tree', 'wildStrawberry', 'grass'] as const) {
-      const count = (2 + Math.floor(this.random() * 2)) * (type === 'tree' ? 5 : type === 'grass' ? 10 : 3);
+      const count = (2 + Math.floor(this.random() * 2)) * (type === 'tree' ? 50 : type === 'grass' ? 10 : 3);
       for (let i = 0; i < count && available.length; i++) {
         const tile = available.splice(Math.floor(this.random() * available.length), 1)[0];
         const object = createEnvironment(type, tile);

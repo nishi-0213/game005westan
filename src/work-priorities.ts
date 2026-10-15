@@ -33,6 +33,9 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
     if (worker.haulJob || worker.clearJob) hauling?.cancel(worker);
     construction.update(worker, seconds); harvesting.update(worker, seconds); return;
   }
+  const constructionUnavailable = construction.releaseUnavailable(worker);
+  const cookingUnavailable = cooking?.releaseUnavailable(worker);
+  if (constructionUnavailable || cookingUnavailable) { worker.workTask = undefined; worker.decisionSeconds = 0; }
   const signature = `${worker.priorities.construction},${worker.priorities.harvesting},${worker.priorities.hauling ?? 3},${worker.priorities.free ?? 4},${worker.priorities.butchery ?? 3},${worker.priorities.hunting??3},${worker.priorities.cooking??3}`;
   worker.decisionSeconds = (worker.decisionSeconds ?? 0) - seconds;
   let task = worker.workTask;

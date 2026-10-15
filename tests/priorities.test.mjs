@@ -91,3 +91,20 @@ test('free timers use elapsed wall-clock time even when animation time is capped
 test('right-click priority rotation wraps in reverse',()=>{
  let value=1;const seen=[];for(let i=0;i<5;i++){seen.push(value);value=nextPriority(value,-1);}assert.deepEqual(seen,[1,4,3,2,1]);
 });
+
+test('construction without materials yields to free or another executable task',()=>{
+ for(const collect of [false,true]){
+  const s=scene({construction:1,harvesting:2,hauling:1,free:4});s.plan.delivered=0;s.node.collect=collect;
+  updateWork(s.worker,s.construction,s.harvesting,0);
+  assert.equal(s.worker.job,null);assert.equal(s.worker.freeActive,!collect);assert.equal(Boolean(s.worker.harvestJob),collect);
+ }
+});
+
+test('a depleted construction supply releases the job while travelling and another task takes over',()=>{
+ const s=scene({construction:1,harvesting:2,hauling:1,free:4});s.plan.delivered=0;s.node.collect=false;
+ const source={column:6,row:6,type:'wood',quantity:20};s.construction.items.push(source);
+ updateWork(s.worker,s.construction,s.harvesting,0);assert.equal(s.worker.job.phase,'gather');
+ source.quantity=0;s.node.collect=true;
+ updateWork(s.worker,s.construction,s.harvesting,0);
+ assert.equal(s.worker.job,null);assert.ok(s.worker.harvestJob);assert.equal(s.construction.claims.size,0);
+});

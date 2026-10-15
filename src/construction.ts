@@ -155,7 +155,23 @@ export class Construction {
     return true;
   }
 
+  releaseUnavailable(builder: Builder): boolean {
+    const job = builder.job;
+    const target = builder.forcedConstruction ?? job?.target;
+    if (!target || target.state !== 'planned') return false;
+    const recipe = BUILD_RECIPES[target.kind];
+    if (!recipe || target.delivered >= recipe.materialCount) return false;
+    const held = builder.inventory?.type === target.material && builder.inventory.quantity > 0;
+    const unavailable = job?.phase === 'gather' ? !job.source?.quantity
+      : job?.phase === 'deliver' ? !held
+      : !held && !this.sources(target).some(source => source.type === target.material && source.quantity > 0);
+    if (!unavailable) return false;
+    this.cancel(builder);
+    return true;
+  }
+
   update(builder: Builder, seconds: number, work: ConstructionWork = 'all'): void {
+    if (this.releaseUnavailable(builder)) return;
     if(builder.forcedConstruction&&(builder.dead||builder.forcedConstruction.state!=='planned'||this.walls.at(builder.forcedConstruction)!==builder.forcedConstruction||this.needsClearing(builder.forcedConstruction))){this.cancel(builder);return;}
     if (builder.dropRequested) {
       if (builder.movement.nextTile || !sameTile(builder.movement.tile, builder.movement.destination)) return;
@@ -177,7 +193,7 @@ export class Construction {
       if (builder.retrySeconds > 0 || !canPlan(movement)&&!builder.forcedConstruction) return;
       builder.retrySeconds = 0.25;
       const plan = this.nearestPlan(builder, undefined, work);
-      if (!plan) return;
+      if (!plan) { if (builder.forcedConstruction) this.cancel(builder); return; }
       const recipe = BUILD_RECIPES[plan.target.kind]!;
       if (plan.target.demolition || plan.target.delivered >= recipe.materialCount) {
         this.claims.set(plan.target, builder);

@@ -180,7 +180,7 @@ export class Wildlife {
     const walls = this.construction.walls;
     walls.bindMovement(deer.movement,deer.faction);
     const resting=this.sleeping?.update(deer,seconds,false)??false;
-    const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, !deer.leaving&&!deer.fleeGoal,undefined,['strawberry','ration'],!resting);
+    const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, false,undefined,['strawberry','ration'],!resting);
     if(resting){if(deer.dead)this.sleeping?.cancel(deer);return;}
     if (deer.dead) return;
     if (deer.fleeGoal) {
@@ -195,16 +195,15 @@ export class Wildlife {
     if (eating) return;
     if (deer.needs.satiety < FOOD_THRESHOLD) {
       if (!deer.harvestJob) {
-        deer.decisionSeconds -= seconds;
-        if (deer.decisionSeconds <= 0 && canPlan(deer.movement)) {
-          deer.decisionSeconds = .25;
-          const work = this.harvesting.findWork(deer, deerForage);
+        if (canPlan(deer.movement)) {
+          const work = this.harvesting.findWork(deer, object => object.type === 'grass')
+            ?? this.harvesting.findWork(deer, object => object.type === 'wildStrawberry' && harvestYield(object) > 0);
           if (work) {
             stopAtNextSafeTile(deer.movement, walls.cannotStop);
             this.harvesting.claims.set(work.target, deer);
             deer.harvestJob = { target: work.target, goal: work.goal };
             setRoute(deer.movement, work.path.tiles);
-          }
+          } else if (updateNeeds(deer, this.construction, this.harvesting, this.hauling, 0, true, undefined, ['strawberry','ration'])) return;
         }
       }
       if (deer.harvestJob) {
@@ -231,7 +230,7 @@ export class Wildlife {
     if(wolf.dead||wolf.departed)return;
     const walls=this.construction.walls;walls.bindMovement(wolf.movement,wolf.faction);
     const resting=this.sleeping?.update(wolf,seconds,false)??false;
-    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,!wolf.leaving&&!wolf.fleeGoal&&!wolf.attackJob?.retaliation,undefined,['meat','ration'],!resting);
+    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,false,undefined,['meat','ration'],!resting);
     if(resting){if(wolf.dead)this.sleeping?.cancel(wolf);return;}
     if(wolf.dead){this.combat?.cancel(wolf);return;}
     if(wolf.fleeGoal){
@@ -248,7 +247,9 @@ export class Wildlife {
         wolf.decisionSeconds=.25;
         const origin=wolf.movement.tile;
         const nearest=(targets:readonly CombatTarget[])=>[...targets].filter(target=>!target.departed&&!target.consumed&&target!==wolf).sort((a,b)=>Math.hypot(a.movement.tile.column-origin.column,a.movement.tile.row-origin.row)-Math.hypot(b.movement.tile.column-origin.column,b.movement.tile.row-origin.row)).find(target=>target.dead?this.corpseEating!.canEat(wolf,target):this.combat!.canReachAttack(wolf,target));
-        const target=nearest(this.deer)??nearest(this.corpseEating.corpses().filter(corpse=>corpse.dead) as CombatTarget[])??nearest(this.players().filter(pawn=>pawn.faction==='player'));
+        const deer=nearest(this.deer);
+        if (!deer && updateNeeds(wolf,this.construction,this.harvesting,this.hauling,0,true,undefined,['meat','ration'])) return;
+        const target=deer??nearest(this.corpseEating.corpses().filter(corpse=>corpse.dead) as CombatTarget[])??nearest(this.players().filter(pawn=>pawn.faction==='player'));
         if(target){
           if(target.dead)this.corpseEating.request(wolf,target);
           else if(this.combat.requestPredation(wolf,target))wolf.prey=target;
@@ -256,6 +257,7 @@ export class Wildlife {
         }
       }
     }
+    if ((!this.combat || !this.corpseEating) && updateNeeds(wolf,this.construction,this.harvesting,this.hauling,0,!wolf.leaving&&!wolf.fleeGoal&&!wolf.attackJob?.retaliation,undefined,['meat','ration'])) return;
     updateRoaming(wolf,walls,seconds,this.random);
   }
 

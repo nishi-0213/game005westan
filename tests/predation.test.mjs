@@ -76,3 +76,46 @@ for(const [roll,choice]of [[.499,'retaliate'],[.5,'flee']]){const s=scene(),wolf
 if(choice==='retaliate'){assert.equal(wolf.attackJob.retaliation,true);assert.equal(wolf.attackJob.target,attacker);assert.equal(wolf.fleeGoal,undefined);}else{assert.equal(wolf.attackJob,null);assert.deepEqual(wolf.fleeGoal,tile(15,8));wolf.needs.satiety=10;s.items.push({...tile(8,9),type:'ration',quantity:10});for(let i=0;i<10;i++){s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(wolf.eatJob,null);assert.ok(wolf.fleeGoal);assert.equal(s.items[0].quantity,10);for(let i=0;i<40&&wolf.fleeGoal;i++){s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(wolf.fleeGoal,undefined);}
 }
 });
+
+test('wolves prefer reachable deer over closer meat and rations',()=>{
+ const s=scene(),wolf=createWolf(tile(2,3),1),deer=createDeer(tile(8,3),2);
+ s.wildlife.wolves.push(wolf);s.wildlife.deer.push(deer);wolf.needs.satiety=10;
+ s.items.push({...tile(2,3),type:'ration',quantity:5},{...tile(3,3),type:'meat',quantity:5});
+ s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,deer);assert.equal(wolf.eatJob,null);
+});
+
+test('wolves prefer reachable meat over closer rations and fall back when meat is unreachable',()=>{
+ const s=scene(),wolf=createWolf(tile(2,3),1);wolf.needs.satiety=10;
+ const meat={...tile(8,3),type:'meat',quantity:5},ration={...tile(2,3),type:'ration',quantity:5};s.items.push(ration,meat);
+ s.wildlife.updateWolf(wolf,0);assert.equal(wolf.eatJob.source,meat);
+ wolf.eatJob=null;wolf.decisionSeconds=0;
+ for(let row=0;row<16;row++)s.walls.complete(s.walls.plan(tile(5,row),'wood'));
+ s.wildlife.updateWolf(wolf,0);assert.equal(wolf.eatJob.source,ration);
+});
+
+test('deer prefer grass then berry plants then strawberries then rations regardless of distance',()=>{
+ for(const available of [4,3,2,1]){
+  const s=scene(),deer=createDeer(tile(2,3),1);deer.needs.satiety=10;
+  const grass={...tile(9,3),type:'grass',hp:100,collect:false,collected:false,workSeconds:0};
+  const bush={...tile(7,3),type:'wildStrawberry',hp:100,collect:false,collected:false,workSeconds:0};
+  const berry={...tile(4,3),type:'strawberry',quantity:5},ration={...tile(2,3),type:'ration',quantity:5};
+  s.items.push(ration);if(available>=2)s.items.push(berry);if(available>=3)s.harvesting.objects.push(bush);if(available>=4)s.harvesting.objects.push(grass);
+  s.wildlife.updateDeer(deer,0);
+  if(available>=3){assert.equal(deer.harvestJob.target,available===4?grass:bush);assert.equal(deer.eatJob,null);}
+  else assert.equal(deer.eatJob.source,available===2?berry:ration);
+ }
+});
+
+test('unreachable grass lets deer select a reachable berry plant',()=>{
+ const s=scene(),deer=createDeer(tile(2,3),1);deer.needs.satiety=10;
+ const grass={...tile(9,3),type:'grass',hp:100,collect:false,collected:false,workSeconds:0},bush={...tile(3,3),type:'wildStrawberry',hp:100,collect:false,collected:false,workSeconds:0};
+ s.harvesting.objects.push(grass,bush);for(let row=0;row<16;row++)s.walls.complete(s.walls.plan(tile(5,row),'wood'));
+ s.wildlife.updateDeer(deer,0);assert.equal(deer.harvestJob.target,bush);
+});
+
+test('wolves fall back from unreachable deer to stored meat before carried rations',()=>{
+ const s=scene(),wolf=createWolf(tile(2,3),1),deer=createDeer(tile(9,3),2);wolf.needs.satiety=10;wolf.inventory={type:'ration',quantity:2};s.wildlife.deer.push(deer);
+ for(let row=0;row<16;row++)s.walls.complete(s.walls.plan(tile(5,row),'wood'));
+ const box=s.walls.plan(tile(4,3),'wood','storage');s.walls.complete(box);s.storage.deposit(box,'meat',5);
+ s.wildlife.updateWolf(wolf,0);assert.ok(!wolf.attackJob);assert.equal(wolf.eatJob.source.type,'meat');assert.equal(wolf.inventory.type,'ration');
+});
