@@ -40,7 +40,7 @@ const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row =
 const berries = (object: EnvironmentObject): boolean => object.type === 'wildStrawberry' && harvestYield(object) > 0;
 export function createDeer(tile: Tile, id: number): Deer {
   return { kind: 'deer', id, faction: 'wild', movement: createMovement(tile), mode: 'automatic', inventory: null,
-    job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0, needs: initialNeeds(), hp: 100, eatJob: null,
+    job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0, needs: initialNeeds(false), hp: 100, eatJob: null,
     freeSeconds: 0, leaving: false, departed: false, decisionSeconds: 0 };
 }
 

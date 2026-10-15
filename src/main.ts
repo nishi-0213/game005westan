@@ -1,3 +1,4 @@
+import { canGiveOrders, moodEffects, updateMood } from './mood';
 import { createNeedsMeter } from './needs-meter';
 import { Sleeping, type SleepState } from './sleep';
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
@@ -390,7 +391,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -485,8 +486,8 @@ for (const [index, pawn] of pawns.entries()) {
       button.dataset.priority = button.textContent;
       button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
     };
-    button.addEventListener('click', () => { pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3); refresh(); });
-    button.addEventListener('contextmenu', (event) => { event.preventDefault(); pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
+    button.addEventListener('click', () => { if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3); refresh(); });
+    button.addEventListener('contextmenu', (event) => { event.preventDefault();if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
     refresh(); cell.appendChild(button); row.appendChild(cell);
   }
   prioritiesRows.appendChild(row);
@@ -590,16 +591,20 @@ pawnOverview.className = 'pawn-overview';
 pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory);
 const pawnNeeds = document.createElement('div');
 pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
-const needsMeters = (['満腹感', '健康', '覚醒度'] as const).map(label => {
+const needsBars=document.createElement('div');
+const moodList=document.createElement('ul');moodList.className='mood-list';moodList.setAttribute('aria-label','心情');
+pawnNeeds.append(needsBars,moodList);
+const needsMeters = (['幸福感', '満腹感', '覚醒度'] as const).map(label => {
   const row = document.createElement('label');
   const title = document.createElement('span'); title.textContent = label;
   const gauge = createNeedsMeter(label);
   const {meter, value} = gauge;
-  row.append(title, meter, value); pawnNeeds.appendChild(row);
+  if(label==='幸福感'){const track=document.createElement('span');track.className='happiness-track';track.append(meter);for(const threshold of [25,75]){const tick=document.createElement('span');tick.className='happiness-tick';tick.style.left=`${threshold}%`;tick.title=`${threshold}%`;track.append(tick);}row.append(title,track,value);}else row.append(title,meter,value);
+  needsBars.appendChild(row);
   return gauge;
 });
 function selectPawnInfoTab(needs: boolean): void {
-  pawnOverview.hidden = needs; pawnNeeds.hidden = !needs;
+  pawnOverview.hidden = needs; pawnNeeds.hidden = !needs;pawnSpecs.classList.toggle('show-needs',needs);
   overviewTab.setAttribute('aria-pressed', String(!needs)); needsTab.setAttribute('aria-pressed', String(needs));
   updatePawnPanels();
 }
@@ -661,7 +666,7 @@ function selectedCorpses(): EatingWorker[] {
 }
 
 function controlledSelection() {
-  return [...selectedPawns].filter(pawn => isPlayerControlled(pawn) && !pawn.dead);
+  return [...selectedPawns].filter(pawn => isPlayerControlled(pawn) && canGiveOrders(pawn));
 }
 
 function selectPawn(pawn: (typeof pawns)[number], additive = false): void {
@@ -686,9 +691,11 @@ function updatePawnPanels(): void {
   setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
-  if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.satiety, selectedPawn.needs.health, selectedPawn.needs.wakefulness??100].entries()) {
+  if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.happiness??50, selectedPawn.needs.satiety, selectedPawn.needs.wakefulness??100].entries()) {
     needsMeters[index].update(value);
   }
+  const moodText=moodEffects(selectedPawn).map(effect=>`${effect.label}${effect.count>1?` ×${effect.count}`:''}　${effect.amount}`).join('\n')||'心情なし';
+  if(moodList.dataset.content!==moodText){moodList.dataset.content=moodText;moodList.replaceChildren(...moodText.split('\n').map(text=>{const item=document.createElement('li');item.textContent=text;return item;}));}
   const fullName = formatPawnName(selectedPawn.name);
   if (pawnSpecsName.textContent !== fullName) pawnSpecsName.textContent = fullName;
   if (pawnSpecsAction.textContent !== action) pawnSpecsAction.textContent = action;
@@ -731,7 +738,6 @@ const animalFaction = document.querySelector<HTMLElement>('#animal-faction')!;
 const animalAction = document.querySelector<HTMLElement>('#animal-action')!;
 const animalSatiety = document.querySelector<HTMLElement>('#animal-satiety')!;
 const animalHp = document.querySelector<HTMLElement>('#animal-hp')!;
-const animalHealth = document.querySelector<HTMLElement>('#animal-health')!;
 const animalWakefulness = createNeedsMeter('覚醒度');
 document.querySelector<HTMLElement>('#animal-wakefulness')!.append(animalWakefulness.meter, animalWakefulness.value);
 function updateObjectProperties(): void {
@@ -745,7 +751,6 @@ function updateObjectProperties(): void {
     setText(animalAction, deerAction(selectedDeer));
     setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
     setText(animalHp, `${Math.round(selectedDeer.hp ?? 100)}%`);
-    setText(animalHealth, `${Math.round(selectedDeer.needs.health)}%`);
     animalWakefulness.update(selectedDeer.needs.wakefulness ?? 100);
   }
 }
@@ -940,7 +945,6 @@ function updateItemSelection(): void {
     animalAction.textContent = deerAction(selectedDeer);
     animalSatiety.textContent = `${Math.round(selectedDeer.needs.satiety)}%`;
     animalHp.textContent = `${Math.round(selectedDeer.hp ?? 100)}%`;
-    animalHealth.textContent = `${Math.round(selectedDeer.needs.health)}%`;
     animalWakefulness.update(selectedDeer.needs.wakefulness ?? 100);
   } else itemProperties.close();
   updateEnvironmentViews();
@@ -955,10 +959,11 @@ itemProperties.addEventListener('keydown', (event) => {
 
 function updatePawnModeButton(): void {
   const controlled = controlledSelection();
-  const drafted = !controlled.length || controlled.every(pawn => pawn.mode === 'drafted');
+  const drafted = controlled.length ? controlled.every(pawn => pawn.mode === 'drafted') : selectedPawn?.mode !== 'automatic';
   const mixed = controlled.some(pawn => pawn.mode === 'drafted') && controlled.some(pawn => pawn.mode === 'automatic');
   const label = mixed ? '混在' : drafted ? '徴兵' : '自動';
   const disabled = !controlled.length;
+  pawnModeButton.title=selectedPawn&&!canGiveOrders(selectedPawn)&&!selectedPawn.dead?'幸福感25％未満のため操作不可。自動行動は続きます。':'';
   if (pawnModeButton.disabled !== disabled) pawnModeButton.disabled = disabled;
   updatePawnPanels();
   for (const entry of rosterButtons) setAttribute(entry.button, 'aria-pressed', String(selectedPawns.has(entry.pawn)));
@@ -1440,23 +1445,23 @@ app.canvas.addEventListener('pointerdown', (event) => {
       let commanded = false;
       for (const pawn of controlledSelection()) if (combat.requestAttack(pawn, target)) { pawn.manualMove = false; commanded = true; }
       if (commanded) { showAttackCommand(target); return; }
-      if (target.dead && !('structure' in target) && !target.consumed && selectedPawn && !selectedPawn.dead && isPlayerControlled(selectedPawn)) { openHaulCommand(selectedPawn,target,event);return; }
+      if (target.dead && !('structure' in target) && !target.consumed && selectedPawn && !selectedPawn.dead && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn))) { openHaulCommand(selectedPawn,target,event);return; }
     }
-    if(storedBody&&selectedPawn&&!selectedPawn.dead&&isPlayerControlled(selectedPawn)){openHaulCommand(selectedPawn,storedBody,event);return;}
-    if (selectedPawn && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
+    if(storedBody&&selectedPawn&&!selectedPawn.dead&&(isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn))){openHaulCommand(selectedPawn,storedBody,event);return;}
+    if (selectedPawn && !selectedPawn.dead && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn))) {
       const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
       const source = [...mapItems].reverse().find(item => isWeaponItem(item.type) && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
         ?? (walls.at(tile)?.kind === 'storageArea' ? [...storage.sources('rifle'),...storage.sources('knife')].find(item => item.column === tile.column && item.row === tile.row) : undefined);
       if (source) { openEquipmentCommand(selectedPawn, source, event); return; }
     }
   }
-  if (event.button === 2 && selectedPawn && isPlayerControlled(selectedPawn) && !selectedPawn.dead) {
+  if (event.button === 2 && selectedPawn && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn)) && !selectedPawn.dead) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const source = [...mapItems].reverse().find(item => foodNutrition(item.type) > 0 && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
       ?? (walls.at(tile)?.kind === 'storageArea' ? [...storage.sources('strawberry'), ...storage.sources('meat'),...storage.sources('ration')].find(item => item.column === tile.column && item.row === tile.row) : undefined);
     if (source) { openFoodCommand(selectedPawn, source, event); return; }
   }
-  if (event.button === 2 && selectedPawn?.mode === 'automatic' && !selectedPawn.dead && isPlayerControlled(selectedPawn)) {
+  if (event.button === 2 && selectedPawn?.mode === 'automatic' && !selectedPawn.dead && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn))) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const source = [...mapItems].reverse().find(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row);
     if (source) { openHaulCommand(selectedPawn, source, event); return; }
@@ -1672,6 +1677,7 @@ app.ticker.add((ticker) => {
     for (const pawn of pawns) {
       if(pawn.faction==='player'&&draftExpired(pawn,seconds))setPawnMode(pawn,'automatic');
       walls.bindMovement(pawn.movement,pawn.faction);
+      updateMood(pawn,seconds);
       const resting=sleeping.update(pawn,seconds,pawn.faction==='player');
       pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
       if(pawn.fleeGoal){
@@ -1685,6 +1691,11 @@ app.ticker.add((ticker) => {
       pawn.shotSeconds=Math.max(0,pawn.shotSeconds-seconds);
       pawn.swingSeconds=Math.max(0,pawn.swingSeconds-seconds);
       const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !resting && !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse,corpseEating.automatic,undefined,!resting);
+      updateMood(pawn,0);
+      const blocked=!canGiveOrders(pawn)&&!pawn.dead;
+      if(blocked&&!pawn.controlBlocked){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
+      if(blocked!==pawn.controlBlocked){const row=prioritiesRows.children[pawns.indexOf(pawn)];for(const button of row?.querySelectorAll('button')??[])button.disabled=blocked;}
+      pawn.controlBlocked=blocked;
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
       if(pawn.dead)sleeping.cancel(pawn);
       const commanding = resting||fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, pawns);

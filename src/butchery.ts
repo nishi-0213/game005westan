@@ -1,3 +1,4 @@
+import { canGiveOrders } from './mood.ts';
 import type { EatingWorker } from './needs';
 import type { Builder } from './construction';
 import type { Construction } from './construction';
@@ -105,7 +106,7 @@ export class Butchery {
     return best;
   }
   canRequest(worker: Builder, corpse: Corpse): boolean {
-    return !worker.dead && !worker.sleep && worker.mode==='automatic' && Boolean(this.findTransport(worker,corpse)??this.findStorage(worker,corpse));
+    return canGiveOrders(worker) && !worker.dead && !worker.sleep && worker.mode==='automatic' && Boolean(this.findTransport(worker,corpse)??this.findStorage(worker,corpse));
   }
   request(worker: Builder, corpse: Corpse): boolean {
     if(!this.canRequest(worker,corpse))return false;

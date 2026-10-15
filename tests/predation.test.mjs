@@ -37,7 +37,7 @@ assert.equal(wolfIds.size,4);assert.equal(deerIds.size,9);assert.equal(exiting.s
 });
 test('wolves share starvation/death behavior and stop attacking when told to leave',()=>{
 const s=scene(),wolf=createWolf(tile(2,3),1),target=s.human(3,3);s.wildlife.wolves.push(wolf);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,target);s.wildlife.markForExit(wolf);assert.equal(wolf.attackJob,null);for(let i=0;i<60&&!wolf.departed;i++){s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(wolf.departed,true);
-const dying=createWolf(tile(4,4),3);dying.needs.satiety=0;dying.needs.health=0;dying.hp=10;s.wildlife.updateWolf(dying,1);assert.equal(dying.dead,true);assert.equal(dying.hp,0);
+const dying=createWolf(tile(4,4),3);dying.needs.satiety=0;dying.hp=.625;s.wildlife.updateWolf(dying,1);assert.equal(dying.dead,true);assert.equal(dying.hp,0);
 });
 test('wolves abandon a prey after its route is sealed and select another reachable target',()=>{
 const s=scene(),wolf=createWolf(tile(1,3),1),deer=createDeer(tile(6,3),2),human=s.human(2,3);s.wildlife.wolves.push(wolf);s.wildlife.deer.push(deer);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,deer);

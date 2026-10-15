@@ -1,3 +1,5 @@
+import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
+import { canGiveOrders, rememberMood, type MoodMemory } from './mood.ts';
 import { diningTable, findDiningSeat } from './dining.ts';
 import type { DiningSeat } from './dining';
 import type { Construction } from './construction';
@@ -10,9 +12,11 @@ import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 
-export interface Needs { satiety: number; health: number; wakefulness?:number }
+export interface Needs { satiety: number; wakefulness?:number; happiness?:number }
 export type EatingWorker = HarvestWorker & HaulWorker & {
   needs: Needs;
+  kind?:'human'|'deer'|'wolf';
+  moodMemories?:MoodMemory[];
   sleep?:import('./sleep').SleepState;
   sleepRetrySeconds?:number;
   hp?: number;
@@ -27,10 +31,11 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   eatJob: { source: MapItem; goal: Tile; manual?: boolean; eatingSeconds?: number; held?:boolean; seatChecked?:boolean; seat?:DiningSeat } | null;
 };
 export const SATIETY_LOSS_PER_SECOND = 1;
+export const STARVATION_HP_LOSS_PER_SECOND = 30 / (24 * 60 / GAME_MINUTES_PER_SECOND);
 export const FOOD_THRESHOLD = 20;
 export const STRAWBERRY_SATIETY = 20;
 export const EATING_SECONDS = 1;
-export const initialNeeds = (): Needs => ({ satiety: 100, health: 100, wakefulness:100 });
+export const initialNeeds = (human=true): Needs => ({ satiety: 100, wakefulness:100, ...(human?{happiness:50}:{}) });
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 
 function interruptWork(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling): void {
@@ -117,10 +122,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const previousSatiety = worker.needs.satiety;
   worker.needs.satiety = Math.max(0, previousSatiety - elapsed * SATIETY_LOSS_PER_SECOND);
   const starvingSeconds = Math.max(0, elapsed - previousSatiety / SATIETY_LOSS_PER_SECOND);
-  const previousHealth = worker.needs.health;
-  worker.needs.health = Math.max(0, previousHealth - starvingSeconds);
-  const unhealthySeconds = previousHealth <= 0 ? elapsed : Math.max(0, starvingSeconds - previousHealth);
-  worker.hp = Math.max(0, (worker.hp ?? 100) - unhealthySeconds * 10);
+  worker.hp = Math.max(0, (worker.hp ?? 100) - starvingSeconds * STARVATION_HP_LOSS_PER_SECOND);
   if (worker.hp <= 0) {
     killPawn(worker, construction, harvesting, hauling);
     return true;
@@ -178,12 +180,13 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));
   job.source.quantity -= quantity;
   worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * foodNutrition(job.source.type));
+  if(!job.seat)rememberMood(worker,'standingMeal');
   worker.eatJob = null;
   return true;
 }
 
-export function requestEat(worker: EatingWorker, source: MapItem, construction: Construction, harvesting: Harvesting, hauling: Hauling): boolean {
-  if (worker.dead || worker.sleep || foodNutrition(source.type) <= 0 || source.quantity <= 0) return false;
+export function requestEat(worker: EatingWorker, source: MapItem, construction: Construction, harvesting: Harvesting, hauling: Hauling, manual=true): boolean {
+  if (manual&&!canGiveOrders(worker) || worker.dead || worker.sleep || foodNutrition(source.type) <= 0 || source.quantity <= 0) return false;
   const walls = construction.walls;
   const from = worker.movement.nextTile ?? worker.movement.tile;
   const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);

@@ -52,8 +52,8 @@ test('destroying a bed converts sleep to ground recovery; death releases the res
  const t=scene();t.bed();t.worker.needs.wakefulness=10;t.tick(0);t.worker.dead=true;t.tick(0);assert.equal(t.sleeping.claims.size,0);assert.equal(t.worker.sleep,undefined);
 });
 test('sleep preserves hunger and starvation damage, rejects manual meals, and interrupts work',()=>{
- const s=scene(),plan=s.walls.plan({column:3,row:2},'wood');plan.delivered=10;s.construction.update(s.worker,0);assert.ok(s.worker.job);s.worker.needs.wakefulness=0;s.worker.needs.satiety=0;s.worker.needs.health=0;s.tick(0);assert.equal(s.worker.job,null);assert.equal(s.construction.claims.size,0);
- const food={column:2,row:2,type:'strawberry',quantity:5,collect:true};s.items.push(food);assert.equal(requestEat(s.worker,food,s.construction,s.harvesting,s.hauling),false);s.tick(1);assert.equal(s.worker.hp,90);assert.equal(food.quantity,5);
+ const s=scene(),plan=s.walls.plan({column:3,row:2},'wood');plan.delivered=10;s.construction.update(s.worker,0);assert.ok(s.worker.job);s.worker.needs.wakefulness=0;s.worker.needs.satiety=0;s.tick(0);assert.equal(s.worker.job,null);assert.equal(s.construction.claims.size,0);
+ const food={column:2,row:2,type:'strawberry',quantity:5,collect:true};s.items.push(food);assert.equal(requestEat(s.worker,food,s.construction,s.harvesting,s.hauling),false);s.tick(1);assert.equal(s.worker.hp,99.375);assert.equal(food.quantity,5);
 });
 test('bed construction consumes exactly5wood and preserves its3second progress across interruption',()=>{
  const s=scene(),plan=s.walls.plan({column:3,row:2},'wood','bed');s.worker.inventory={type:'wood',quantity:5};
@@ -76,7 +76,7 @@ for(const create of [createDeer,createWolf]){
  test(`${create.name}: starvation continues during sleep and death stops recovery`,()=>{
   const s=scene(),animal=create({column:2,row:2},1),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>.5);wildlife.sleeping=s.sleeping;
   const update=dt=>animal.kind==='deer'?wildlife.updateDeer(animal,dt):wildlife.updateWolf(animal,dt);
-  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.needs.health=0;animal.hp=10;update(0);update(1);
+  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.hp=.625;update(0);update(1);
   assert.equal(animal.dead,true);assert.equal(animal.sleep,undefined);const last=animal.needs.wakefulness;update(10);assert.equal(animal.needs.wakefulness,last);assert.equal(deerAction(animal),'死亡');
  });
 }

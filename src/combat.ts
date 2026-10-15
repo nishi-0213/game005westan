@@ -1,3 +1,4 @@
+import { canGiveOrders, rememberMood } from './mood.ts';
 import { footprint } from './walls.ts';
 import { rayTiles, shootingObstacles } from './shooting.ts';
 import type { Tile } from './movement';
@@ -81,7 +82,7 @@ export class Combat {
   structureTarget(structure:Wall):CombatTarget {
     let target=this.structureTargets.get(structure);if(target)return target;
     const walls=this.construction.walls;
-    target={structure,faction:'player',mode:'automatic',movement:createMovement(structure),needs:{satiety:100,health:100},eatJob:null,inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,
+    target={structure,faction:'player',mode:'automatic',movement:createMovement(structure),needs:{satiety:100},eatJob:null,inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,
       get hp(){return structure.hp??100;},set hp(value:number){structure.hp=value;},
       get dead(){return structure.hp<=0||structure.state!=='completed'||walls.at(structure)!==structure;}};
     this.structureTargets.set(structure,target);return target;
@@ -98,7 +99,7 @@ export class Combat {
   }
 
   requestEquip(pawn: CombatPawn, source: MapItem): boolean {
-    if (pawn.dead || pawn.sleep || !isPlayerControlled(pawn) || !isWeaponItem(source.type) || source.quantity <= 0) return false;
+    if (!canGiveOrders(pawn) || pawn.dead || pawn.sleep || !isPlayerControlled(pawn) || !isWeaponItem(source.type) || source.quantity <= 0) return false;
     const walls = this.construction.walls, from = pawn.movement.nextTile ?? pawn.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     const direct = paths.get(source.row * walls.mapSize + source.column);
@@ -111,7 +112,7 @@ export class Combat {
 
   requestAttack(pawn: CombatPawn, target: CombatTarget): boolean {
     if(target.structure&&(!isPlayerControlled(pawn)||'kind' in pawn&&pawn.kind!=='human'||target.structure.state!=='completed'))return false;
-    if (pawn.sleep||pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
+    if (!canGiveOrders(pawn)||pawn.sleep||pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach = this.attackApproach(pawn, target);
     if (!approach) return false;
@@ -289,7 +290,7 @@ export class Combat {
         if (job.target.hp <= 0) {
           if(job.hunting){job.target.collectCorpse=true;job.target.hunt=false;}
           if(job.target.structure)this.onDestroyStructure?.(job.target.structure);
-          else{killPawn(job.target, this.construction, this.harvesting, this.hauling);this.cancel(job.target);}
+          else{if(job.target.kind==='human')rememberMood(pawn,'killedHuman');killPawn(job.target, this.construction, this.harvesting, this.hauling);this.cancel(job.target);}
           this.cancel(pawn);
           pawn.attackMotionSeconds=.25;
           this.onAttack?.(event);

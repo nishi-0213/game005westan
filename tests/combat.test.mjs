@@ -38,14 +38,14 @@ test('unarmed attacks include diagonal neighbors and rifle range uses the inclus
 test('unarmed hits do10HP damage every2.5seconds and exact80percent rolls miss',()=>{
  const s=scene(()=>.799),a=s.pawn(3,3),b=s.pawn(4,4);
  assert.ok(s.combat.requestAttack(a,b));s.combat.update(a,2.49);assert.equal(b.hp,100);s.combat.update(a,.01);assert.equal(b.hp,90);
- s.combat.update(a,5);assert.equal(b.hp,70);assert.equal(b.needs.health,100);
+ s.combat.update(a,5);assert.equal(b.hp,70);
  const t=scene(()=>.8),c=t.pawn(3,3),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
 });
 
-test('rifle hits use50percent accuracy and40HP damage, killing immediately at zero even when health is100',()=>{
+test('rifle hits use50percent accuracy and40HP damage, killing immediately at zero',()=>{
  const s=scene(()=>.499),a=s.pawn(3,3,'rifle'),b=s.pawn(15,3);
  s.combat.requestAttack(a,b);s.combat.update(a,2.5);assert.equal(b.hp,60);s.combat.update(a,2.5);assert.equal(b.hp,20);assert.equal(b.dead,undefined);
- s.combat.update(a,2.5);assert.equal(b.hp,0);assert.equal(b.dead,true);assert.equal(b.needs.health,100);assert.equal(a.attackJob,null);
+ s.combat.update(a,2.5);assert.equal(b.hp,0);assert.equal(b.dead,true);assert.equal(a.attackJob,null);
  const t=scene(()=>.5),c=t.pawn(3,3,'rifle'),d=t.pawn(15,3);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
 });
 
@@ -97,12 +97,11 @@ test('two equip orders never duplicate the last weapon and replacement returns t
  assert.equal(countItems(s.items).rifle,1);assert.equal(equipped.weapon,'rifle');
 });
 
-test('health0 drains HP at10percent per second, counting only the part after health reaches zero',()=>{
- const s=scene(),a=s.pawn(2,2);a.needs.satiety=.5;a.needs.health=.5;
- updateNeeds(a,s.construction,s.harvesting,s.hauling,1.5);assert.equal(a.needs.health,0);assert.equal(a.hp,95);assert.equal(a.dead,undefined);
- updateNeeds(a,s.construction,s.harvesting,s.hauling,.1);assert.equal(a.hp,94);
- a.needs.satiety=100;updateNeeds(a,s.construction,s.harvesting,s.hauling,.4);assert.equal(a.hp,90);
- updateNeeds(a,s.construction,s.harvesting,s.hauling,9);assert.equal(a.hp,0);assert.equal(a.dead,true);
+test('starvation HP drain counts only the time after satiety reaches zero and stops after feeding',()=>{
+ const s=scene(),a=s.pawn(2,2);a.needs.satiety=.5;
+ updateNeeds(a,s.construction,s.harvesting,s.hauling,1.5);assert.equal(a.hp,99.375);assert.equal(a.dead,undefined);
+ a.needs.satiety=100;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,99.375);
+ a.needs.satiety=0;a.hp=.625;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,0);assert.equal(a.dead,true);
 });
 
 test('equipped workers haul and build using real3stone batches without exceeding20kg including the weapon',()=>{

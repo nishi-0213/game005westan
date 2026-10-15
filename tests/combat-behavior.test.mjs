@@ -58,11 +58,11 @@ test('every shot reports a hit or miss at fire time and hit damage is already ap
  assert.equal(event.hit,false);assert.equal(event.damage,0);assert.equal(other.hp,100);
 });
 
-test('deer flee8tiles away on a hit or miss, preserve health/HP and return to ordinary behavior after arrival',()=>{
+test('deer flee8tiles away on a hit or miss, preserve HP and return to ordinary behavior after arrival',()=>{
  for(const random of [()=>0,()=>.5]){
   const s=scene(random),a=s.pawn(5,15,'player','rifle'),deer=createDeer(tile(15,15),1);s.occupancy.track(deer.movement);
   s.combat.onAttack=e=>s.wildlife.flee(deer,e.from);s.combat.requestAttack(a,deer);s.combat.update(a,2.5);
-  assert.deepEqual(deer.fleeGoal,tile(23,15));assert.equal(deerAction(deer),'逃走中');assert.equal(deer.needs.health,100);assert.equal(deer.hp,random()===0?60:100);
+  assert.deepEqual(deer.fleeGoal,tile(23,15));assert.equal(deerAction(deer),'逃走中');assert.equal(deer.hp,random()===0?60:100);
   for(let i=0;i<25;i++){s.wildlife.updateDeer(deer,.1);s.move(deer)}
   assert.equal(deer.fleeGoal,undefined);assert.deepEqual(deer.movement.tile,tile(23,15));assert.equal(deerAction(deer),'自由');
  }
@@ -76,10 +76,10 @@ test('fleeing avoids blocked/reserved endpoints and can move along a map edge in
  assert.equal(edge.fleeGoal.column,31);assert.equal(Math.abs(edge.fleeGoal.row-15),8);
 });
 
-test('deer use the same satiety-to-health-to-HP death sequence as humans',()=>{
- const s=scene(),deer=createDeer(tile(15,15),1);deer.needs.satiety=0;deer.needs.health=1;
- s.wildlife.updateDeer(deer,1);assert.equal(deer.needs.health,0);assert.equal(deer.hp,100);assert.equal(deer.dead,undefined);
- s.wildlife.updateDeer(deer,.1);assert.equal(deer.hp,99);s.wildlife.updateDeer(deer,9.9);assert.equal(deer.hp,0);assert.equal(deer.dead,true);
+test('deer share direct starvation HP loss at30per game day with humans',()=>{
+ const s=scene(),deer=createDeer(tile(15,15),1);deer.needs.satiety=0;
+ s.wildlife.updateDeer(deer,48);assert.equal(deer.hp,70);assert.equal(deer.dead,undefined);
+ deer.hp=.625;s.wildlife.updateDeer(deer,1);assert.equal(deer.hp,0);assert.equal(deer.dead,true);
 });
 
 test('unarmed range outlines exactly the3by3outer square and rifle outlines stay inside map bounds',()=>{

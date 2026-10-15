@@ -62,7 +62,7 @@ export class CorpseEating {
     const thisEngine=this;
     // Reserve before requestEat reads the live quantity.
     corpse.corpseEater=worker;
-    if(!requestEat(worker,source,this.construction,this.harvesting,this.hauling)){corpse.corpseEater=undefined;return false;}
+    if(!requestEat(worker,source,this.construction,this.harvesting,this.hauling,manual)){corpse.corpseEater=undefined;return false;}
     worker.eatJob!.manual=manual;this.claims.set(corpse,{worker,source});return true;
   }
   automatic=(worker:EatingWorker):boolean=>{

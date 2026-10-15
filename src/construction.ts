@@ -1,3 +1,4 @@
+import { canGiveOrders } from './mood.ts';
 import type { MapItem, ItemType } from './items';
 import { carryCapacity, returnItems } from './items.ts';
 import { findPath, findPaths } from './pathfinding.ts';
@@ -63,6 +64,7 @@ export class Construction {
   }
 
   requestDrop(builder: Builder): void {
+    if(!canGiveOrders(builder))return;
     if (!builder.inventory?.quantity && (!builder.weapon || builder.weapon === 'unarmed')) return;
     this.cancel(builder);
     builder.dropRequested = true;

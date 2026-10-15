@@ -1,3 +1,4 @@
+import { canGiveOrders } from './mood.ts';
 import type { Clearing, ClearanceJob } from './clearing';
 import type { Builder } from './construction';
 import type { ItemType, MapItem } from './items';
@@ -96,7 +97,7 @@ export class Hauling {
   }
 
   canRequest(worker: HaulWorker, source: MapItem): boolean {
-    return worker.mode === 'automatic' && !worker.sleep && !worker.dead && this.forcedWork(worker, source) !== null;
+    return canGiveOrders(worker) && worker.mode === 'automatic' && !worker.sleep && !worker.dead && this.forcedWork(worker, source) !== null;
   }
 
   request(worker: HaulWorker, source: MapItem): boolean {

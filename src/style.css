@@ -333,3 +333,10 @@ canvas { touch-action: none; }
 
 .animal-needs-meter { display: grid; grid-template-columns: minmax(0, 1fr) 38px; align-items: center; gap: 6px; }
 .animal-needs-meter[hidden] { display: none; }
+
+#pawn-specs.show-needs { width: min(480px, calc(100vw - 2px)); }
+.pawn-needs { display: grid; grid-template-columns: minmax(155px, 1fr) minmax(0, 1fr); gap: 12px; }
+.pawn-needs[hidden] { display: none; }
+.mood-list { margin: 8px 0; padding: 0; list-style: none; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.happiness-track { position: relative; display: flex; align-items: center; }
+.happiness-tick { position: absolute; height: 12px; width: 1px; background: #f4e9cc; pointer-events: none; transform: translateX(-.5px); }
