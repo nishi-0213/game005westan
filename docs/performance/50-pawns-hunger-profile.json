@@ -1,0 +1,440 @@
+{
+  "measurement": {
+    "wallMs": 13223.20000000298,
+    "state": {
+      "pawns": 50,
+      "alive": 50,
+      "hungry": 49,
+      "sleeping": 0,
+      "minHP": 100,
+      "uniqueTiles": 49,
+      "simulationSeconds": -34519678,
+      "harvested": 13,
+      "moving": 7
+    }
+  },
+  "totalSampleMs": 13277.352,
+  "self": [
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 6229.047,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 3677.939,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "ms": 1413.488,
+      "parent": "(root)"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 454.174,
+      "parent": "updateNeeds"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 400.269,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "walls.environmentCannotStop",
+      "url": "index-CPEMUq6M.js",
+      "line": 4754,
+      "ms": 229.11,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "less",
+      "url": "index-CPEMUq6M.js",
+      "line": 320,
+      "ms": 215.748,
+      "parent": "pop"
+    },
+    {
+      "function": "key2",
+      "url": "index-CPEMUq6M.js",
+      "line": 315,
+      "ms": 166.392,
+      "parent": "findPaths"
+    },
+    {
+      "function": "pop",
+      "url": "index-CPEMUq6M.js",
+      "line": 333,
+      "ms": 154.411,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": 0,
+      "ms": 64.685,
+      "parent": "(root)"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 511,
+      "ms": 40.093,
+      "parent": "findPaths"
+    },
+    {
+      "function": "push",
+      "url": "index-CPEMUq6M.js",
+      "line": 321,
+      "ms": 35.301,
+      "parent": "findPaths"
+    },
+    {
+      "function": "updateNeeds",
+      "url": "index-CPEMUq6M.js",
+      "line": 693,
+      "ms": 20.98,
+      "parent": ""
+    },
+    {
+      "function": "less",
+      "url": "index-CPEMUq6M.js",
+      "line": 320,
+      "ms": 17.472,
+      "parent": "push"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 16.33,
+      "parent": "findPaths"
+    },
+    {
+      "function": "nonPlayerBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 515,
+      "ms": 14.528,
+      "parent": "findPaths"
+    },
+    {
+      "function": "refresh",
+      "url": "index-CPEMUq6M.js",
+      "line": 1694,
+      "ms": 13.229,
+      "parent": "advancePathMovement"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 511,
+      "ms": 12.128,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6513,
+      "ms": 9.49,
+      "parent": "advance"
+    },
+    {
+      "function": "updateDoors",
+      "url": "index-CPEMUq6M.js",
+      "line": 4767,
+      "ms": 6.398,
+      "parent": ""
+    },
+    {
+      "function": "advancePathMovement",
+      "url": "index-CPEMUq6M.js",
+      "line": 398,
+      "ms": 5.511,
+      "parent": ""
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 4.897,
+      "parent": "findPaths"
+    },
+    {
+      "function": "entries",
+      "url": "index-CPEMUq6M.js",
+      "line": 277,
+      "ms": 4.437,
+      "parent": "keys"
+    },
+    {
+      "function": "updateWork",
+      "url": "index-CPEMUq6M.js",
+      "line": 4453,
+      "ms": 4.285,
+      "parent": ""
+    },
+    {
+      "function": "get",
+      "url": "index-CPEMUq6M.js",
+      "line": 270,
+      "ms": 4.147,
+      "parent": "sourceApproach"
+    },
+    {
+      "function": "updateMood",
+      "url": "index-CPEMUq6M.js",
+      "line": 108,
+      "ms": 3.087,
+      "parent": ""
+    },
+    {
+      "function": "updateItemSummary",
+      "url": "index-CPEMUq6M.js",
+      "line": 4727,
+      "ms": 3.07,
+      "parent": ""
+    },
+    {
+      "function": "_clamp",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 4889,
+      "ms": 2.801,
+      "parent": "_refreshInt"
+    },
+    {
+      "function": "update",
+      "url": "index-CPEMUq6M.js",
+      "line": 835,
+      "ms": 2.545,
+      "parent": ""
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": 0,
+      "ms": 2.208,
+      "parent": "(root)"
+    }
+  ],
+  "inclusive": [
+    {
+      "function": "(root)",
+      "url": "",
+      "line": 0,
+      "ms": 13277.352
+    },
+    {
+      "function": "evaluate",
+      "url": "",
+      "line": 364,
+      "ms": 11796.971,
+      "parent": ""
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 1,
+      "ms": 11796.971,
+      "parent": "(root)"
+    },
+    {
+      "function": "simulate",
+      "url": "index-CPEMUq6M.js",
+      "line": 6468,
+      "ms": 11795.809,
+      "parent": ""
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 1,
+      "ms": 11795.809,
+      "parent": "evaluate"
+    },
+    {
+      "function": "emit",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 7922,
+      "ms": 11794.74,
+      "parent": "update"
+    },
+    {
+      "function": "update",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 8286,
+      "ms": 11794.74,
+      "parent": "simulate"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6493,
+      "ms": 11792.731,
+      "parent": "emit"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6513,
+      "ms": 11777.866,
+      "parent": "advance"
+    },
+    {
+      "function": "advance",
+      "url": "index-CPEMUq6M.js",
+      "line": 2856,
+      "ms": 11777.865,
+      "parent": ""
+    },
+    {
+      "function": "updateNeeds",
+      "url": "index-CPEMUq6M.js",
+      "line": 693,
+      "ms": 11668.738,
+      "parent": ""
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 11633.083,
+      "parent": "updateNeeds"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 11166.781,
+      "parent": "findPaths"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 511,
+      "ms": 6269.14,
+      "parent": "findPaths"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 6229.047,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "ms": 1413.488,
+      "parent": "(root)"
+    },
+    {
+      "function": "cannotStop",
+      "url": "index-CPEMUq6M.js",
+      "line": 527,
+      "ms": 630.378,
+      "parent": "findPaths"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 400.269,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "pop",
+      "url": "index-CPEMUq6M.js",
+      "line": 333,
+      "ms": 370.159,
+      "parent": "findPaths"
+    },
+    {
+      "function": "walls.environmentCannotStop",
+      "url": "index-CPEMUq6M.js",
+      "line": 4754,
+      "ms": 229.11,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "less",
+      "url": "index-CPEMUq6M.js",
+      "line": 320,
+      "ms": 215.748,
+      "parent": "pop"
+    },
+    {
+      "function": "key2",
+      "url": "index-CPEMUq6M.js",
+      "line": 315,
+      "ms": 166.392,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": 0,
+      "ms": 64.685,
+      "parent": "(root)"
+    },
+    {
+      "function": "push",
+      "url": "index-CPEMUq6M.js",
+      "line": 321,
+      "ms": 52.773,
+      "parent": "findPaths"
+    },
+    {
+      "function": "update",
+      "url": "index-CPEMUq6M.js",
+      "line": 3710,
+      "ms": 49.489,
+      "parent": ""
+    },
+    {
+      "function": "updateWolf",
+      "url": "index-CPEMUq6M.js",
+      "line": 3874,
+      "ms": 42.26,
+      "parent": "update"
+    },
+    {
+      "function": "updateNeeds",
+      "url": "index-CPEMUq6M.js",
+      "line": 693,
+      "ms": 39.141,
+      "parent": "updateWolf"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 37.068,
+      "parent": "updateNeeds"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 35.994,
+      "parent": "findPaths"
+    },
+    {
+      "function": "advancePathMovement",
+      "url": "index-CPEMUq6M.js",
+      "line": 398,
+      "ms": 20.027,
+      "parent": ""
+    }
+  ]
+}

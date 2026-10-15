@@ -1,0 +1,63 @@
+--- a/src/pathfinding.ts
++++ b/src/pathfinding.ts
+@@ -1,3 +1,5 @@
++export const hungerDiagnostics={enabled:false,calls:0,hits:0,misses:0,evictions:0,foodSearches:0,noFoodGoal:0,sourcesTotal:0};
++Object.assign(globalThis,{__hungerDiagnostics:hungerDiagnostics});
+ import type { Movement, Tile } from './movement';
+ import { advanceMovement, setRoute } from './movement.ts';
+ 
+@@ -39,6 +41,7 @@
+ }
+ 
+ export function findPaths(start: Tile, size: number, blocked: TileRule, cannotStop: TileRule, movement?: Movement): Map<number, Path> {
++  if(hungerDiagnostics.enabled)hungerDiagnostics.calls++;
+   blocked = movement?.terrainBlocked ?? blocked;
+   if (movement?.stopBlocked) return new AvailablePaths(findPaths(start, size, blocked, cannotStop), movement, size);
+   const cache = caches.get(blocked);
+@@ -46,7 +49,8 @@
+   if (cache && !policy) { policy = new Map(); cache.set(cannotStop, policy); }
+   const cacheKey = `${size}:${start.column},${start.row}`;
+   const cached = policy?.get(cacheKey);
+-  if (cached) { policy!.delete(cacheKey); policy!.set(cacheKey, cached); return cached; }
++  if (cached) { if(hungerDiagnostics.enabled)hungerDiagnostics.hits++; policy!.delete(cacheKey); policy!.set(cacheKey, cached); return cached; }
++  if(hungerDiagnostics.enabled)hungerDiagnostics.misses++;
+   const result = new Map<number, Path>();
+   const key = ({ column, row }: Tile) => row * size + column;
+   const distances = new Map<number, number>([[key(start), 0]]);
+@@ -100,7 +104,7 @@
+       if (cost < (distances.get(nextKey) ?? Infinity)) { distances.set(nextKey, cost); previous.set(nextKey, current); push(next, cost); }
+     }
+   }
+-  if (policy) { policy.set(cacheKey, result); if (policy.size > 16) policy.delete(policy.keys().next().value!); }
++  if (policy) { policy.set(cacheKey, result); if (policy.size > 16) {if(hungerDiagnostics.enabled)hungerDiagnostics.evictions++;policy.delete(policy.keys().next().value!);} }
+   return result;
+ }
+ 
+--- a/src/needs.ts
++++ b/src/needs.ts
+@@ -9,7 +9,7 @@
+ import { foodNutrition, returnItems, carryCapacity } from './items.ts';
+ import type { Tile } from './movement';
+ import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
+-import { findPaths } from './pathfinding.ts';
++import { findPaths,hungerDiagnostics } from './pathfinding.ts';
+ import type { Path } from './pathfinding';
+ 
+ export interface Needs { satiety: number; wakefulness?:number; happiness?:number }
+@@ -151,6 +151,7 @@
+     if (!sources.length) return fallbackFood?.(worker)??false;
+     const walls = construction.walls;
+     const from = worker.movement.nextTile ?? worker.movement.tile;
++    if(hungerDiagnostics.enabled){hungerDiagnostics.foodSearches++;hungerDiagnostics.sourcesTotal+=sources.length;}
+     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
+     let best: { source: MapItem; goal: Tile; path: Path } | null = null;
+     for (const source of sources) {
+@@ -158,7 +159,7 @@
+       if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
+       if (approach && (!best || approach.path.distance < best.path.distance)) best = { source, ...approach };
+     }
+-    if (!best) return fallbackFood?.(worker)??false;
++    if (!best) {if(hungerDiagnostics.enabled)hungerDiagnostics.noFoodGoal++;return fallbackFood?.(worker)??false;}
+     interruptWork(worker, construction, harvesting, hauling);
+     worker.eatJob = { source: best.source, goal: best.goal };
+     setRoute(worker.movement, best.path.tiles);

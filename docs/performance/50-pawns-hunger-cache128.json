@@ -1,0 +1,440 @@
+{
+  "measurement": {
+    "wallMs": 564,
+    "state": {
+      "pawns": 50,
+      "alive": 50,
+      "hungry": 49,
+      "sleeping": 0,
+      "minHP": 100,
+      "uniqueTiles": 49,
+      "simulationSeconds": -34519678,
+      "harvested": 13,
+      "moving": 7
+    }
+  },
+  "totalSampleMs": 789.374,
+  "self": [
+    {
+      "function": "(program)",
+      "url": "",
+      "line": 0,
+      "ms": 214.686,
+      "parent": "(root)"
+    },
+    {
+      "function": "at",
+      "url": "index-BfAaEp1k.js",
+      "line": 502,
+      "ms": 199.783,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 130.191,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "ms": 70.446,
+      "parent": "(root)"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 23.981,
+      "parent": "updateNeeds"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 14.653,
+      "parent": "findPaths"
+    },
+    {
+      "function": "nonPlayerBlocked",
+      "url": "index-BfAaEp1k.js",
+      "line": 515,
+      "ms": 13.595,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-BfAaEp1k.js",
+      "line": 6513,
+      "ms": 12.423,
+      "parent": "advance"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-BfAaEp1k.js",
+      "line": 6493,
+      "ms": 11.759,
+      "parent": "emit"
+    },
+    {
+      "function": "updateNeeds",
+      "url": "index-BfAaEp1k.js",
+      "line": 693,
+      "ms": 11.026,
+      "parent": ""
+    },
+    {
+      "function": "walls.environmentCannotStop",
+      "url": "index-BfAaEp1k.js",
+      "line": 4754,
+      "ms": 7.365,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "at",
+      "url": "index-BfAaEp1k.js",
+      "line": 502,
+      "ms": 5.219,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "less",
+      "url": "index-BfAaEp1k.js",
+      "line": 320,
+      "ms": 4.07,
+      "parent": "pop"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 4.058,
+      "parent": "findPaths"
+    },
+    {
+      "function": "nonPlayerBlocked",
+      "url": "index-BfAaEp1k.js",
+      "line": 515,
+      "ms": 3.086,
+      "parent": "findPaths"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-BfAaEp1k.js",
+      "line": 511,
+      "ms": 2.977,
+      "parent": "findPaths"
+    },
+    {
+      "function": "key2",
+      "url": "index-BfAaEp1k.js",
+      "line": 315,
+      "ms": 2.302,
+      "parent": "findPaths"
+    },
+    {
+      "function": "updateWork",
+      "url": "index-BfAaEp1k.js",
+      "line": 4453,
+      "ms": 2.248,
+      "parent": ""
+    },
+    {
+      "function": "refresh",
+      "url": "index-BfAaEp1k.js",
+      "line": 1694,
+      "ms": 2.155,
+      "parent": "advancePathMovement"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-BfAaEp1k.js",
+      "line": 511,
+      "ms": 2.141,
+      "parent": "sourceApproach"
+    },
+    {
+      "function": "innerSerialize",
+      "url": "",
+      "line": 214,
+      "ms": 2.132,
+      "parent": "serialize"
+    },
+    {
+      "function": "update",
+      "url": "index-BfAaEp1k.js",
+      "line": 835,
+      "ms": 2.092,
+      "parent": ""
+    },
+    {
+      "function": "at",
+      "url": "index-BfAaEp1k.js",
+      "line": 502,
+      "ms": 2.033,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "get",
+      "url": "index-BfAaEp1k.js",
+      "line": 270,
+      "ms": 2.007,
+      "parent": "sourceApproach"
+    },
+    {
+      "function": "pop",
+      "url": "index-BfAaEp1k.js",
+      "line": 333,
+      "ms": 2.002,
+      "parent": "findPaths"
+    },
+    {
+      "function": "keys",
+      "url": "index-BfAaEp1k.js",
+      "line": 280,
+      "ms": 1.992,
+      "parent": "updateRoaming"
+    },
+    {
+      "function": "update",
+      "url": "index-BfAaEp1k.js",
+      "line": 2491,
+      "ms": 1.984,
+      "parent": ""
+    },
+    {
+      "function": "entries",
+      "url": "index-BfAaEp1k.js",
+      "line": 277,
+      "ms": 1.951,
+      "parent": "keys"
+    },
+    {
+      "function": "updatePawnModeButton",
+      "url": "index-BfAaEp1k.js",
+      "line": 5680,
+      "ms": 1.911,
+      "parent": ""
+    },
+    {
+      "function": "updateWolf",
+      "url": "index-BfAaEp1k.js",
+      "line": 3874,
+      "ms": 1.813,
+      "parent": "update"
+    }
+  ],
+  "inclusive": [
+    {
+      "function": "(root)",
+      "url": "",
+      "line": 0,
+      "ms": 789.374
+    },
+    {
+      "function": "evaluate",
+      "url": "",
+      "line": 364,
+      "ms": 503.334,
+      "parent": ""
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 1,
+      "ms": 503.334,
+      "parent": "(root)"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 1,
+      "ms": 500.152,
+      "parent": "evaluate"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-BfAaEp1k.js",
+      "line": 6493,
+      "ms": 498.124,
+      "parent": "emit"
+    },
+    {
+      "function": "emit",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 7922,
+      "ms": 498.124,
+      "parent": "update"
+    },
+    {
+      "function": "update",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 8286,
+      "ms": 498.124,
+      "parent": "simulate"
+    },
+    {
+      "function": "simulate",
+      "url": "index-BfAaEp1k.js",
+      "line": 6468,
+      "ms": 498.124,
+      "parent": ""
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-BfAaEp1k.js",
+      "line": 6513,
+      "ms": 481.594,
+      "parent": "advance"
+    },
+    {
+      "function": "advance",
+      "url": "index-BfAaEp1k.js",
+      "line": 2856,
+      "ms": 481.594,
+      "parent": ""
+    },
+    {
+      "function": "updateNeeds",
+      "url": "index-BfAaEp1k.js",
+      "line": 693,
+      "ms": 402.534,
+      "parent": ""
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 378.947,
+      "parent": "updateNeeds"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 354.966,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": 0,
+      "ms": 214.686,
+      "parent": "(root)"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-BfAaEp1k.js",
+      "line": 511,
+      "ms": 202.76,
+      "parent": "findPaths"
+    },
+    {
+      "function": "at",
+      "url": "index-BfAaEp1k.js",
+      "line": 502,
+      "ms": 199.783,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "ms": 70.446,
+      "parent": "(root)"
+    },
+    {
+      "function": "update",
+      "url": "index-BfAaEp1k.js",
+      "line": 3710,
+      "ms": 44.873,
+      "parent": ""
+    },
+    {
+      "function": "updateWolf",
+      "url": "index-BfAaEp1k.js",
+      "line": 3874,
+      "ms": 35.627,
+      "parent": "update"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 31.42,
+      "parent": "findPaths"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 31.42,
+      "parent": "updateNeeds"
+    },
+    {
+      "function": "updateNeeds",
+      "url": "index-BfAaEp1k.js",
+      "line": 693,
+      "ms": 31.42,
+      "parent": "updateWolf"
+    },
+    {
+      "function": "nonPlayerBlocked",
+      "url": "index-BfAaEp1k.js",
+      "line": 515,
+      "ms": 13.595,
+      "parent": "findPaths"
+    },
+    {
+      "function": "cannotStop",
+      "url": "index-BfAaEp1k.js",
+      "line": 527,
+      "ms": 12.634,
+      "parent": "findPaths"
+    },
+    {
+      "function": "updateRoaming",
+      "url": "index-BfAaEp1k.js",
+      "line": 3618,
+      "ms": 8.999,
+      "parent": "updateDeer"
+    },
+    {
+      "function": "updateDeer",
+      "url": "index-BfAaEp1k.js",
+      "line": 3821,
+      "ms": 8.999,
+      "parent": "update"
+    },
+    {
+      "function": "updateWork",
+      "url": "index-BfAaEp1k.js",
+      "line": 4453,
+      "ms": 8.304,
+      "parent": ""
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 8.235,
+      "parent": "findPaths"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-BfAaEp1k.js",
+      "line": 298,
+      "ms": 8.235,
+      "parent": "updateRoaming"
+    },
+    {
+      "function": "walls.environmentCannotStop",
+      "url": "index-BfAaEp1k.js",
+      "line": 4754,
+      "ms": 7.365,
+      "parent": "cannotStop"
+    }
+  ]
+}
