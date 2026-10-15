@@ -75,7 +75,7 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
   };
   const trees = available.filter(tile => !rockTiles.has(key(tile))).map(tile => ({
     tile, score: -Math.log(Math.max(0.000001, random())) / (0.001 + density(tile) ** 6),
-  })).sort((a, b) => a.score - b.score).slice(0, 24);
+  })).sort((a, b) => a.score - b.score).slice(0, 120);
   for (const { tile } of trees) result.push({ ...createEnvironment('tree', tile), hp:1+Math.floor(random()*100),ageSeconds:random()*180 });
   const occupied = new Set(result.map(key));
   const berries = available.filter(tile => !occupied.has(key(tile)));

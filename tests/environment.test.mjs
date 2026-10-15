@@ -12,7 +12,7 @@ const pawn=()=>({movement:createMovement({column:2,row:2}),mode:'automatic',inve
 test('random environmental placement produces unique trees/rocks and preserves the central spawn area',()=>{
  let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
  const objects=initialEnvironment(32,random);
- assert.equal(objects.filter(o=>o.type==='tree').length,24);
+ assert.equal(objects.filter(o=>o.type==='tree').length,120);
  assert.equal(objects.filter(o=>o.type==='wildStrawberry').length,16);
  const rocks=objects.filter(o=>o.type==='rock');assert.ok(rocks.length>=12&&rocks.length<=32);
  const groups=new Map();for(const rock of rocks){if(!groups.has(rock.clusterId))groups.set(rock.clusterId,[]);groups.get(rock.clusterId).push(rock);}
