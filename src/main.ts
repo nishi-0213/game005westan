@@ -386,7 +386,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   view.addChild(weaponView);
   view.position.set((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE);
   map.addChild(view);
-  const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'drafted', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
+  const builder: HarvestWorker & HaulWorker = { movement: createMovement({ column, row }), mode: 'automatic', inventory: null, job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0 };
   const attackRange = new Graphics();
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
