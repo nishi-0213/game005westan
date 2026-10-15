@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-10-15T05:05:43.371Z",
+  "environment": {
+    "node": "v24.19.0",
+    "browser": "154.0.8037.57",
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "availableCpus": 4,
+    "renderer": "SwiftShader software WebGL",
+    "viewport": "1280x720 DPR1",
+    "build": "production"
+  },
+  "sampleMs": 10000,
+  "results": [
+    {
+      "scenario": "free",
+      "speed": 3,
+      "pawns": 100,
+      "actualDurationMs": 10007.10000000149,
+      "fps": 10.19276313817038,
+      "frameMs": {
+        "mean": 98.52647058823528,
+        "p95": 183.29999999999927,
+        "max": 233.3000000000011
+      },
+      "updateMs": {
+        "mean": 3.898039215920018,
+        "p95": 9.100000001490116,
+        "max": 24.200000002980232
+      },
+      "longTasks": 1,
+      "longestTaskMs": 202,
+      "heapStartMB": 9.540225982666016,
+      "heapEndMB": 9.345138549804688,
+      "simulatedSeconds": 26.049999997019768,
+      "expectedSimulatedSeconds": 30.02130000000447,
+      "harvestedDuringSample": 3,
+      "alive": 100,
+      "errors": []
+    }
+  ]
+}

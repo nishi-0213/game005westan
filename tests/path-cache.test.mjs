@@ -7,7 +7,7 @@ import { createMovement } from '../src/movement.ts';
 import { demolishStructure } from '../src/demolition.ts';
 
 test('repeated managed queries reuse the same exploration without rechecking every map tile',()=>{
- let checks=0;const blocked=()=>{checks++;return false;},cannotStop=()=>false;registerPathCache(blocked);const first=findPaths({column:2,row:2},32,blocked,cannotStop),before=checks;for(let i=0;i<100;i++)assert.equal(findPaths({column:2,row:2},32,blocked,cannotStop),first);assert.equal(checks,before);invalidatePaths(blocked);assert.notEqual(findPaths({column:2,row:2},32,blocked,cannotStop),first);assert.ok(checks>before);
+ let checks=0;const blocked=()=>{checks++;return false;},cannotStop=()=>false;registerPathCache(blocked);const first=findPaths({column:2,row:2},32,blocked,cannotStop),before=checks;for(let i=0;i<100;i++)assert.equal(findPaths({column:2,row:2},32,blocked,cannotStop),first);assert.equal(checks,before);invalidatePaths(blocked);const refreshed=findPaths({column:2,row:2},32,blocked,cannotStop);assert.notEqual(refreshed,first);assert.ok(refreshed.get(3*32+3));assert.ok(checks>before);
 });
 test('completed walls and demolition invalidate cached routes and recover passage',()=>{
  const walls=new Walls(8),start={column:2,row:2},goal={column:5,row:2};const direct=findPath(start,goal,8,walls.isBlocked,walls.cannotStop);const wall=walls.plan({column:3,row:2},'wood');walls.complete(wall);const detour=findPath(start,goal,8,walls.isBlocked,walls.cannotStop);assert.ok(detour.distance>direct.distance);wall.demolition=true;demolishStructure(walls,[],wall);assert.equal(findPath(start,goal,8,walls.isBlocked,walls.cannotStop).distance,direct.distance);

@@ -10,7 +10,7 @@ import type { MapItem, ItemType } from './items';
 import { foodNutrition, returnItems, carryCapacity } from './items.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
-import { findPaths } from './pathfinding.ts';
+import { findPaths, rankedTargets } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 
 export interface Needs { satiety: number; wakefulness?:number; happiness?:number }
@@ -155,10 +155,12 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     const from = worker.movement.nextTile ?? worker.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     let best: { source: MapItem; goal: Tile; path: Path } | null = null;
-    for (const source of sources) {
+    let bestOrder=Infinity;
+    for (const {target:source,order,lowerBound} of rankedTargets(sources,from)) {
+      if(best&&lowerBound>best.path.distance+1e-10)break;
       let approach = construction.sourceApproach(from, source, paths);
       if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
-      if (approach && (!best || approach.path.distance < best.path.distance)) best = { source, ...approach };
+      if (approach && (!best || approach.path.distance < best.path.distance || approach.path.distance===best.path.distance&&order<bestOrder)) {best = { source, ...approach };bestOrder=order;}
     }
     if (!best) return fallbackFood?.(worker)??false;
     interruptWork(worker, construction, harvesting, hauling);

@@ -6,7 +6,7 @@ import type { MapItem } from './items';
 import { returnItems } from './items.ts';
 import type { Tile } from './movement';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
-import { findPaths, invalidatePaths } from './pathfinding.ts';
+import { findNearest, invalidatePaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import type { Walls } from './walls';
 
@@ -36,19 +36,13 @@ export class Harvesting {
   findWork(worker: HarvestWorker, eligible = markedForHarvest): { target: EnvironmentObject; goal: Tile; path: Path } | null {
     if (!canPlan(worker.movement))return null;
     if (!this.objects.some(target => eligible(target) && !target.collected && !this.claims.has(target))) return null;
-      const paths = findPaths(worker.movement.nextTile ?? worker.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, worker.movement);
-      let best: { target: EnvironmentObject; goal: Tile; path: Path } | null = null;
-      for (const target of this.objects) {
-        if (!eligible(target) || target.collected || this.claims.has(target) || this.walls.isBlocked(target)) continue;
-        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-          if (!dr && !dc) continue;
-          const goal = { column: target.column + dc, row: target.row + dr };
-          if (goal.column < 0 || goal.row < 0 || goal.column >= this.walls.mapSize || goal.row >= this.walls.mapSize) continue;
-          const path = paths.get(goal.row * this.walls.mapSize + goal.column);
-          if (path && (!best || path.distance < best.path.distance)) best = { target, goal, path };
-        }
-      }
-      return best;
+    const candidates=[];
+    for(const target of this.objects){
+      if(!eligible(target)||target.collected||this.claims.has(target)||this.walls.isBlocked(target))continue;
+      for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(dc||dr)candidates.push({target,goal:{column:target.column+dc,row:target.row+dr}});
+    }
+    return findNearest(worker.movement.nextTile??worker.movement.tile,this.walls.mapSize,this.walls.isBlocked,this.walls.cannotStop,candidates,worker.movement);
+
   }
 
   hasAvailableWork(worker: HarvestWorker): boolean { return this.findWork(worker) !== null; }

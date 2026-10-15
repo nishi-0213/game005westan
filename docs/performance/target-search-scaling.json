@@ -1,0 +1,423 @@
+{
+  "node": "v24.19.0",
+  "baseline": "23a4d3f",
+  "runs": 3,
+  "results": [
+    {
+      "size": 32,
+      "scenario": "near-move",
+      "version": "before",
+      "meanMs": 2.523316666666664,
+      "samples": [
+        {
+          "elapsedMs": 3.1811659999999975,
+          "terrainChecks": 16525,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 2.6645169999999965,
+          "terrainChecks": 16525,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 1.7242669999999976,
+          "terrainChecks": 16525,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "near-move",
+      "version": "after",
+      "meanMs": 0.13625266666666627,
+      "samples": [
+        {
+          "elapsedMs": 0.349930999999998,
+          "terrainChecks": 36,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.04257299999999731,
+          "terrainChecks": 36,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.016254000000003543,
+          "terrainChecks": 36,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "nearest-target",
+      "version": "before",
+      "meanMs": 1.5716396666666672,
+      "samples": [
+        {
+          "elapsedMs": 1.5583700000000036,
+          "terrainChecks": 16524,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 2.027999000000001,
+          "terrainChecks": 16524,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 1.128549999999997,
+          "terrainChecks": 16524,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "nearest-target",
+      "version": "after",
+      "meanMs": 0.13571566666666968,
+      "samples": [
+        {
+          "elapsedMs": 0.26678800000000535,
+          "terrainChecks": 307,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.06868200000000257,
+          "terrainChecks": 307,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.0716770000000011,
+          "terrainChecks": 307,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "long-move",
+      "version": "before",
+      "meanMs": 0.9965673333333337,
+      "samples": [
+        {
+          "elapsedMs": 1.1295220000000015,
+          "terrainChecks": 16525,
+          "distance": 41.012193308819754,
+          "steps": 29
+        },
+        {
+          "elapsedMs": 0.5685069999999968,
+          "terrainChecks": 16525,
+          "distance": 41.012193308819754,
+          "steps": 29
+        },
+        {
+          "elapsedMs": 1.291673000000003,
+          "terrainChecks": 16525,
+          "distance": 41.012193308819754,
+          "steps": 29
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "long-move",
+      "version": "after",
+      "meanMs": 0.12723300000000157,
+      "samples": [
+        {
+          "elapsedMs": 0.16506600000000304,
+          "terrainChecks": 495,
+          "distance": 41.012193308819754,
+          "steps": 29
+        },
+        {
+          "elapsedMs": 0.11765499999999918,
+          "terrainChecks": 495,
+          "distance": 41.012193308819754,
+          "steps": 29
+        },
+        {
+          "elapsedMs": 0.09897800000000245,
+          "terrainChecks": 495,
+          "distance": 41.012193308819754,
+          "steps": 29
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "detour",
+      "version": "before",
+      "meanMs": 0.8874309999999994,
+      "samples": [
+        {
+          "elapsedMs": 0.8191289999999967,
+          "terrainChecks": 15768,
+          "distance": 49.79898987322331,
+          "steps": 44
+        },
+        {
+          "elapsedMs": 0.9876100000000037,
+          "terrainChecks": 15768,
+          "distance": 49.79898987322331,
+          "steps": 44
+        },
+        {
+          "elapsedMs": 0.8555539999999979,
+          "terrainChecks": 15768,
+          "distance": 49.79898987322331,
+          "steps": 44
+        }
+      ]
+    },
+    {
+      "size": 32,
+      "scenario": "detour",
+      "version": "after",
+      "meanMs": 0.8594426666666711,
+      "samples": [
+        {
+          "elapsedMs": 0.6591210000000132,
+          "terrainChecks": 7764,
+          "distance": 49.79898987322333,
+          "steps": 44
+        },
+        {
+          "elapsedMs": 1.4220870000000048,
+          "terrainChecks": 7764,
+          "distance": 49.79898987322333,
+          "steps": 44
+        },
+        {
+          "elapsedMs": 0.49711999999999534,
+          "terrainChecks": 7764,
+          "distance": 49.79898987322333,
+          "steps": 44
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "near-move",
+      "version": "before",
+      "meanMs": 153.74138600000003,
+      "samples": [
+        {
+          "elapsedMs": 202.686347,
+          "terrainChecks": 1731853,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 125.96101800000002,
+          "terrainChecks": 1731853,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 132.57679300000007,
+          "terrainChecks": 1731853,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "near-move",
+      "version": "after",
+      "meanMs": 0.033569999999978485,
+      "samples": [
+        {
+          "elapsedMs": 0.08791099999996277,
+          "terrainChecks": 36,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.007381000000009408,
+          "terrainChecks": 36,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.0054179999999632855,
+          "terrainChecks": 36,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "nearest-target",
+      "version": "before",
+      "meanMs": 126.9819606666667,
+      "samples": [
+        {
+          "elapsedMs": 124.11364300000002,
+          "terrainChecks": 1731852,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 137.23382600000002,
+          "terrainChecks": 1731852,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 119.59841300000005,
+          "terrainChecks": 1731852,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "nearest-target",
+      "version": "after",
+      "meanMs": 0.059488666666652534,
+      "samples": [
+        {
+          "elapsedMs": 0.11142599999993763,
+          "terrainChecks": 307,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.03584299999999985,
+          "terrainChecks": 307,
+          "distance": 2.414213562373095,
+          "steps": 2
+        },
+        {
+          "elapsedMs": 0.031197000000020125,
+          "terrainChecks": 307,
+          "distance": 2.414213562373095,
+          "steps": 2
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "long-move",
+      "version": "before",
+      "meanMs": 138.12848366666674,
+      "samples": [
+        {
+          "elapsedMs": 103.20076100000006,
+          "terrainChecks": 1731853,
+          "distance": 448.30569927227356,
+          "steps": 317
+        },
+        {
+          "elapsedMs": 158.05284800000015,
+          "terrainChecks": 1731853,
+          "distance": 448.30569927227356,
+          "steps": 317
+        },
+        {
+          "elapsedMs": 153.131842,
+          "terrainChecks": 1731853,
+          "distance": 448.30569927227356,
+          "steps": 317
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "long-move",
+      "version": "after",
+      "meanMs": 0.8175633333333584,
+      "samples": [
+        {
+          "elapsedMs": 0.9543200000000525,
+          "terrainChecks": 5391,
+          "distance": 448.30569927227356,
+          "steps": 317
+        },
+        {
+          "elapsedMs": 0.76863400000002,
+          "terrainChecks": 5391,
+          "distance": 448.30569927227356,
+          "steps": 317
+        },
+        {
+          "elapsedMs": 0.7297360000000026,
+          "terrainChecks": 5391,
+          "distance": 448.30569927227356,
+          "steps": 317
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "detour",
+      "version": "before",
+      "meanMs": 108.60240766666668,
+      "samples": [
+        {
+          "elapsedMs": 113.0079569999998,
+          "terrainChecks": 1723896,
+          "distance": 541.4457428549497,
+          "steps": 476
+        },
+        {
+          "elapsedMs": 110.85692800000015,
+          "terrainChecks": 1723896,
+          "distance": 541.4457428549497,
+          "steps": 476
+        },
+        {
+          "elapsedMs": 101.94233800000006,
+          "terrainChecks": 1723896,
+          "distance": 541.4457428549497,
+          "steps": 476
+        }
+      ]
+    },
+    {
+      "size": 320,
+      "scenario": "detour",
+      "version": "after",
+      "meanMs": 66.07180233333338,
+      "samples": [
+        {
+          "elapsedMs": 75.25068299999998,
+          "terrainChecks": 1021177,
+          "distance": 541.4457428549497,
+          "steps": 476
+        },
+        {
+          "elapsedMs": 59.81007700000009,
+          "terrainChecks": 1021177,
+          "distance": 541.4457428549497,
+          "steps": 476
+        },
+        {
+          "elapsedMs": 63.15464700000007,
+          "terrainChecks": 1021177,
+          "distance": 541.4457428549497,
+          "steps": 476
+        }
+      ]
+    }
+  ]
+}

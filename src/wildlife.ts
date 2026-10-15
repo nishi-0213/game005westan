@@ -295,6 +295,7 @@ export class Wildlife {
     const paths = findPaths(movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, movement);
     let best: { goal: Tile; path: Path } | undefined;
     for (const [index, path] of paths) {
+      if(best&&path.distance>best.path.distance)break;
       const column = index % walls.mapSize, row = Math.floor(index / walls.mapSize);
       if (column !== 0 && row !== 0 && column !== walls.mapSize - 1 && row !== walls.mapSize - 1) continue;
       if (!best || path.distance < best.path.distance) best = { goal: { column, row }, path };

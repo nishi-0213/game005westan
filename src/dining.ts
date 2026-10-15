@@ -1,6 +1,6 @@
 import type { Movement } from './movement';
 import type { Walls, Wall } from './walls';
-import { findPaths } from './pathfinding.ts';
+import { findNearest } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 
 export const DINING_DISTANCE = 20;
@@ -20,11 +20,6 @@ export function findDiningSeat(walls: Walls, movement: Movement): DiningSeat | n
     return table ? [{chair, table}] : [];
   });
   if (!candidates.length) return null;
-  const paths = findPaths(movement.nextTile ?? movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, movement);
-  let best: DiningSeat | null = null;
-  for (const candidate of candidates) {
-    const path = paths.get(candidate.chair.row * walls.mapSize + candidate.chair.column);
-    if (path && path.distance <= DINING_DISTANCE && (!best || path.distance < best.path.distance)) best = {...candidate, path};
-  }
-  return best;
+  const nearest=findNearest(movement.nextTile??movement.tile,walls.mapSize,walls.isBlocked,walls.cannotStop,candidates.map(target=>({target,goal:target.chair})),movement,DINING_DISTANCE);
+  return nearest?{...nearest.target,path:nearest.path}:null;
 }

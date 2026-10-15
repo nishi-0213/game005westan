@@ -75,6 +75,7 @@ test('moving occupancy updates endpoint filters without recomputing cached terra
   let checks = 0; const blocked = () => { checks++; return false; }; registerPathCache(blocked);
   const occupancy = new PawnOccupancy(), a = createMovement(tile(1,2)), b = createMovement(tile(3,2));
   occupancy.track(a); occupancy.track(b);
+  findPaths(a.tile,8,blocked,open).get(2*8+3);
   const paths = findPaths(a.tile, 8, blocked, open, a), before = checks;
   assert.equal(paths.has(2*8+3), false);
   setRoute(b, [tile(4,2)]); advanceMovement(b, 1);

@@ -9,7 +9,7 @@ const summarize=values=>({mean:values.reduce((a,b)=>a+b,0)/Math.max(1,values.len
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader','--enable-precise-memory-info']});
  const report={timestamp:new Date().toISOString(),environment:{node:process.version,browser:browser.version(),cpu:os.cpus()[0].model,availableCpus:os.availableParallelism(),renderer:'SwiftShader software WebGL',viewport:'1280x720 DPR1',build:'production'},sampleMs,results:[]};
  try{
-  for(const [scenario,speed]of [['free',1],['harvesting',1],['free',3]])for(const count of (process.env.PERF_COUNTS||'3,100').split(',').map(Number)){
+  for(const [scenario,speed]of (process.env.PERF_SCENARIOS||'free:1,harvesting:1,free:3').split(',').map(value=>{const [name,speed]=value.split(':');return [name,Number(speed)];}))for(const count of (process.env.PERF_COUNTS||'3,100').split(',').map(Number)){
    const page=await browser.newPage({viewport:{width:1280,height:720},deviceScaleFactor:1}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
    await page.addInitScript(()=>{let seed=42;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};});
