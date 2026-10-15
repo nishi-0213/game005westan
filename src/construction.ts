@@ -11,6 +11,7 @@ import type { Wall, Walls } from './walls';
 import type { Storage } from './storage';
 
 export interface Builder {
+  forcedConstruction?: Wall;
   sleep?:import('./sleep').SleepState;
   movement: Movement;
   dead?: boolean;
@@ -58,10 +59,29 @@ export class Construction {
 
   cancel(builder: Builder): void {
     if (builder.job && this.claims.get(builder.job.target) === builder) this.claims.delete(builder.job.target);
+    if(builder.forcedConstruction&&this.claims.get(builder.forcedConstruction)===builder)this.claims.delete(builder.forcedConstruction);
+    delete builder.forcedConstruction;
     builder.job = null;
     builder.retrySeconds = 0;
     stopAtNextSafeTile(builder.movement, this.walls.cannotStop);
     this.onCancel?.(builder);
+  }
+
+  canRequest(builder:Builder,target:Wall):boolean {
+    if(!canGiveOrders(builder)||builder.dead||builder.sleep||target.state!=='planned'||this.walls.at(target)!==target||this.needsClearing(target))return false;
+    const owner=this.claims.get(target);if(owner&&owner!==builder)return false;
+    const from=builder.movement.nextTile??builder.movement.tile;
+    return Boolean(this.approach(from,target,findPaths(from,this.walls.mapSize,this.walls.isBlocked,this.walls.cannotStop,builder.movement)));
+  }
+
+  request(builder:Builder,target:Wall):boolean {
+    if(!this.canRequest(builder,target))return false;
+    const from=builder.movement.nextTile??builder.movement.tile;
+    const approach=this.approach(from,target,findPaths(from,this.walls.mapSize,this.walls.isBlocked,this.walls.cannotStop,builder.movement))!;
+    this.cancel(builder);builder.dropRequested=false;
+    builder.forcedConstruction=target;this.claims.set(target,builder);
+    setRoute(builder.movement,approach.path.tiles);
+    return true;
   }
 
   requestDrop(builder: Builder): void {
@@ -97,6 +117,7 @@ export class Construction {
     let bestOrder=Infinity;
     for (const {target,order,lowerBound} of rankedTargets([...this.walls.items.values()],builder.movement.tile)) {
       if(best&&lowerBound>best.path.distance+1e-10)break;
+      if(builder.forcedConstruction&&target!==builder.forcedConstruction)continue;
       const recipe = BUILD_RECIPES[target.kind];
       const destroying = target.state === 'completed' && target.demolition;
       if ((!destroying && target.state !== 'planned') || !recipe || this.needsClearing(target) || (material && (destroying || target.material !== material))) continue;
@@ -134,6 +155,7 @@ export class Construction {
   }
 
   update(builder: Builder, seconds: number, work: ConstructionWork = 'all'): void {
+    if(builder.forcedConstruction&&(builder.dead||builder.forcedConstruction.state!=='planned'||this.walls.at(builder.forcedConstruction)!==builder.forcedConstruction||this.needsClearing(builder.forcedConstruction))){this.cancel(builder);return;}
     if (builder.dropRequested) {
       if (builder.movement.nextTile || !sameTile(builder.movement.tile, builder.movement.destination)) return;
       if (builder.inventory) returnItems(this.items, builder.movement.tile, builder.inventory.type, builder.inventory.quantity);
@@ -143,7 +165,7 @@ export class Construction {
       builder.retrySeconds = 0.25;
       return;
     }
-    if (builder.mode !== 'automatic') { if (builder.job) this.cancel(builder); return; }
+    if (builder.mode !== 'automatic'&&!builder.forcedConstruction) { if (builder.job) this.cancel(builder); return; }
     if (builder.job && this.needsClearing(builder.job.target)) { this.cancel(builder); return; }
     if (builder.job && (builder.job.phase === 'demolish' ? builder.job.target.state !== 'completed' || !builder.job.target.demolition : builder.job.target.state !== 'planned')) this.cancel(builder);
     if (builder.job && this.claims.get(builder.job.target) !== builder) this.cancel(builder);
@@ -151,7 +173,7 @@ export class Construction {
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!builder.job) {
       builder.retrySeconds -= seconds;
-      if (builder.retrySeconds > 0 || !canPlan(movement)) return;
+      if (builder.retrySeconds > 0 || !canPlan(movement)&&!builder.forcedConstruction) return;
       builder.retrySeconds = 0.25;
       const plan = this.nearestPlan(builder, undefined, work);
       if (!plan) return;
@@ -186,9 +208,9 @@ export class Construction {
     const job = builder.job;
     if (!sameTile(movement.tile, job.goal)) { this.cancel(builder); return; }
     if (job.phase === 'gather') {
-      if(!canPlan(movement))return;
+      if(!canPlan(movement)&&!builder.forcedConstruction)return;
       const source = job.source!;
-      if (source.quantity <= 0) { this.cancel(builder); return; }
+      if (source.quantity <= 0) { if(builder.forcedConstruction){builder.job=null;builder.retrySeconds=0;}else this.cancel(builder); return; }
       const quantity = Math.min(source.quantity, carryCapacity(builder, source.type));
       builder.inventory = { type: source.type, quantity };
       source.quantity -= quantity;
@@ -199,7 +221,7 @@ export class Construction {
     const recipe = BUILD_RECIPES[job.target.kind]!;
     if (job.phase === 'deliver') {
       if (job.target.delivered >= recipe.materialCount) { if (work === 'transport') this.cancel(builder); else job.phase = 'build'; return; }
-      if (!builder.inventory?.quantity || builder.inventory.type !== job.target.material) { builder.inventory = null; this.cancel(builder); return; }
+      if (!builder.inventory?.quantity || builder.inventory.type !== job.target.material) { builder.inventory = null; if(builder.forcedConstruction){builder.job=null;builder.retrySeconds=0;}else this.cancel(builder); return; }
       // Transfer and consume exactly one material unit per operation.
       builder.inventory.quantity -= 1;
       job.target.delivered += 1;

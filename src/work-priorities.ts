@@ -120,7 +120,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
 export function currentAction(worker: AutonomousWorker): string {
   if (worker.dead) return '死亡';
   if (worker.dropRequested) return '地面に置く';
-  if (worker.mode === 'drafted') return '徴兵';
+  if (worker.mode === 'drafted'&&!worker.forcedConstruction) return '徴兵';
   const moving = Boolean(worker.movement.nextTile) || worker.movement.tile.column !== worker.movement.destination.column || worker.movement.tile.row !== worker.movement.destination.row;
   if(worker.cookJob)return worker.cookJob.phase==='process'?moving?'調理へ移動中':'調理中':worker.cookJob.phase==='carry'?'調理材料を運搬中':'調理材料を取得中';
   if (worker.butcherJob) return worker.butcherJob.phase === 'process' ? moving ? '解体へ移動中' : '解体中' : worker.butcherJob.phase === 'carry' || worker.butcherJob.phase === 'store' ? '死体を運搬中' : '死体を取得中';

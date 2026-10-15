@@ -211,7 +211,7 @@ export class Combat {
       }
       return true;
     }
-    if (!pawn.attackJob && (pawn.forcedHaulSource || pawn.forcedCorpse)) return false;
+    if (!pawn.attackJob && (pawn.forcedHaulSource || pawn.forcedCorpse || pawn.forcedConstruction)) return false;
     if (!pawn.attackJob) {
       pawn.combatDecisionSeconds = (pawn.combatDecisionSeconds ?? 0) - seconds;
       if (pawn.combatDecisionSeconds <= 0) {

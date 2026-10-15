@@ -151,3 +151,13 @@ test('only the owning builder advances a single plan, and interruption allows ha
  first.mode='drafted';engine.cancel(first);engine.update(second,.25);assert.equal(engine.claims.get(target),second);
  engine.update(first,.25);engine.update(second,.25);assert.equal(target.workSeconds,.5);
 });
+
+test('immediate construction keeps the selected plan across multiple supply trips, accepts drafted orders and releases its claim',()=>{
+ const {walls,engine,tick}=scene([{type:'stone',quantity:30,column:1,row:2}]);
+ const near=walls.plan({column:3,row:2},'stone'),target=walls.plan({column:6,row:2},'stone');
+ const builder=pawn(),other=pawn(2,3);builder.mode='drafted';builder.movement.planningAllowed=false;
+ assert.equal(engine.request(builder,target),true);assert.equal(engine.canRequest(other,target),false);
+ for(let i=0;i<1000&&target.state==='planned';i++)tick([builder]);
+ assert.equal(target.state,'completed');assert.equal(near.delivered,0);assert.equal(builder.forcedConstruction,undefined);assert.equal(engine.claims.has(target),false);
+ assert.equal(engine.request(builder,near),true);engine.cancel(builder);assert.equal(builder.forcedConstruction,undefined);assert.equal(engine.claims.has(near),false);
+});
