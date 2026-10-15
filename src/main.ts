@@ -117,7 +117,7 @@ function createEnvironmentView(object: EnvironmentObject) {
   outline.visible = false;
   const shape = new Graphics();
   if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x8fba7a);
-  else if (object.type === 'grass') shape.moveTo(-4, 7).lineTo(-9, -4).moveTo(0, 7).lineTo(0, -8).moveTo(4, 7).lineTo(9, -4).stroke({ color: 0x91b86b, width: 2.5 });
+  else if (object.type === 'grass') shape.moveTo(-4, 7).lineTo(-9, -4).moveTo(0, 7).lineTo(0, -8).moveTo(4, 7).lineTo(9, -4).stroke({ color: 0x6b8458, width: 2.5 });
   else if (object.type === 'wildStrawberry') shape.ellipse(0, 3, 9, 5).fill(0x8fba7a).circle(-4, 1, 3).circle(3, -1, 3).circle(1, 5, 3).fill(0xe75b70);
   else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
   if (object.type !== 'rock') shape.scale.set(object.type === 'grass' ? .6 + .4 * object.hp / 100 : .35 + .65 * object.hp / 100);

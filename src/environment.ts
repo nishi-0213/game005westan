@@ -85,7 +85,7 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
     const tile = berries.splice(index, 1)[0];
     result.push({ ...createEnvironment('wildStrawberry', tile), hp:1+Math.floor(random()*100),ageSeconds:random()*180 });
   }
-  for (let i = 0; i < 16 && berries.length; i++) {
+  for (let i = 0; i < 160 && berries.length; i++) {
     const tile = berries.splice(Math.floor(random() * berries.length), 1)[0];
     result.push({ ...createEnvironment('grass', tile), hp: 1 + Math.floor(random()*100), ageSeconds: random()*180 });
   }

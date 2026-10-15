@@ -14,6 +14,7 @@ test('random environmental placement produces unique trees/rocks and preserves t
  const objects=initialEnvironment(32,random);
  assert.equal(objects.filter(o=>o.type==='tree').length,120);
  assert.equal(objects.filter(o=>o.type==='wildStrawberry').length,16);
+ assert.equal(objects.filter(o=>o.type==='grass').length,160);
  const rocks=objects.filter(o=>o.type==='rock');assert.ok(rocks.length>=12&&rocks.length<=32);
  const groups=new Map();for(const rock of rocks){if(!groups.has(rock.clusterId))groups.set(rock.clusterId,[]);groups.get(rock.clusterId).push(rock);}
  assert.equal(groups.size,4);
