@@ -1,0 +1,171 @@
+{
+  "timestamp": "2026-10-15T04:35:21.578Z",
+  "environment": {
+    "node": "v24.19.0",
+    "browser": "154.0.8037.57",
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "availableCpus": 4,
+    "renderer": "SwiftShader software WebGL",
+    "viewport": "1280x720 DPR1",
+    "build": "production"
+  },
+  "sampleMs": 10000,
+  "results": [
+    {
+      "scenario": "free",
+      "speed": 1,
+      "pawns": 50,
+      "actualDurationMs": 10009.89999999851,
+      "fps": 10.68941747669966,
+      "frameMs": {
+        "mean": 94.07663551401868,
+        "p95": 183.30000000000018,
+        "max": 200
+      },
+      "updateMs": {
+        "mean": 7.065420560817295,
+        "p95": 41.399999998509884,
+        "max": 73.39999999850988
+      },
+      "longTasks": 4,
+      "longestTaskMs": 77,
+      "heapStartMB": 8.346748352050781,
+      "heapEndMB": 13.956470489501953,
+      "simulatedSeconds": 9.066666662693024,
+      "expectedSimulatedSeconds": 10.00989999999851,
+      "harvestedDuringSample": 1,
+      "alive": 50,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 1,
+      "pawns": 100,
+      "actualDurationMs": 10005.39999999851,
+      "fps": 9.394926739562036,
+      "frameMs": {
+        "mean": 105.84574468085107,
+        "p95": 200,
+        "max": 216.59999999999854
+      },
+      "updateMs": {
+        "mean": 13.051063830151836,
+        "p95": 79.70000000298023,
+        "max": 97.20000000298023
+      },
+      "longTasks": 13,
+      "longestTaskMs": 98,
+      "heapStartMB": 10.187042236328125,
+      "heapEndMB": 15.13565444946289,
+      "simulatedSeconds": 8.600000001490116,
+      "expectedSimulatedSeconds": 10.00539999999851,
+      "harvestedDuringSample": 1,
+      "alive": 100,
+      "errors": []
+    },
+    {
+      "scenario": "harvesting",
+      "speed": 1,
+      "pawns": 50,
+      "actualDurationMs": 10006.20000000298,
+      "fps": 9.094361495869851,
+      "frameMs": {
+        "mean": 109.15384615384616,
+        "p95": 200,
+        "max": 250
+      },
+      "updateMs": {
+        "mean": 4.229670329162707,
+        "p95": 21.30000000447035,
+        "max": 93
+      },
+      "longTasks": 2,
+      "longestTaskMs": 94,
+      "heapStartMB": 10.100395202636719,
+      "heapEndMB": 10.49094009399414,
+      "simulatedSeconds": 8.566666670143604,
+      "expectedSimulatedSeconds": 10.00620000000298,
+      "harvestedDuringSample": 47,
+      "alive": 50,
+      "errors": []
+    },
+    {
+      "scenario": "harvesting",
+      "speed": 1,
+      "pawns": 100,
+      "actualDurationMs": 10012,
+      "fps": 9.288853375948861,
+      "frameMs": {
+        "mean": 107.88064516129032,
+        "p95": 183.39999999999964,
+        "max": 233.3000000000011
+      },
+      "updateMs": {
+        "mean": 11.415053763536998,
+        "p95": 67.89999999850988,
+        "max": 121.60000000149012
+      },
+      "longTasks": 9,
+      "longestTaskMs": 123,
+      "heapStartMB": 9.759193420410156,
+      "heapEndMB": 16.45824432373047,
+      "simulatedSeconds": 8.75,
+      "expectedSimulatedSeconds": 10.012,
+      "harvestedDuringSample": 46,
+      "alive": 100,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 3,
+      "pawns": 50,
+      "actualDurationMs": 10019.59999999404,
+      "fps": 10.379655874492181,
+      "frameMs": {
+        "mean": 95.98942307692307,
+        "p95": 183.1999999999989,
+        "max": 216.69999999999982
+      },
+      "updateMs": {
+        "mean": 14.862499999813735,
+        "p95": 85.60000000149012,
+        "max": 114.79999999701977
+      },
+      "longTasks": 16,
+      "longestTaskMs": 221,
+      "heapStartMB": 14.809528350830078,
+      "heapEndMB": 15.746570587158203,
+      "simulatedSeconds": 26.649999998509884,
+      "expectedSimulatedSeconds": 30.058799999982117,
+      "harvestedDuringSample": 3,
+      "alive": 50,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 3,
+      "pawns": 100,
+      "actualDurationMs": 10006.89999999851,
+      "fps": 9.993104757718664,
+      "frameMs": {
+        "mean": 99.49600000000001,
+        "p95": 200,
+        "max": 316.60000000000036
+      },
+      "updateMs": {
+        "mean": 22.832000000327824,
+        "p95": 124.80000000447035,
+        "max": 159
+      },
+      "longTasks": 19,
+      "longestTaskMs": 327,
+      "heapStartMB": 15.027534484863281,
+      "heapEndMB": 17.43731689453125,
+      "simulatedSeconds": 24.649999998509884,
+      "expectedSimulatedSeconds": 30.02069999999553,
+      "harvestedDuringSample": 3,
+      "alive": 100,
+      "errors": []
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 import type { EatingWorker } from './needs';
 import type { Builder } from './construction';
@@ -145,12 +146,13 @@ export class Butchery {
   update(worker: Builder, seconds: number, work: 'transport' | 'process'): void {
     if (worker.dead || worker.mode !== 'automatic' || worker.dropRequested) { this.cancel(worker); return; }
     const movement = worker.movement;
-    if (worker.carryingCorpse && !worker.butcherJob && !this.dropCorpse(worker)) return;
+    if (worker.carryingCorpse && !worker.butcherJob && (!canPlan(worker.movement)||!this.dropCorpse(worker))) return;
     const active = worker.butcherJob;
     if (active && ((active.station.kind === 'butcher' ? !this.wantsWork(active.station) || this.claims.get(active.station) !== worker : !this.hauling.storage.accepts(active.station,corpseItemType(active.corpse))) || active.corpse.consumed || !active.corpse.collectCorpse && worker.forcedCorpse!==active.corpse && !active.corpse.corpseStation && !active.fromStorage
       || (work === 'transport') !== (active.phase !== 'process'))) { this.cancel(worker); return; }
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!worker.butcherJob) {
+      if(!canPlan(movement))return;
       const found = work === 'transport' ? this.findTransport(worker) ?? this.findStorage(worker) : this.findProcessing(worker);
       if (!found) return;
       if (found.station.kind==='butcher') this.claims.set(found.station, worker);
@@ -162,6 +164,7 @@ export class Butchery {
     if (!sameTile(movement.tile, job.goal)) { this.cancel(worker); return; }
     const state = job.station.butcher!;
     if (job.phase === 'pickup') {
+      if(!canPlan(movement))return;
       if (job.corpse.corpseCarrier || job.corpse.corpseStation || !job.corpse.dead) { this.cancel(worker); return; }
       const approach = this.construction.approach(movement.tile, job.station, this.paths(worker));
       if (!approach) { this.cancel(worker); return; }

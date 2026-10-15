@@ -1,3 +1,4 @@
+import { canPlan } from './path-schedule.ts';
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 import { canGiveOrders, rememberMood, type MoodMemory } from './mood.ts';
 import { diningTable, findDiningSeat } from './dining.ts';
@@ -9,7 +10,7 @@ import type { MapItem, ItemType } from './items';
 import { foodNutrition, returnItems, carryCapacity } from './items.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
-import { findPaths } from './pathfinding.ts';
+import { findPaths, rankedTargets } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 
 export interface Needs { satiety: number; wakefulness?:number; happiness?:number }
@@ -146,6 +147,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
       worker.eatJob = { source:heldFoodSource(worker,goal), goal, held:true };
       return true;
     }
+    if(!canPlan(worker.movement))return false;
     const types:readonly ItemType[]=animalDiet??['strawberry','meat','ration'];
     const sources = [...construction.items.filter(item => types.includes(item.type) && (animalDiet||item.collect) && item.quantity > 0), ...types.flatMap(type=>construction.storage?.sources(type)??[])];
     if (!sources.length) return fallbackFood?.(worker)??false;
@@ -153,10 +155,12 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     const from = worker.movement.nextTile ?? worker.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     let best: { source: MapItem; goal: Tile; path: Path } | null = null;
-    for (const source of sources) {
+    let bestOrder=Infinity;
+    for (const {target:source,order,lowerBound} of rankedTargets(sources,from)) {
+      if(best&&lowerBound>best.path.distance+1e-10)break;
       let approach = construction.sourceApproach(from, source, paths);
       if (!approach && !walls.isBlocked(source)) approach = hauling.approach(from, source, paths);
-      if (approach && (!best || approach.path.distance < best.path.distance)) best = { source, ...approach };
+      if (approach && (!best || approach.path.distance < best.path.distance || approach.path.distance===best.path.distance&&order<bestOrder)) {best = { source, ...approach };bestOrder=order;}
     }
     if (!best) return fallbackFood?.(worker)??false;
     interruptWork(worker, construction, harvesting, hauling);
@@ -170,11 +174,14 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     stopAtNextSafeTile(worker.movement,construction.walls.cannotStop);
     job.goal = {...worker.movement.destination};
     job.seatChecked = false;
-    if (seekDiningSeat(worker,construction)) return true;
+    if (canPlan(worker.movement)&&seekDiningSeat(worker,construction)) return true;
   }
   if (worker.movement.nextTile || !sameTile(worker.movement.tile, worker.movement.destination)) return true;
   if (!sameTile(worker.movement.tile, job.goal)) { worker.eatJob = null; return false; }
-  if (!animalDiet && !job.seatChecked && seekDiningSeat(worker,construction)) return true;
+  if (!animalDiet && !job.seatChecked) {
+    if(!canPlan(worker.movement))return true;
+    if(seekDiningSeat(worker,construction))return true;
+  }
   job.eatingSeconds = Math.min(EATING_SECONDS, (job.eatingSeconds ?? 0) + elapsed);
   if (job.eatingSeconds < EATING_SECONDS) return true;
   const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));

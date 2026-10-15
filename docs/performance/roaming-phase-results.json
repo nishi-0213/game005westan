@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-10-15T04:51:55.835Z",
+  "environment": {
+    "node": "v24.19.0",
+    "browser": "154.0.8037.57",
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "availableCpus": 4,
+    "renderer": "SwiftShader software WebGL",
+    "viewport": "1280x720 DPR1",
+    "build": "production"
+  },
+  "sampleMs": 10000,
+  "results": [
+    {
+      "scenario": "free",
+      "speed": 1,
+      "pawns": 100,
+      "actualDurationMs": 10010.79999999702,
+      "fps": 9.190074719305889,
+      "frameMs": {
+        "mean": 109.95869565217392,
+        "p95": 200,
+        "max": 266.60000000000036
+      },
+      "updateMs": {
+        "mean": 10.348913043089535,
+        "p95": 25.5,
+        "max": 69.5
+      },
+      "longTasks": 2,
+      "longestTaskMs": 81,
+      "heapStartMB": 9.760971069335938,
+      "heapEndMB": 15.43341064453125,
+      "simulatedSeconds": 8.58333333581686,
+      "expectedSimulatedSeconds": 10.010799999997019,
+      "harvestedDuringSample": 1,
+      "alive": 100,
+      "errors": []
+    },
+    {
+      "scenario": "harvesting",
+      "speed": 1,
+      "pawns": 100,
+      "actualDurationMs": 10011,
+      "fps": 8.890220757167116,
+      "frameMs": {
+        "mean": 112.54269662921348,
+        "p95": 233.29999999999927,
+        "max": 283.2999999999993
+      },
+      "updateMs": {
+        "mean": 6.067415730504507,
+        "p95": 29.899999998509884,
+        "max": 33.20000000298023
+      },
+      "longTasks": 0,
+      "longestTaskMs": 0,
+      "heapStartMB": 9.569377899169922,
+      "heapEndMB": 14.572547912597656,
+      "simulatedSeconds": 7.899999998509884,
+      "expectedSimulatedSeconds": 10.011,
+      "harvestedDuringSample": 49,
+      "alive": 100,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 3,
+      "pawns": 100,
+      "actualDurationMs": 10008.89999999851,
+      "fps": 10.290841151376808,
+      "frameMs": {
+        "mean": 97.73009708737862,
+        "p95": 183.29999999999927,
+        "max": 266.60000000000036
+      },
+      "updateMs": {
+        "mean": 26.947572815693118,
+        "p95": 45.399999998509884,
+        "max": 56.20000000298023
+      },
+      "longTasks": 3,
+      "longestTaskMs": 261,
+      "heapStartMB": 19.490459442138672,
+      "heapEndMB": 18.10275650024414,
+      "simulatedSeconds": 27.75,
+      "expectedSimulatedSeconds": 30.02669999999553,
+      "harvestedDuringSample": 3,
+      "alive": 100,
+      "errors": []
+    }
+  ]
+}

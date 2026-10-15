@@ -1,0 +1,416 @@
+[
+  {
+    "size": 32,
+    "run": 0,
+    "rooms": 16,
+    "typedArrayBytes": 19456,
+    "initialOtherMs": 0.15379899999999935,
+    "edits": [
+      {
+        "open": true,
+        "roomUpdateMs": 0.00039999999999906777,
+        "playerQueryMs": 0.031286999999998955,
+        "otherRebuildMs": 0.08083099999999632
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0013319999999978904,
+        "playerQueryMs": 0.0037450000000021078,
+        "otherRebuildMs": 0.03862699999999819
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.0002899999999996794,
+        "playerQueryMs": 0.0009420000000019968,
+        "otherRebuildMs": 0.03724499999999864
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0002099999999956026,
+        "playerQueryMs": 0.000610999999999251,
+        "otherRebuildMs": 0.03373999999999455
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00021000000000270802,
+        "playerQueryMs": 0.0006009999999960769,
+        "otherRebuildMs": 0.03370999999999924
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00021000000000270802,
+        "playerQueryMs": 0.0007110000000025707,
+        "otherRebuildMs": 0.03537299999999988
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00018999999999635975,
+        "playerQueryMs": 0.0006210000000024252,
+        "otherRebuildMs": 0.033811000000000035
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00021999999999877673,
+        "playerQueryMs": 0.0005899999999954275,
+        "otherRebuildMs": 0.03296900000000136
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00021999999999877673,
+        "playerQueryMs": 0.0011220000000022878,
+        "otherRebuildMs": 0.03516299999999717
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00021999999999877673,
+        "playerQueryMs": 0.009734999999999161,
+        "otherRebuildMs": 0.04174199999999928
+      }
+    ]
+  },
+  {
+    "size": 32,
+    "run": 1,
+    "rooms": 16,
+    "typedArrayBytes": 19456,
+    "initialOtherMs": 0.29764300000000077,
+    "edits": [
+      {
+        "open": true,
+        "roomUpdateMs": 0.0005499999999969418,
+        "playerQueryMs": 0.002412999999997112,
+        "otherRebuildMs": 0.34686599999999856
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0004599999999967963,
+        "playerQueryMs": 0.0021229999999974325,
+        "otherRebuildMs": 0.2457459999999969
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00036100000000516275,
+        "playerQueryMs": 0.0011119999999991137,
+        "otherRebuildMs": 0.25321699999999936
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0003799999999998249,
+        "playerQueryMs": 0.0012019999999992592,
+        "otherRebuildMs": 0.1925370000000015
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00019999999999953388,
+        "playerQueryMs": 0.0007009999999993966,
+        "otherRebuildMs": 0.13283799999999957
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00014999999999787406,
+        "playerQueryMs": 0.000400999999996543,
+        "otherRebuildMs": 0.16534599999999955
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00015000000000497948,
+        "playerQueryMs": 0.000400999999996543,
+        "otherRebuildMs": 0.1414399999999958
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0001409999999992806,
+        "playerQueryMs": 0.001110999999994533,
+        "otherRebuildMs": 0.13564199999999005
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00015000000000497948,
+        "playerQueryMs": 0.00041099999999971715,
+        "otherRebuildMs": 0.1486409999999978
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0001299999999986312,
+        "playerQueryMs": 0.00039999999999906777,
+        "otherRebuildMs": 0.11225699999999961
+      }
+    ]
+  },
+  {
+    "size": 32,
+    "run": 2,
+    "rooms": 16,
+    "typedArrayBytes": 19456,
+    "initialOtherMs": 0.031026000000011322,
+    "edits": [
+      {
+        "open": true,
+        "roomUpdateMs": 0.0004409999999950287,
+        "playerQueryMs": 0.0015219999999942502,
+        "otherRebuildMs": 0.02630999999999517
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0002800000000036107,
+        "playerQueryMs": 0.0008009999999956108,
+        "otherRebuildMs": 0.026208999999994376
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.000240000000005125,
+        "playerQueryMs": 0.0006209999999953197,
+        "otherRebuildMs": 0.025818999999998482
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0002309999999994261,
+        "playerQueryMs": 0.0006210000000095306,
+        "otherRebuildMs": 0.05302900000000932
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.0001699999999971169,
+        "playerQueryMs": 0.012779000000008978,
+        "otherRebuildMs": 0.014731000000011818
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0001699999999971169,
+        "playerQueryMs": 0.00039100000000757973,
+        "otherRebuildMs": 0.015212000000005332
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00014000000000180535,
+        "playerQueryMs": 0.00037100000000123146,
+        "otherRebuildMs": 0.01480200000000309
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0001299999999986312,
+        "playerQueryMs": 0.00034999999999740794,
+        "otherRebuildMs": 0.014571000000003664
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.0001299999999986312,
+        "playerQueryMs": 0.00037100000000123146,
+        "otherRebuildMs": 0.014712000000002945
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00015100000000245473,
+        "playerQueryMs": 0.0003700000000037562,
+        "otherRebuildMs": 0.014302000000000703
+      }
+    ]
+  },
+  {
+    "size": 320,
+    "run": 0,
+    "rooms": 400,
+    "typedArrayBytes": 1945600,
+    "initialOtherMs": 1.2430699999999888,
+    "edits": [
+      {
+        "open": true,
+        "roomUpdateMs": 0.000400999999996543,
+        "playerQueryMs": 0.0027539999999959264,
+        "otherRebuildMs": 1.6336419999999947
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0003509999999948832,
+        "playerQueryMs": 0.0015319999999974243,
+        "otherRebuildMs": 1.1809379999999976
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00023000000000195087,
+        "playerQueryMs": 0.000641000000001668,
+        "otherRebuildMs": 1.1664260000000013
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.000400999999996543,
+        "playerQueryMs": 0.05656399999999451,
+        "otherRebuildMs": 2.0701019999999914
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00048100000000772525,
+        "playerQueryMs": 0.0015230000000059363,
+        "otherRebuildMs": 2.1157090000000096
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0003810000000044056,
+        "playerQueryMs": 0.0009919999999965512,
+        "otherRebuildMs": 2.0653450000000078
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.0005409999999983484,
+        "playerQueryMs": 0.001391999999995619,
+        "otherRebuildMs": 2.0470279999999974
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0003509999999948832,
+        "playerQueryMs": 0.001050999999989699,
+        "otherRebuildMs": 1.1840019999999924
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00021999999999877673,
+        "playerQueryMs": 0.000510999999988826,
+        "otherRebuildMs": 1.102642000000003
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0002110000000072887,
+        "playerQueryMs": 0.0003900000000101045,
+        "otherRebuildMs": 1.1501529999999889
+      }
+    ]
+  },
+  {
+    "size": 320,
+    "run": 1,
+    "rooms": 400,
+    "typedArrayBytes": 1945600,
+    "initialOtherMs": 1.1811079999999947,
+    "edits": [
+      {
+        "open": true,
+        "roomUpdateMs": 0.0005910000000000082,
+        "playerQueryMs": 0.004597000000003959,
+        "otherRebuildMs": 1.0970939999999985
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00015000000000497948,
+        "playerQueryMs": 0.0007510000000081618,
+        "otherRebuildMs": 1.1660949999999985
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00010000000000331966,
+        "playerQueryMs": 0.00048100000000772525,
+        "otherRebuildMs": 1.1905220000000014
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00010000000000331966,
+        "playerQueryMs": 0.0004410000000234504,
+        "otherRebuildMs": 1.0700929999999858
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.0001010000000007949,
+        "playerQueryMs": 0.00040999999998803105,
+        "otherRebuildMs": 1.0841040000000248
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.0001010000000007949,
+        "playerQueryMs": 0.0004299999999943793,
+        "otherRebuildMs": 1.1129970000000071
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.0007310000000018135,
+        "otherRebuildMs": 1.0708940000000098
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00010000000000331966,
+        "playerQueryMs": 0.0005710000000078708,
+        "otherRebuildMs": 1.0768230000000187
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00010000000000331966,
+        "playerQueryMs": 0.0003700000000037562,
+        "otherRebuildMs": 1.0768529999999998
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00010000000000331966,
+        "playerQueryMs": 0.0003010000000074342,
+        "otherRebuildMs": 1.1416499999999985
+      }
+    ]
+  },
+  {
+    "size": 320,
+    "run": 2,
+    "rooms": 400,
+    "typedArrayBytes": 1945600,
+    "initialOtherMs": 1.4644099999999867,
+    "edits": [
+      {
+        "open": true,
+        "roomUpdateMs": 0.0005210000000204218,
+        "playerQueryMs": 0.0021040000000027703,
+        "otherRebuildMs": 1.1252050000000224
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00013000000001284207,
+        "playerQueryMs": 0.000641000000001668,
+        "otherRebuildMs": 1.1877479999999991
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.0004710000000045511,
+        "otherRebuildMs": 1.1028420000000096
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.0003810000000044056,
+        "otherRebuildMs": 1.087959000000012
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00009999999997489795,
+        "playerQueryMs": 0.00031999999998788553,
+        "otherRebuildMs": 1.127789000000007
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00010000000000331966,
+        "playerQueryMs": 0.00034099999999170905,
+        "otherRebuildMs": 1.10928100000001
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.0002899999999783631,
+        "otherRebuildMs": 1.0920859999999948
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.00019000000000346517,
+        "otherRebuildMs": 1.109642000000008
+      },
+      {
+        "open": true,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.00027000000000043656,
+        "otherRebuildMs": 1.1296020000000055
+      },
+      {
+        "open": false,
+        "roomUpdateMs": 0.00009000000000014552,
+        "playerQueryMs": 0.0002709999999979118,
+        "otherRebuildMs": 1.1137879999999996
+      }
+    ]
+  }
+]

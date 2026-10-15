@@ -4,7 +4,7 @@ import { Sleeping, type SleepState } from './sleep';
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import './style.css';
 import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
-import { advancePathMovement } from './pathfinding';
+import { advancePathMovement, advancePathRequests } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { CorpseEating } from './corpse-eating';
 import { Cooking,COOK_SECONDS,stagedNutrition } from './cooking';
@@ -19,6 +19,7 @@ import { GameTime } from './game-time';
 import { StructureShadows } from './structure-shadows';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
+import { PathSearchSchedule } from './path-schedule';
 import { initialNeeds, requestEat, updateNeeds } from './needs';
 import type { EatingWorker } from './needs';
 import type { Corpse } from './butchery';
@@ -355,11 +356,26 @@ function updateDeerViews(): void {
   }
 }
 
+const pathSearchSchedule = new PathSearchSchedule();
 const spawnTiles = [
   { column: 15, row: 15, color: 0xf2c66d },
   { column: 16, row: 15, color: 0x82c6dc },
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
+// Start with three colonists; explicit query parameters retain load-test comparisons.
+const requestedPawnCount = Number(new URLSearchParams(location.search).get('pawns'));
+const stressPawnCount = requestedPawnCount === 50 || requestedPawnCount === 100 ? requestedPawnCount : 3;
+if(stressPawnCount>3){
+  const available: {column:number;row:number}[]=[];
+  for(let row=0;row<MAP_SIZE;row++)for(let column=0;column<MAP_SIZE;column++){
+    const tile={column,row};
+    if(!walls.cannotStop(tile)&&!spawnTiles.some(p=>p.column===column&&p.row===row)&&!mapItems.some(item=>item.column===column&&item.row===row))available.push(tile);
+  }
+  available.sort((a,b)=>Math.hypot(a.column-15.5,a.row-15.5)-Math.hypot(b.column-15.5,b.row-15.5));
+  const colors=spawnTiles.map(p=>p.color);
+  for(const tile of available.slice(0,stressPawnCount-3))spawnTiles.push({...tile,color:colors[spawnTiles.length%colors.length]});
+}
+app.canvas.setAttribute('aria-label',`れ・こんきすた。32×32マスのマップと${spawnTiles.length}人のポーン`);
 const pawnNames = generatePawnNames(spawnTiles.length);
 const attackRangeLayer = new Container();
 map.addChild(attackRangeLayer);
@@ -391,7 +407,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -416,8 +432,8 @@ hauling.onCommand = worker => {
   if (pawn) { harvesting.cancel(pawn); combat.cancel(pawn); pawn.eatJob = null; pawn.manualMove = false; }
 };
 const pawnOccupancy = new PawnOccupancy();
-for (const pawn of pawns) pawnOccupancy.track(pawn.movement);
-wildlife.onSpawn = deer => pawnOccupancy.track(deer.movement);
+for (const pawn of pawns) {pawn.movement.queuedPlanning=true;pawnOccupancy.track(pawn.movement);}
+wildlife.onSpawn = deer => {deer.movement.queuedPlanning=true;pathSearchSchedule.assign(deer.movement);pawnOccupancy.track(deer.movement);};
 wildlife.onDepart = deer => pawnOccupancy.untrack(deer.movement);
 const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
 const butchery = new Butchery(construction, hauling, () => [...pawns, ...wildlife.animals], () => pawns);
@@ -1524,9 +1540,9 @@ app.canvas.addEventListener('pointerdown', (event) => {
   } else if (event.button === 2) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const movements = controlledSelection().filter(pawn => pawn.mode === 'drafted' && !pawn.sleep).map(pawn => pawn.movement);
-    const previousRoutes = new Map(movements.map(movement => [movement, movement.route]));
+    const previousRoutes = new Map(movements.map(movement => [movement, {route:movement.route,pending:movement.pendingRoute}]));
     for (const goal of commandGroup(movements, tile, MAP_SIZE, walls.isBlocked, walls.cannotStop, pawnOccupancy)) showDestination(goal.column, goal.row);
-    for (const pawn of selectedPawns) if (previousRoutes.has(pawn.movement) && pawn.movement.route !== previousRoutes.get(pawn.movement)) { pawn.manualMove = true; combat.cancel(pawn); pawn.eatJob = null; }
+    for (const pawn of selectedPawns) if (previousRoutes.has(pawn.movement) && (pawn.movement.route !== previousRoutes.get(pawn.movement)!.route || pawn.movement.pendingRoute !== previousRoutes.get(pawn.movement)!.pending)) { pawn.manualMove = true; combat.cancel(pawn); pawn.eatJob = null; }
   }
 });
 app.canvas.addEventListener('dblclick', event => {
@@ -1556,7 +1572,7 @@ function showAttackCommand(target: CombatPawn): void {
 function updateMovementPaths(): void {
   for (const pawn of pawns) {
     const movement = pawn.movement;
-    const moving = movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row;
+    const moving = movement.pendingRoute || movement.nextTile || movement.tile.column !== movement.destination.column || movement.tile.row !== movement.destination.row;
     if (!pawn.manualMove || pawn.mode !== 'drafted' || pawn.dead || !moving || pawn.eatJob || pawn.attackJob || pawn.equipJob) {
       if (pawn.pathSignature) { pawn.movementPath.clear(); pawn.pathSignature = ''; }
       if (!moving || pawn.dead || pawn.mode !== 'drafted') pawn.manualMove = false;
@@ -1685,7 +1701,22 @@ for (const button of speedButtons) {
   });
 }
 
+let stressTickerTime=performance.now();
+// Opt-in production profiling for this isolated load-test branch.
+const stressTest=new URLSearchParams(location.search).has('benchmark')?{
+  recording:false,updates:[] as number[],
+  simulate(seconds:number){app.stop();app.ticker.remove(app.render,app);app.ticker.lastTime=stressTickerTime;for(let index=0;index<Math.round(seconds*60);index++){stressTickerTime+=1000/60;app.ticker.update(stressTickerTime);}},
+  configure(scenario:string,speed:1|3){
+    for(const pawn of pawns){pawn.mode='automatic';pawn.priorities={construction:4,harvesting:scenario==='harvesting'?1:4,hauling:4,butchery:4,cooking:4,hunting:4,free:scenario==='harvesting'?4:1};}
+    for(const object of environmentObjects)object.collect=scenario==='harvesting';
+    simulationClock.speed=speed;
+  },
+  state(){return {rooms:walls.rooms.rooms.length,enclosedRooms:walls.rooms.rooms.filter(room=>!room.outdoors).length,pawns:pawns.length,alive:pawns.filter(p=>!p.dead).length,hungry:pawns.filter(p=>p.needs.satiety<=20).length,sleeping:pawns.filter(p=>p.sleep?.phase==='sleeping').length,minHP:Math.min(...pawns.map(p=>p.hp)),uniqueTiles:new Set(pawns.map(p=>`${p.movement.tile.column},${p.movement.tile.row}`)).size,simulationSeconds:gameTime.date.getTime()/(30*60000),harvested:environmentObjects.filter(o=>o.collected).length,moving:pawns.filter(p=>p.movement.nextTile).length};}
+}:null;
+if(stressTest){simulationClock.speed=0;Object.assign(globalThis,{__stressTest:stressTest});}
+
 app.ticker.add((ticker) => {
+  const stressStart=stressTest?.recording?performance.now():0;
   for (let index = destinationMarkers.length - 1; index >= 0; index--) {
     const marker = destinationMarkers[index];
     marker.ageSeconds += ticker.deltaMS / 1000;
@@ -1705,6 +1736,9 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    pathSearchSchedule.advance();
+    for(const pawn of pawns)pathSearchSchedule.assign(pawn.movement);
+    for(const animal of wildlife.animals)pathSearchSchedule.assign(animal.movement);
     plantGrowth.update(seconds,gameTime.hour);
     gameTime.advance(seconds);
     corpseEating.updateClaims(seconds);
@@ -1716,8 +1750,9 @@ app.ticker.add((ticker) => {
       pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
       if(pawn.fleeGoal){
         const m=pawn.movement;
-        const arrived=!m.nextTile&&m.tile.column===m.destination.column&&m.tile.row===m.destination.row;
-        const redirected=m.destination.column!==pawn.fleeGoal.column||m.destination.row!==pawn.fleeGoal.row;
+        const arrived=!m.pendingRoute&&!m.nextTile&&m.tile.column===m.destination.column&&m.tile.row===m.destination.row;
+        const destination=m.pendingRoute?.goal??m.destination;
+        const redirected=destination.column!==pawn.fleeGoal.column||destination.row!==pawn.fleeGoal.row;
         if(arrived||redirected)pawn.fleeGoal=undefined;
       }
       const fleeing=Boolean(pawn.fleeGoal);
@@ -1745,6 +1780,8 @@ app.ticker.add((ticker) => {
     for (const deer of wildlife.animals) if (!deer.dead && deer.sleep?.phase!=='sleeping') advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     updateDoors(seconds);
   });
+  if(simulationClock.speed!==0)advancePathRequests();
+  walls.rooms.update();
   worldLighting.update(gameTime.hour,map.x,map.y,map.scale.x,TILE_SIZE);
   structureShadows.update(gameTime.hour);
   setText(timeDisplay,gameTime.label);
@@ -1783,6 +1820,7 @@ app.ticker.add((ticker) => {
   updatePawnModeButton();
   updateItemSummary();
   updateStationInfo();
+  if(stressTest?.recording)stressTest.updates.push(performance.now()-stressStart);
 });
 
 app.renderer.on('resize', applyCamera);

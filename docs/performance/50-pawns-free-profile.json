@@ -1,0 +1,440 @@
+{
+  "measurement": {
+    "wallMs": 196.29999999701977,
+    "state": {
+      "pawns": 50,
+      "alive": 50,
+      "hungry": 0,
+      "sleeping": 0,
+      "minHP": 100,
+      "uniqueTiles": 50,
+      "simulationSeconds": -34519753,
+      "harvested": 0,
+      "moving": 0
+    }
+  },
+  "totalSampleMs": 275.162,
+  "self": [
+    {
+      "function": "(program)",
+      "url": "",
+      "line": 0,
+      "ms": 74.851,
+      "parent": "(root)"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 59.201,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "ms": 40.003,
+      "parent": "(root)"
+    },
+    {
+      "function": "pop",
+      "url": "index-CPEMUq6M.js",
+      "line": 333,
+      "ms": 20.34,
+      "parent": "findPaths"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 8.715,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 5.933,
+      "parent": "nonPlayerBlocked"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 4.885,
+      "parent": "findPaths"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 3.938,
+      "parent": "updateRoaming"
+    },
+    {
+      "function": "refresh",
+      "url": "index-CPEMUq6M.js",
+      "line": 1694,
+      "ms": 3.259,
+      "parent": "movement.changed"
+    },
+    {
+      "function": "updateRoaming",
+      "url": "index-CPEMUq6M.js",
+      "line": 3618,
+      "ms": 3.061,
+      "parent": "updateWork"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6513,
+      "ms": 2.999,
+      "parent": "advance"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 2.996,
+      "parent": "findPaths"
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 511,
+      "ms": 2.754,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6493,
+      "ms": 2.303,
+      "parent": "emit"
+    },
+    {
+      "function": "(idle)",
+      "url": "",
+      "line": 0,
+      "ms": 2.274,
+      "parent": "(root)"
+    },
+    {
+      "function": "_callContextMethod",
+      "url": "CanvasTextGenerator-BsfUbFJn.js",
+      "line": 9587,
+      "ms": 2.259,
+      "parent": "clear"
+    },
+    {
+      "function": "set visible",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 7237,
+      "ms": 2.173,
+      "parent": "updateItemSummary"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 1.938,
+      "parent": "nonPlayerBlocked"
+    },
+    {
+      "function": "get context",
+      "url": "CanvasTextGenerator-BsfUbFJn.js",
+      "line": 9500,
+      "ms": 1.814,
+      "parent": "_callContextMethod"
+    },
+    {
+      "function": "update",
+      "url": "index-CPEMUq6M.js",
+      "line": 3710,
+      "ms": 1.789,
+      "parent": ""
+    },
+    {
+      "function": "walls.environmentCannotStop",
+      "url": "index-CPEMUq6M.js",
+      "line": 4754,
+      "ms": 1.679,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "updateWork",
+      "url": "index-CPEMUq6M.js",
+      "line": 4453,
+      "ms": 1.639,
+      "parent": ""
+    },
+    {
+      "function": "advanceSegments",
+      "url": "index-CPEMUq6M.js",
+      "line": 213,
+      "ms": 1.504,
+      "parent": "advanceMovement"
+    },
+    {
+      "function": "movement.reservationBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 1673,
+      "ms": 1.453,
+      "parent": "advancePathMovement"
+    },
+    {
+      "function": "emit",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 7922,
+      "ms": 1.446,
+      "parent": "update"
+    },
+    {
+      "function": "key2",
+      "url": "index-CPEMUq6M.js",
+      "line": 315,
+      "ms": 1.213,
+      "parent": "findPaths"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 1.205,
+      "parent": "cannotStop"
+    },
+    {
+      "function": "AvailablePaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 264,
+      "ms": 1.141,
+      "parent": "findPaths"
+    },
+    {
+      "function": "movementHasSafeExit",
+      "url": "index-CPEMUq6M.js",
+      "line": 182,
+      "ms": 1.111,
+      "parent": "advanceSegments"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 0,
+      "ms": 1.089,
+      "parent": "(root)"
+    }
+  ],
+  "inclusive": [
+    {
+      "function": "(root)",
+      "url": "",
+      "line": 0,
+      "ms": 275.162
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 1,
+      "ms": 156.945,
+      "parent": "evaluate"
+    },
+    {
+      "function": "evaluate",
+      "url": "",
+      "line": 364,
+      "ms": 156.945,
+      "parent": ""
+    },
+    {
+      "function": "(anonymous)",
+      "url": "",
+      "line": 1,
+      "ms": 156.945,
+      "parent": "(root)"
+    },
+    {
+      "function": "emit",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 7922,
+      "ms": 155.862,
+      "parent": "update"
+    },
+    {
+      "function": "update",
+      "url": "DefaultBatcher-DsjxjmST.js",
+      "line": 8286,
+      "ms": 155.862,
+      "parent": "simulate"
+    },
+    {
+      "function": "simulate",
+      "url": "index-CPEMUq6M.js",
+      "line": 6468,
+      "ms": 155.862,
+      "parent": ""
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6493,
+      "ms": 154.416,
+      "parent": "emit"
+    },
+    {
+      "function": "(anonymous)",
+      "url": "index-CPEMUq6M.js",
+      "line": 6513,
+      "ms": 142.864,
+      "parent": "advance"
+    },
+    {
+      "function": "advance",
+      "url": "index-CPEMUq6M.js",
+      "line": 2856,
+      "ms": 142.864,
+      "parent": ""
+    },
+    {
+      "function": "updateWork",
+      "url": "index-CPEMUq6M.js",
+      "line": 4453,
+      "ms": 106.835,
+      "parent": ""
+    },
+    {
+      "function": "updateRoaming",
+      "url": "index-CPEMUq6M.js",
+      "line": 3618,
+      "ms": 105.196,
+      "parent": "updateWork"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 100.22,
+      "parent": "updateRoaming"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 95.107,
+      "parent": "findPaths"
+    },
+    {
+      "function": "(program)",
+      "url": "",
+      "line": 0,
+      "ms": 74.851,
+      "parent": "(root)"
+    },
+    {
+      "function": "(garbage collector)",
+      "url": "",
+      "line": 0,
+      "ms": 40.003,
+      "parent": "(root)"
+    },
+    {
+      "function": "pop",
+      "url": "index-CPEMUq6M.js",
+      "line": 333,
+      "ms": 20.34,
+      "parent": "findPaths"
+    },
+    {
+      "function": "update",
+      "url": "index-CPEMUq6M.js",
+      "line": 3710,
+      "ms": 19.36,
+      "parent": ""
+    },
+    {
+      "function": "advancePathMovement",
+      "url": "index-CPEMUq6M.js",
+      "line": 398,
+      "ms": 11.488,
+      "parent": ""
+    },
+    {
+      "function": "isBlocked",
+      "url": "index-CPEMUq6M.js",
+      "line": 511,
+      "ms": 11.469,
+      "parent": "findPaths"
+    },
+    {
+      "function": "advanceMovement",
+      "url": "index-CPEMUq6M.js",
+      "line": 205,
+      "ms": 8.971,
+      "parent": "advancePathMovement"
+    },
+    {
+      "function": "updateDeer",
+      "url": "index-CPEMUq6M.js",
+      "line": 3821,
+      "ms": 8.945,
+      "parent": "update"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 8.929,
+      "parent": "findPaths"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 8.929,
+      "parent": "updateRoaming"
+    },
+    {
+      "function": "updateRoaming",
+      "url": "index-CPEMUq6M.js",
+      "line": 3618,
+      "ms": 8.929,
+      "parent": "updateDeer"
+    },
+    {
+      "function": "at",
+      "url": "index-CPEMUq6M.js",
+      "line": 502,
+      "ms": 8.715,
+      "parent": "isBlocked"
+    },
+    {
+      "function": "updateWolf",
+      "url": "index-CPEMUq6M.js",
+      "line": 3874,
+      "ms": 8.626,
+      "parent": "update"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 8.402,
+      "parent": "updateRoaming"
+    },
+    {
+      "function": "updateRoaming",
+      "url": "index-CPEMUq6M.js",
+      "line": 3618,
+      "ms": 8.402,
+      "parent": "updateWolf"
+    },
+    {
+      "function": "findPaths",
+      "url": "index-CPEMUq6M.js",
+      "line": 298,
+      "ms": 7.351,
+      "parent": "findPaths"
+    }
+  ]
+}

@@ -1,0 +1,592 @@
+[
+  {
+    "pawns": 50,
+    "simulationSeconds": 180,
+    "totalCpuMs": 6157.899999991059,
+    "meanUpdateMs": 0.5694259259222006,
+    "p95UpdateMs": 2.600000001490116,
+    "maxUpdateMs": 27.600000001490116,
+    "updatesOver16ms": 3,
+    "updatesOver50ms": 0,
+    "heapEndMB": 8.10296630859375,
+    "finalState": {
+      "pawns": 50,
+      "alive": 50,
+      "hungry": 50,
+      "sleeping": 0,
+      "minHP": 49.999999999989576,
+      "uniqueTiles": 50,
+      "simulationSeconds": -34519580,
+      "harvested": 40,
+      "moving": 4
+    },
+    "intervals": [
+      {
+        "seconds": 10,
+        "cpuMs": 421.80000000447035,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519750,
+          "harvested": 1,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 20,
+        "cpuMs": 296.79999999701977,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519740,
+          "harvested": 2,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 30,
+        "cpuMs": 303.69999999552965,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519730,
+          "harvested": 4,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 40,
+        "cpuMs": 281.3999999985099,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519720,
+          "harvested": 4,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 50,
+        "cpuMs": 270,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519710,
+          "harvested": 5,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 60,
+        "cpuMs": 265.80000000447035,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519700,
+          "harvested": 7,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 70,
+        "cpuMs": 266.70000000298023,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519690,
+          "harvested": 11,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 80,
+        "cpuMs": 274.29999999701977,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519680,
+          "harvested": 12,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 90,
+        "cpuMs": 1109.0999999940395,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 37,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 48,
+          "simulationSeconds": -34519670,
+          "harvested": 16,
+          "moving": 6
+        }
+      },
+      {
+        "seconds": 100,
+        "cpuMs": 367,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 37,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519660,
+          "harvested": 22,
+          "moving": 4
+        }
+      },
+      {
+        "seconds": 110,
+        "cpuMs": 38.79999999701977,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 37,
+          "sleeping": 50,
+          "minHP": 93.74999999999991,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519650,
+          "harvested": 23,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 120,
+        "cpuMs": 158.60000000149012,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 38,
+          "sleeping": 0,
+          "minHP": 87.49999999999707,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519640,
+          "harvested": 26,
+          "moving": 2
+        }
+      },
+      {
+        "seconds": 130,
+        "cpuMs": 376.3999999985099,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 38,
+          "sleeping": 0,
+          "minHP": 81.24999999999423,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519630,
+          "harvested": 30,
+          "moving": 3
+        }
+      },
+      {
+        "seconds": 140,
+        "cpuMs": 357.8999999985099,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 38,
+          "sleeping": 0,
+          "minHP": 74.99999999999139,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519620,
+          "harvested": 31,
+          "moving": 3
+        }
+      },
+      {
+        "seconds": 150,
+        "cpuMs": 327.20000000298023,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 38,
+          "sleeping": 0,
+          "minHP": 68.74999999998855,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519610,
+          "harvested": 34,
+          "moving": 3
+        }
+      },
+      {
+        "seconds": 160,
+        "cpuMs": 335.80000000447035,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 38,
+          "sleeping": 0,
+          "minHP": 62.499999999986734,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519600,
+          "harvested": 36,
+          "moving": 3
+        }
+      },
+      {
+        "seconds": 170,
+        "cpuMs": 367.09999999403954,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 50,
+          "sleeping": 0,
+          "minHP": 56.249999999988155,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519590,
+          "harvested": 38,
+          "moving": 2
+        }
+      },
+      {
+        "seconds": 180,
+        "cpuMs": 339.5,
+        "state": {
+          "pawns": 50,
+          "alive": 50,
+          "hungry": 50,
+          "sleeping": 0,
+          "minHP": 49.999999999989576,
+          "uniqueTiles": 50,
+          "simulationSeconds": -34519580,
+          "harvested": 40,
+          "moving": 4
+        }
+      }
+    ],
+    "errors": []
+  },
+  {
+    "pawns": 100,
+    "simulationSeconds": 180,
+    "totalCpuMs": 11573.79999999702,
+    "meanUpdateMs": 1.0709722222215323,
+    "p95UpdateMs": 5.0999999940395355,
+    "maxUpdateMs": 75,
+    "updatesOver16ms": 8,
+    "updatesOver50ms": 1,
+    "heapEndMB": 9.51791763305664,
+    "finalState": {
+      "pawns": 100,
+      "alive": 100,
+      "hungry": 100,
+      "sleeping": 0,
+      "minHP": 49.999999999989576,
+      "uniqueTiles": 100,
+      "simulationSeconds": -34519580,
+      "harvested": 40,
+      "moving": 4
+    },
+    "intervals": [
+      {
+        "seconds": 10,
+        "cpuMs": 586,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519750,
+          "harvested": 1,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 20,
+        "cpuMs": 550.4000000059605,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519740,
+          "harvested": 2,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 30,
+        "cpuMs": 460,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519730,
+          "harvested": 4,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 40,
+        "cpuMs": 470,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519720,
+          "harvested": 4,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 50,
+        "cpuMs": 480.79999999701977,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519710,
+          "harvested": 5,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 60,
+        "cpuMs": 506,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519700,
+          "harvested": 7,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 70,
+        "cpuMs": 525.1000000014901,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519690,
+          "harvested": 11,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 80,
+        "cpuMs": 526,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 0,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519680,
+          "harvested": 12,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 90,
+        "cpuMs": 2235.89999999851,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 86,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519670,
+          "harvested": 16,
+          "moving": 5
+        }
+      },
+      {
+        "seconds": 100,
+        "cpuMs": 723.2000000029802,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 86,
+          "sleeping": 0,
+          "minHP": 100,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519660,
+          "harvested": 22,
+          "moving": 4
+        }
+      },
+      {
+        "seconds": 110,
+        "cpuMs": 61.80000000447035,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 86,
+          "sleeping": 100,
+          "minHP": 93.74999999999991,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519650,
+          "harvested": 23,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 120,
+        "cpuMs": 360.3999999985099,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 0,
+          "minHP": 87.49999999999707,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519640,
+          "harvested": 26,
+          "moving": 2
+        }
+      },
+      {
+        "seconds": 130,
+        "cpuMs": 726.6999999955297,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 0,
+          "minHP": 81.24999999999423,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519630,
+          "harvested": 31,
+          "moving": 1
+        }
+      },
+      {
+        "seconds": 140,
+        "cpuMs": 703.7999999970198,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 0,
+          "minHP": 74.99999999999139,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519620,
+          "harvested": 32,
+          "moving": 0
+        }
+      },
+      {
+        "seconds": 150,
+        "cpuMs": 676.6999999955297,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 0,
+          "minHP": 68.74999999998855,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519610,
+          "harvested": 35,
+          "moving": 1
+        }
+      },
+      {
+        "seconds": 160,
+        "cpuMs": 672.6999999955297,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 87,
+          "sleeping": 0,
+          "minHP": 62.499999999986734,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519600,
+          "harvested": 38,
+          "moving": 1
+        }
+      },
+      {
+        "seconds": 170,
+        "cpuMs": 642.4000000059605,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 100,
+          "sleeping": 0,
+          "minHP": 56.249999999988155,
+          "uniqueTiles": 99,
+          "simulationSeconds": -34519590,
+          "harvested": 39,
+          "moving": 2
+        }
+      },
+      {
+        "seconds": 180,
+        "cpuMs": 665.8999999985099,
+        "state": {
+          "pawns": 100,
+          "alive": 100,
+          "hungry": 100,
+          "sleeping": 0,
+          "minHP": 49.999999999989576,
+          "uniqueTiles": 100,
+          "simulationSeconds": -34519580,
+          "harvested": 40,
+          "moving": 4
+        }
+      }
+    ],
+    "errors": []
+  }
+]

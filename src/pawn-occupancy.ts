@@ -1,6 +1,6 @@
 import type { Movement, Tile } from './movement';
 import { setRoute } from './movement.ts';
-import { findPaths } from './pathfinding.ts';
+import { findPaths, commandMove } from './pathfinding.ts';
 
 const key = (tile: Tile): string => `${tile.column},${tile.row}`;
 
@@ -13,7 +13,8 @@ export class PawnOccupancy {
     movement.stopBlocked = tile => this.occupied(tile, movement);
     movement.reservationBlocked = tile => {
       for (const owner of this.cells.get(key(tile)) ?? []) {
-        if (owner !== movement && owner.destination.column === tile.column && owner.destination.row === tile.row) return true;
+        if (owner !== movement && ((owner.destination.column === tile.column && owner.destination.row === tile.row)
+          || (owner.pendingRoute?.goal.column === tile.column && owner.pendingRoute?.goal.row === tile.row))) return true;
       }
       return false;
     };
@@ -22,6 +23,7 @@ export class PawnOccupancy {
   }
 
   untrack(movement: Movement): void {
+    movement.pendingRoute?.cancel();
     for (const cell of this.positions.get(movement) ?? []) this.remove(cell, movement);
     this.positions.delete(movement);
     movement.stopBlocked = undefined;
@@ -37,6 +39,7 @@ export class PawnOccupancy {
 
   private refresh(movement: Movement): void {
     const next = new Set([key(movement.tile), key(movement.destination)]);
+    if(movement.pendingRoute)next.add(key(movement.pendingRoute.goal));
     if (movement.nextTile) next.add(key(movement.nextTile));
     const previous = this.positions.get(movement);
     for (const cell of previous ?? []) if (!next.has(cell)) this.remove(cell, movement);
@@ -66,6 +69,10 @@ export function commandGroup(movements: Movement[], target: Tile, size: number,
   candidates.sort((a, b) => distance(a) - distance(b));
   const destinations: Tile[] = [];
   for (const movement of movements) {
+    if(movement.queuedPlanning){
+      for(const goal of candidates)if(!occupancy.occupied(goal)&&commandMove(movement,goal,size,blocked,cannotStop)){destinations.push(goal);break;}
+      continue;
+    }
     const paths = findPaths(movement.nextTile ?? movement.tile, size, blocked, cannotStop, movement);
     for (const goal of candidates) {
       if (occupancy.occupied(goal)) continue;

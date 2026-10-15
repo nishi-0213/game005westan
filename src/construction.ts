@@ -1,7 +1,8 @@
+import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 import type { MapItem, ItemType } from './items';
 import { carryCapacity, returnItems } from './items.ts';
-import { findPath, findPaths } from './pathfinding.ts';
+import { findPath, findPaths, rankedTargets } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import type { Movement, Tile } from './movement';
@@ -93,7 +94,9 @@ export class Construction {
     let best: { target: Wall; goal: Tile; path: Path } | null = null;
     let paths: Map<number, Path> | undefined;
     const sourcesByMaterial = new Map<ItemType, MapItem[]>();
-    for (const target of this.walls.items.values()) {
+    let bestOrder=Infinity;
+    for (const {target,order,lowerBound} of rankedTargets([...this.walls.items.values()],builder.movement.tile)) {
+      if(best&&lowerBound>best.path.distance+1e-10)break;
       const recipe = BUILD_RECIPES[target.kind];
       const destroying = target.state === 'completed' && target.demolition;
       if ((!destroying && target.state !== 'planned') || !recipe || this.needsClearing(target) || (material && (destroying || target.material !== material))) continue;
@@ -113,7 +116,7 @@ export class Construction {
       paths ??= findPaths(builder.movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, builder.movement);
       if (needsSource && !sources.some(item => this.sourceApproach(builder.movement.tile, item, paths!))) continue;
       const approach = this.approach(builder.movement.tile, target, paths);
-      if (approach && (!best || approach.path.distance < best.path.distance)) best = { target, ...approach };
+      if (approach && (!best || approach.path.distance < best.path.distance || approach.path.distance===best.path.distance&&order<bestOrder)) {best = { target, ...approach };bestOrder=order;}
     }
     return best;
   }
@@ -148,7 +151,7 @@ export class Construction {
     if (movement.nextTile || !sameTile(movement.tile, movement.destination)) return;
     if (!builder.job) {
       builder.retrySeconds -= seconds;
-      if (builder.retrySeconds > 0) return;
+      if (builder.retrySeconds > 0 || !canPlan(movement)) return;
       builder.retrySeconds = 0.25;
       const plan = this.nearestPlan(builder, undefined, work);
       if (!plan) return;
@@ -167,10 +170,12 @@ export class Construction {
       }
       let source: { item: MapItem; path: Path; goal: Tile } | null = null;
       const paths = findPaths(movement.tile, this.walls.mapSize, this.walls.isBlocked, this.walls.cannotStop, builder.movement);
-      for (const item of this.sources(plan.target)) {
-        if (item.quantity <= 0 || item.type !== plan.target.material) continue;
+      let sourceOrder=Infinity;
+      const supplies=this.sources(plan.target).filter(item=>item.quantity>0&&item.type===plan.target.material);
+      for (const {target:item,order,lowerBound} of rankedTargets(supplies,movement.tile)) {
+        if(source&&lowerBound>source.path.distance+1e-10)break;
         const approach = this.sourceApproach(movement.tile, item, paths);
-        if (approach && (!source || approach.path.distance < source.path.distance)) source = { item, ...approach };
+        if (approach && (!source || approach.path.distance < source.path.distance || approach.path.distance===source.path.distance&&order<sourceOrder)) {source = { item, ...approach };sourceOrder=order;}
       }
       if (!source) return;
       this.claims.set(plan.target, builder);
@@ -181,6 +186,7 @@ export class Construction {
     const job = builder.job;
     if (!sameTile(movement.tile, job.goal)) { this.cancel(builder); return; }
     if (job.phase === 'gather') {
+      if(!canPlan(movement))return;
       const source = job.source!;
       if (source.quantity <= 0) { this.cancel(builder); return; }
       const quantity = Math.min(source.quantity, carryCapacity(builder, source.type));

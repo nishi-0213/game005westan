@@ -1,0 +1,171 @@
+{
+  "timestamp": "2026-10-15T03:54:15.009Z",
+  "environment": {
+    "node": "v24.19.0",
+    "browser": "154.0.8037.57",
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "availableCpus": 4,
+    "renderer": "SwiftShader software WebGL",
+    "viewport": "1280x720 DPR1",
+    "build": "production"
+  },
+  "sampleMs": 10000,
+  "results": [
+    {
+      "scenario": "free",
+      "speed": 1,
+      "pawns": 3,
+      "actualDurationMs": 10014.39999999851,
+      "fps": 12.382169675668882,
+      "frameMs": {
+        "mean": 80.64193548387097,
+        "p95": 150.10000000000036,
+        "max": 183.39999999999964
+      },
+      "updateMs": {
+        "mean": 1.635483871003793,
+        "p95": 0.8999999985098839,
+        "max": 90.10000000149012
+      },
+      "longTasks": 2,
+      "longestTaskMs": 91,
+      "heapStartMB": 6.91778564453125,
+      "heapEndMB": 8.989055633544922,
+      "simulatedSeconds": 9.283333338797092,
+      "expectedSimulatedSeconds": 10.01439999999851,
+      "harvestedDuringSample": 1,
+      "alive": 3,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 1,
+      "pawns": 100,
+      "actualDurationMs": 10009,
+      "fps": 9.391547607153562,
+      "frameMs": {
+        "mean": 106.55638297872339,
+        "p95": 199.90000000000146,
+        "max": 333.3000000000002
+      },
+      "updateMs": {
+        "mean": 7.842553191521066,
+        "p95": 3.399999998509884,
+        "max": 336.29999999701977
+      },
+      "longTasks": 2,
+      "longestTaskMs": 338,
+      "heapStartMB": 8.892921447753906,
+      "heapEndMB": 15.114246368408203,
+      "simulatedSeconds": 8.66666667163372,
+      "expectedSimulatedSeconds": 10.009,
+      "harvestedDuringSample": 1,
+      "alive": 100,
+      "errors": []
+    },
+    {
+      "scenario": "harvesting",
+      "speed": 1,
+      "pawns": 3,
+      "actualDurationMs": 10030.60000000149,
+      "fps": 12.461866687933068,
+      "frameMs": {
+        "mean": 80.12960000000001,
+        "p95": 150,
+        "max": 183.39999999999964
+      },
+      "updateMs": {
+        "mean": 0.9079999998807907,
+        "p95": 2.7999999970197678,
+        "max": 34.19999999552965
+      },
+      "longTasks": 1,
+      "longestTaskMs": 53,
+      "heapStartMB": 8.89571762084961,
+      "heapEndMB": 7.372890472412109,
+      "simulatedSeconds": 9.349999994039536,
+      "expectedSimulatedSeconds": 10.03060000000149,
+      "harvestedDuringSample": 9,
+      "alive": 3,
+      "errors": []
+    },
+    {
+      "scenario": "harvesting",
+      "speed": 1,
+      "pawns": 100,
+      "actualDurationMs": 10022.70000000298,
+      "fps": 8.879842756939102,
+      "frameMs": {
+        "mean": 112.54269662921348,
+        "p95": 216.6999999999989,
+        "max": 249.90000000000146
+      },
+      "updateMs": {
+        "mean": 10.82134831453977,
+        "p95": 30.30000000447035,
+        "max": 250.80000000447035
+      },
+      "longTasks": 3,
+      "longestTaskMs": 252,
+      "heapStartMB": 11.144718170166016,
+      "heapEndMB": 16.052288055419922,
+      "simulatedSeconds": 8.149999998509884,
+      "expectedSimulatedSeconds": 10.022700000002981,
+      "harvestedDuringSample": 45,
+      "alive": 100,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 3,
+      "pawns": 3,
+      "actualDurationMs": 10006.70000000298,
+      "fps": 12.091898428049603,
+      "frameMs": {
+        "mean": 82.91652892561983,
+        "p95": 150,
+        "max": 266.60000000000036
+      },
+      "updateMs": {
+        "mean": 3.115702479277268,
+        "p95": 3.399999998509884,
+        "max": 94.39999999850988
+      },
+      "longTasks": 4,
+      "longestTaskMs": 249,
+      "heapStartMB": 9.11892318725586,
+      "heapEndMB": 13.63138198852539,
+      "simulatedSeconds": 26.783333331346512,
+      "expectedSimulatedSeconds": 30.020100000008945,
+      "harvestedDuringSample": 3,
+      "alive": 3,
+      "errors": []
+    },
+    {
+      "scenario": "free",
+      "speed": 3,
+      "pawns": 100,
+      "actualDurationMs": 10012.39999999851,
+      "fps": 10.087491510528448,
+      "frameMs": {
+        "mean": 99.99603960396038,
+        "p95": 283.40000000000055,
+        "max": 333.3000000000002
+      },
+      "updateMs": {
+        "mean": 17.852475247170666,
+        "p95": 12.899999998509884,
+        "max": 342.1000000014901
+      },
+      "longTasks": 6,
+      "longestTaskMs": 343,
+      "heapStartMB": 16.24258041381836,
+      "heapEndMB": 16.663654327392578,
+      "simulatedSeconds": 25.450000002980232,
+      "expectedSimulatedSeconds": 30.03719999999553,
+      "harvestedDuringSample": 3,
+      "alive": 100,
+      "errors": []
+    }
+  ]
+}
