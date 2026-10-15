@@ -9,7 +9,7 @@ const summarize=values=>({mean:values.reduce((a,b)=>a+b,0)/Math.max(1,values.len
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader','--enable-precise-memory-info']});
  const report={timestamp:new Date().toISOString(),environment:{node:process.version,browser:browser.version(),cpu:os.cpus()[0].model,availableCpus:os.availableParallelism(),renderer:'SwiftShader software WebGL',viewport:'1280x720 DPR1',build:'production'},sampleMs,results:[]};
  try{
-  for(const [scenario,speed]of [['free',1],['harvesting',1],['free',3]])for(const count of [3,100]){
+  for(const [scenario,speed]of [['free',1],['harvesting',1],['free',3]])for(const count of (process.env.PERF_COUNTS||'3,100').split(',').map(Number)){
    const page=await browser.newPage({viewport:{width:1280,height:720},deviceScaleFactor:1}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
    await page.addInitScript(()=>{let seed=42;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};});
@@ -26,7 +26,7 @@ const summarize=values=>({mean:values.reduce((a,b)=>a+b,0)/Math.max(1,values.len
    const result={scenario,speed,pawns:count,actualDurationMs:duration,fps:end.frames.length*1000/duration,frameMs:summarize(end.frames),updateMs:summarize(end.updates),longTasks:end.longTasks.length,longestTaskMs:Math.max(0,...end.longTasks),heapStartMB:heapStart,heapEndMB:heapEnd,simulatedSeconds:end.state.simulationSeconds-start.state.simulationSeconds,expectedSimulatedSeconds:duration/1000*speed,harvestedDuringSample:end.state.harvested-start.state.harvested,alive:end.state.alive,errors};
    report.results.push(result);console.log(JSON.stringify(result));assert.equal(end.state.alive,count);assert.deepEqual(errors,[]);
    if(count===100&&scenario==='harvesting')await page.screenshot({path:'/workspace/scratch/100-pawns-harvest.png'});
-   await page.close();fs.writeFileSync('docs/performance/100-pawns-results.json',JSON.stringify(report,null,2)+'\n');
+   await page.close();fs.writeFileSync(process.env.PERF_OUTPUT||'docs/performance/100-pawns-results.json',JSON.stringify(report,null,2)+'\n');
   }
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});

@@ -360,9 +360,10 @@ const spawnTiles = [
   { column: 16, row: 15, color: 0x82c6dc },
   { column: 15, row: 16, color: 0xdb96b5 },
 ];
-// This branch defaults to100; ?pawns=3 provides the unchanged comparison case.
-const stressPawnCount = new URLSearchParams(location.search).get('pawns') === '3' ? 3 : 100;
-if(stressPawnCount===100){
+// This branch defaults to100; ?pawns=3 or50 selects a comparison case.
+const requestedPawnCount = Number(new URLSearchParams(location.search).get('pawns'));
+const stressPawnCount = requestedPawnCount === 3 || requestedPawnCount === 50 ? requestedPawnCount : 100;
+if(stressPawnCount>3){
   const available: {column:number;row:number}[]=[];
   for(let row=0;row<MAP_SIZE;row++)for(let column=0;column<MAP_SIZE;column++){
     const tile={column,row};
@@ -370,7 +371,7 @@ if(stressPawnCount===100){
   }
   available.sort((a,b)=>Math.hypot(a.column-15.5,a.row-15.5)-Math.hypot(b.column-15.5,b.row-15.5));
   const colors=spawnTiles.map(p=>p.color);
-  for(const tile of available.slice(0,97))spawnTiles.push({...tile,color:colors[spawnTiles.length%colors.length]});
+  for(const tile of available.slice(0,stressPawnCount-3))spawnTiles.push({...tile,color:colors[spawnTiles.length%colors.length]});
 }
 app.canvas.setAttribute('aria-label',`れ・こんきすた。32×32マスのマップと${spawnTiles.length}人のポーン`);
 const pawnNames = generatePawnNames(spawnTiles.length);
