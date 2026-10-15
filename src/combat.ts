@@ -1,3 +1,4 @@
+import { footprint } from './walls.ts';
 import { rayTiles, shootingObstacles } from './shooting.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
@@ -31,6 +32,7 @@ export interface AttackEvent {
   from: Tile;
   to: Tile;
   damage: number;
+  impactStructure?:Wall;
 }
 export interface AttackOrder {
   target: CombatTarget;
@@ -121,7 +123,7 @@ export class Combat {
   }
 
   canFireFrom(weapon:Weapon,from:Tile,to:Tile,structure?:Wall):boolean {
-    return inWeaponRange(weapon,from,to)&&(weapon!=='rifle'||!shootingObstacles(this.construction.walls,from,to,structure).blocked);
+    return Boolean(this.aimPoint(weapon,from,to,structure));
   }
 
   canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
@@ -149,6 +151,17 @@ export class Combat {
   requestRetaliation(pawn:CombatPawn,target:CombatTarget):boolean {
     if(!('kind' in pawn)||pawn.kind!=='wolf'||!this.requestPredation(pawn,target))return false;
     pawn.attackJob!.predation=false;pawn.attackJob!.retaliation=true;return true;
+  }
+
+  private aimPoint(weapon:Weapon,from:Tile,to:Tile,structure?:Wall):Tile|undefined {
+    const cells=structure?footprint(structure):[to];
+    let best:Tile|undefined,distance=Infinity;
+    for(const cell of cells){
+      if(!inWeaponRange(weapon,from,cell)||(weapon==='rifle'&&shootingObstacles(this.construction.walls,from,cell,structure).blocked))continue;
+      const next=Math.hypot(cell.column-from.column,cell.row-from.row);
+      if(next<distance){best=cell;distance=next;}
+    }
+    return best;
   }
 
   private attackApproach(pawn: CombatPawn, target: CombatTarget): { goal: Tile; path: Path } | null {
@@ -245,12 +258,32 @@ export class Combat {
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
       job.cooldown += WEAPONS[weapon].interval;
-      const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,job.target.movement.tile,job.target.structure).covered;
+      const aim=job.target.structure?this.aimPoint(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure)!:job.target.movement.tile;
+      const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,aim,job.target.structure).covered;
       const accuracy=Math.max(0,WEAPONS[weapon].accuracy-(covered?.4:0));
       const hit = this.random() < accuracy;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
-        from: renderedPosition(pawn.movement), to: renderedPosition(job.target.movement),
+        from: renderedPosition(pawn.movement), to: job.target.structure?aim:renderedPosition(job.target.movement),
         damage: hit ? WEAPONS[weapon].damage : 0 };
+      if(!hit&&weapon==='rifle'){
+        const angle=this.random()*Math.PI*2,offset=.6+this.random()*.9;
+        event.to={column:event.to.column+Math.cos(angle)*offset,row:event.to.row+Math.sin(angle)*offset};
+        const start={column:Math.floor(event.from.column+.5),row:Math.floor(event.from.row+.5)};
+        const end={column:Math.floor(event.to.column+.5),row:Math.floor(event.to.row+.5)};
+        // A missed bullet can strike a wall/door before its sampled landing point.
+        for(const cell of rayTiles(start,end)){
+          const obstacle=this.construction.walls.at(cell);
+          if(obstacle?.state==='completed'&&(obstacle.kind==='wall'||obstacle.kind==='door')){
+            event.to={...cell};break;
+          }
+        }
+        const impact=this.construction.walls.at({column:Math.floor(event.to.column+.5),row:Math.floor(event.to.row+.5)});
+        if(impact?.state==='completed'){
+          event.impactStructure=impact;event.damage=WEAPONS[weapon].damage;
+          impact.hp=Math.max(0,impact.hp-event.damage);
+          if(impact.hp<=0)this.onDestroyStructure?.(impact);
+        }
+      }
       if (hit) {
         job.target.hp = Math.max(0, (job.target.hp ?? 100) - WEAPONS[weapon].damage);
         if (job.target.hp <= 0) {
@@ -265,6 +298,7 @@ export class Combat {
       }
       pawn.attackMotionSeconds=.25;
       this.onAttack?.(event);
+      if(job.target.dead){this.cancel(pawn);break;}
     }
     return true;
   }

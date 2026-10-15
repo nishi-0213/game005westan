@@ -25,10 +25,6 @@ export class AttackEffects {
       flash.position.set(muzzle.x, muzzle.y); flash.rotation = angle;
       this.add(flash, .12);
       const end = { ...target };
-      if (!event.hit) {
-        const missAngle = Math.random() * Math.PI * 2, offset = (.6 + Math.random() * .9) * this.tileSize;
-        end.x += Math.cos(missAngle) * offset; end.y += Math.sin(missAngle) * offset;
-      }
       const tracer = new Graphics().moveTo(muzzle.x, muzzle.y).lineTo(end.x, end.y).stroke({ color: 0xffedba, width: 1.2 });
       this.add(tracer, .18);
     }
@@ -47,7 +43,7 @@ export class AttackEffects {
       slash.rotation=Math.atan2(target.y-from.y,target.x-from.x);
       this.add(slash,.25);
     }
-    if(event.hit&&event.target.structure){
+    if(event.impactStructure||event.hit&&event.target.structure){
       for(let index=0;index<5;index++){
         const star=new Graphics().poly([0,-4,1,-1,4,0,1,1,0,4,-1,1,-4,0,-1,-1]).fill(0xffdf52);
         star.position.set(target.x,target.y);const angle=index*Math.PI*2/5;
