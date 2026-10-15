@@ -45,16 +45,16 @@ test('deer and humans share the same five-second nearby roaming behavior', () =>
   assert.notDeepEqual(s.deer.movement.destination, s.deer.movement.tile);
 });
 
-test('below20satiety deer harvest unmarked berries and eat them in place for one second', () => {
+test('below40satiety deer harvest unmarked berries and eat them in place for one second', () => {
   const s = scene(), berry = s.berry();
-  s.deer.needs.satiety = 20; s.tick(0); assert.equal(s.deer.harvestJob, null);
-  s.deer.needs.satiety = 19; s.tick(0);
+  s.deer.needs.satiety = 40; s.tick(0); assert.equal(s.deer.harvestJob, null);
+  s.deer.needs.satiety = 39; s.tick(0);
   assert.equal(s.deer.harvestJob.target, berry); assert.equal(berry.collect, false);
   s.tick(.9); assert.equal(berry.collected, false);
   s.tick(.1); assert.equal(berry.collected, true); assert.equal(s.deer.inventory.quantity, 5);
   const tile = { ...s.deer.movement.tile };
   s.tick(.9); assert.equal(deerAction(s.deer), '食事中'); assert.equal(s.deer.inventory.quantity, 5);
-  s.tick(.1); assert.equal(s.deer.needs.satiety, 67); assert.equal(s.deer.inventory, null);
+  s.tick(.1); assert.equal(s.deer.needs.satiety, 87); assert.equal(s.deer.inventory, null);
   assert.deepEqual(s.deer.movement.tile, tile);
   assert.equal(s.items.reduce((sum, item) => sum + item.quantity, 0), 0);
 });

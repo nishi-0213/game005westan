@@ -12,3 +12,12 @@ test('standing meals refresh one5hour memory; human kills stack and each expires
  const p=pawn();rememberMood(p,'standingMeal');assert.equal(p.needs.happiness,47);updateMood(p,9);rememberMood(p,'standingMeal');assert.equal(p.moodMemories.length,1);updateMood(p,9.99);assert.equal(p.needs.happiness,47);updateMood(p,.01);assert.equal(p.needs.happiness,50);
  rememberMood(p,'killedHuman');updateMood(p,1);rememberMood(p,'killedHuman');assert.equal(p.needs.happiness,0);assert.deepEqual(moodEffects(p),[{label:'人を無力化した',amount:-60,count:2}]);updateMood(p,143);assert.equal(p.needs.happiness,20);assert.equal(canGiveOrders(p),false);updateMood(p,1);assert.equal(p.needs.happiness,50);assert.equal(canGiveOrders(p),true);
 });
+
+test('hunger mood applies through40percent, stops above40and is replaced by starvation at0',()=>{
+ const p=pawn();
+ for(const [satiety,hungry,starving] of [[40.01,false,false],[40,true,false],[30,true,false],[.01,true,false],[0,false,true]]){
+  p.needs.satiety=satiety;const effects=moodEffects(p);
+  assert.equal(effects.some(effect=>effect.label==='お腹が空いた'),hungry);
+  assert.equal(effects.some(effect=>effect.label==='飢餓'),starving);
+ }
+});

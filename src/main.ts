@@ -20,7 +20,7 @@ import { StructureShadows } from './structure-shadows';
 import { SimulationClock } from './simulation-clock';
 import type { GameSpeed } from './simulation-clock';
 import { PathSearchSchedule } from './path-schedule';
-import { initialNeeds, requestEat, updateNeeds } from './needs';
+import { FOOD_THRESHOLD, initialNeeds, requestEat, updateNeeds } from './needs';
 import type { EatingWorker } from './needs';
 import type { Corpse } from './butchery';
 import type { MapItem } from './items';
@@ -1784,7 +1784,7 @@ const stressTest=new URLSearchParams(location.search).has('benchmark')?{
     for(const object of environmentObjects)object.collect=scenario==='harvesting';
     simulationClock.speed=speed;
   },
-  state(){return {rooms:walls.rooms.rooms.length,enclosedRooms:walls.rooms.rooms.filter(room=>!room.outdoors).length,pawns:pawns.length,alive:pawns.filter(p=>!p.dead).length,hungry:pawns.filter(p=>p.needs.satiety<=20).length,sleeping:pawns.filter(p=>p.sleep?.phase==='sleeping').length,minHP:Math.min(...pawns.map(p=>p.hp)),uniqueTiles:new Set(pawns.map(p=>`${p.movement.tile.column},${p.movement.tile.row}`)).size,simulationSeconds:gameTime.date.getTime()/(30*60000),harvested:environmentObjects.filter(o=>o.collected).length,moving:pawns.filter(p=>p.movement.nextTile).length};}
+  state(){return {rooms:walls.rooms.rooms.length,enclosedRooms:walls.rooms.rooms.filter(room=>!room.outdoors).length,pawns:pawns.length,alive:pawns.filter(p=>!p.dead).length,hungry:pawns.filter(p=>p.needs.satiety<=FOOD_THRESHOLD).length,sleeping:pawns.filter(p=>p.sleep?.phase==='sleeping').length,minHP:Math.min(...pawns.map(p=>p.hp)),uniqueTiles:new Set(pawns.map(p=>`${p.movement.tile.column},${p.movement.tile.row}`)).size,simulationSeconds:gameTime.date.getTime()/(30*60000),harvested:environmentObjects.filter(o=>o.collected).length,moving:pawns.filter(p=>p.movement.nextTile).length};}
 }:null;
 if(stressTest){simulationClock.speed=0;Object.assign(globalThis,{__stressTest:stressTest});}
 

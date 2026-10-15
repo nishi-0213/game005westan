@@ -1,3 +1,4 @@
+import { FOOD_THRESHOLD } from './needs-threshold.ts';
 import { canPlan } from './path-schedule.ts';
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 import { canGiveOrders, rememberMood, type MoodMemory } from './mood.ts';
@@ -33,7 +34,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
 };
 export const SATIETY_LOSS_PER_SECOND = 1;
 export const STARVATION_HP_LOSS_PER_SECOND = 30 / (24 * 60 / GAME_MINUTES_PER_SECOND);
-export const FOOD_THRESHOLD = 20;
+export { FOOD_THRESHOLD } from './needs-threshold.ts';
 export const STRAWBERRY_SATIETY = 20;
 export const EATING_SECONDS = 1;
 export const initialNeeds = (human=true): Needs => ({ satiety: 100, wakefulness:100, ...(human?{happiness:50}:{}) });

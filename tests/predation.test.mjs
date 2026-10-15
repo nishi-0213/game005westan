@@ -119,3 +119,25 @@ test('wolves fall back from unreachable deer to stored meat before carried ratio
  const box=s.walls.plan(tile(4,3),'wood','storage');s.walls.complete(box);s.storage.deposit(box,'meat',5);
  s.wildlife.updateWolf(wolf,0);assert.ok(!wolf.attackJob);assert.equal(wolf.eatJob.source.type,'meat');assert.equal(wolf.inventory.type,'ration');
 });
+
+test('wolves begin hunting at40percent and do not hunt above40',()=>{
+ const s=scene(),wolf=createWolf(tile(2,3),1),deer=createDeer(tile(6,3),2);s.wildlife.deer.push(deer);
+ wolf.needs.satiety=40.01;s.wildlife.updateWolf(wolf,0);assert.ok(!wolf.attackJob);
+ wolf.needs.satiety=40;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,deer);
+});
+
+test('animals begin ordinary food seeking at the new hunger threshold',()=>{
+ for(const kind of ['deer','wolf']){
+  const s=scene(),animal=kind==='deer'?createDeer(tile(2,3),1):createWolf(tile(2,3),1);
+  s.items.push({...tile(2,3),type:'ration',quantity:10});
+  const update=()=>kind==='deer'?s.wildlife.updateDeer(animal,0):s.wildlife.updateWolf(animal,0);
+  animal.needs.satiety=40.01;update();assert.equal(animal.eatJob,null);
+  animal.needs.satiety=kind==='deer'?39.99:40;update();assert.equal(animal.eatJob.source.type,'ration');
+ }
+});
+
+test('automatic human corpse fallback also starts at40percent',()=>{
+ const s=scene(),p=s.human(),body=createDeer(tile(4,3),1);s.wildlife.deer.push(body);killPawn(body,s.construction,s.harvesting,s.hauling);
+ p.needs.satiety=40.01;updateNeeds(p,s.construction,s.harvesting,s.hauling,0,true,s.eating.automatic);assert.equal(p.eatJob,null);
+ p.needs.satiety=40;updateNeeds(p,s.construction,s.harvesting,s.hauling,0,true,s.eating.automatic);assert.equal(body.corpseEater,p);
+});
