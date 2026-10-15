@@ -77,17 +77,27 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
   const trees = available.filter(tile => !rockTiles.has(key(tile))).map(tile => ({
     tile, score: -Math.log(Math.max(0.000001, random())) / (0.001 + density(tile) ** 6),
   })).sort((a, b) => a.score - b.score).slice(0, 120);
-  for (const { tile } of trees) result.push({ ...createEnvironment('tree', tile), hp:1+Math.floor(random()*100),ageSeconds:random()*180 });
+  for (const { tile } of trees) result.push({ ...createEnvironment('tree', tile), hp:1,ageSeconds:random()*180 });
   const occupied = new Set(result.map(key));
   const berries = available.filter(tile => !occupied.has(key(tile)));
   for (let i = 0; i < 16 && berries.length; i++) {
     const index = Math.floor(random() * berries.length);
     const tile = berries.splice(index, 1)[0];
-    result.push({ ...createEnvironment('wildStrawberry', tile), hp:1+Math.floor(random()*100),ageSeconds:random()*180 });
+    result.push({ ...createEnvironment('wildStrawberry', tile), hp:1,ageSeconds:random()*180 });
   }
   for (let i = 0; i < 160 && berries.length; i++) {
     const tile = berries.splice(Math.floor(random() * berries.length), 1)[0];
-    result.push({ ...createEnvironment('grass', tile), hp: 1 + Math.floor(random()*100), ageSeconds: random()*180 });
+    result.push({ ...createEnvironment('grass', tile), hp: 1, ageSeconds: random()*180 });
+  }
+  // Spread each species across the entire growth range, then shuffle stages spatially.
+  for (const type of ['tree', 'wildStrawberry', 'grass'] as const) {
+    const plants = result.filter(object => object.type === type);
+    const stages = plants.map((_, index) => 1 + 99 * (index + random()) / plants.length);
+    for (let index = stages.length - 1; index > 0; index--) {
+      const other = Math.floor(random() * (index + 1));
+      [stages[index], stages[other]] = [stages[other], stages[index]];
+    }
+    plants.forEach((plant, index) => { plant.hp = stages[index]; });
   }
   return result;
 }

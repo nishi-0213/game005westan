@@ -22,6 +22,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   sleep?:import('./sleep').SleepState;
   sleepRetrySeconds?:number;
   hp?: number;
+  armor?: number;
   consumed?: boolean;
   collectCorpse?: boolean;
   corpseEater?: EatingWorker;

@@ -30,7 +30,7 @@ test('automatic and drafted humans automatically attack only enemies inside thei
  for(const mode of ['drafted','automatic']){
   const s=scene(),a=s.pawn(5,5,'player','rifle',mode),ally=s.pawn(6,5),wild=createDeer(tile(7,5),1),enemy=s.pawn(12,5,'enemy1');
   s.combat.update(a,0,[ally,wild,enemy]);assert.equal(a.attackJob.target,enemy);assert.equal(a.attackJob.manual,false);
-  s.combat.update(a,ATTACK_INTERVAL,[ally,wild,enemy]);assert.equal(enemy.hp,60);assert.equal(ally.hp,100);assert.equal(wild.hp,100);
+  s.combat.update(a,.4,[ally,wild,enemy]);assert.equal(enemy.hp,70);assert.equal(ally.hp,100);assert.equal(wild.hp,100);
   enemy.movement.tile=tile(31,31);enemy.movement.destination=tile(31,31);enemy.movement.changed();s.combat.update(a,.1,[enemy]);assert.equal(a.attackJob,null);
   assert.deepEqual(a.movement.destination,tile(5,5));
  }
@@ -52,17 +52,17 @@ test('manual attacks keep the same target despite faction changes and holding po
 
 test('every shot reports a hit or miss at fire time and hit damage is already applied before visuals',()=>{
  const s=scene(()=>.05),a=s.pawn(5,5,'player','rifle'),target=s.pawn(9,5);let event;
- s.combat.onAttack=e=>{event=e;assert.equal(target.hp,60)};s.combat.requestAttack(a,target);s.combat.update(a,2.5);
- assert.equal(event.hit,true);assert.equal(event.damage,40);assert.deepEqual(event.from,tile(5,5));assert.deepEqual(event.to,tile(9,5));
- const m=scene(()=>.5),b=m.pawn(5,5,'player','rifle'),other=m.pawn(9,5);m.combat.onAttack=e=>event=e;m.combat.requestAttack(b,other);m.combat.update(b,2.5);
+ s.combat.onAttack=e=>{event=e;assert.equal(target.hp,70)};s.combat.requestAttack(a,target);s.combat.update(a,.4);
+ assert.equal(event.hit,true);assert.equal(event.damage,30);assert.deepEqual(event.from,tile(5,5));assert.deepEqual(event.to,tile(9,5));
+ const m=scene(()=>.8),b=m.pawn(5,5,'player','rifle'),other=m.pawn(9,5);m.combat.onAttack=e=>event=e;m.combat.requestAttack(b,other);m.combat.update(b,.4);
  assert.equal(event.hit,false);assert.equal(event.damage,0);assert.equal(other.hp,100);
 });
 
 test('deer flee8tiles away on a hit or miss, preserve HP and return to ordinary behavior after arrival',()=>{
  for(const random of [()=>0,()=>.5]){
   const s=scene(random),a=s.pawn(5,15,'player','rifle'),deer=createDeer(tile(15,15),1);s.occupancy.track(deer.movement);
-  s.combat.onAttack=e=>s.wildlife.flee(deer,e.from);s.combat.requestAttack(a,deer);s.combat.update(a,2.5);
-  assert.deepEqual(deer.fleeGoal,tile(23,15));assert.equal(deerAction(deer),'逃走中');assert.equal(deer.hp,random()===0?60:100);
+  s.combat.onAttack=e=>s.wildlife.flee(deer,e.from);s.combat.requestAttack(a,deer);s.combat.update(a,.4);
+  assert.deepEqual(deer.fleeGoal,tile(23,15));assert.equal(deerAction(deer),'逃走中');assert.equal(deer.hp,random()===0?70:100);
   for(let i=0;i<25;i++){s.wildlife.updateDeer(deer,.1);s.move(deer)}
   assert.equal(deer.fleeGoal,undefined);assert.deepEqual(deer.movement.tile,tile(23,15));assert.equal(deerAction(deer),'自由');
  }
@@ -87,6 +87,6 @@ test('unarmed range outlines exactly the3by3outer square and rifle outlines stay
  assert.ok(edges.every(e=>[e.from,e.to].every(t=>t.column>=4&&t.column<=7&&t.row>=4&&t.row<=7)));
  const rifle=attackRangeEdges(tile(0,0),'rifle',32);assert.ok(rifle.length>12);
  assert.ok(rifle.every(e=>[e.from,e.to].every(t=>t.column>=0&&t.row>=0&&t.column<=32&&t.row<=32)));
- assert.ok(rifle.some(e=>e.from.column===17||e.to.column===17));
+ assert.ok(rifle.some(e=>e.from.column===21||e.to.column===21));
  assert.equal(attackRangeEdges(tile(5,5),'unarmed',32).some(e=>e.from.column===5&&e.from.row===5),false);
 });

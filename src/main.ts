@@ -9,7 +9,7 @@ import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { CorpseEating } from './corpse-eating';
 import { Cooking,COOK_SECONDS,stagedNutrition } from './cooking';
 import { Hunting } from './hunting';
-import { Combat, WEAPONS, ATTACK_INTERVAL } from './combat';
+import { Combat, WEAPONS, WOLF_BITE } from './combat';
 import type { CombatPawn, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
 import { attackRangeEdges } from './attack-range';
@@ -414,7 +414,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || ((walls.at(tile)?.state === 'planned' || walls.floorAt(tile)?.state === 'planned') && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -655,9 +655,8 @@ pawnNeeds.append(needsBars,moodList);
 const needsMeters = (['幸福感', '満腹感', '覚醒度'] as const).map(label => {
   const row = document.createElement('label');
   const title = document.createElement('span'); title.textContent = label;
-  const gauge = createNeedsMeter(label);
-  const {meter, value} = gauge;
-  if(label==='幸福感'){const track=document.createElement('span');track.className='happiness-track';track.append(meter);for(const threshold of [25,75]){const tick=document.createElement('span');tick.className='happiness-tick';tick.style.left=`${threshold}%`;tick.title=`${threshold}%`;track.append(tick);}row.append(title,track,value);}else row.append(title,meter,value);
+  const gauge = createNeedsMeter(label, label === '幸福感' ? [25,75] : label === '満腹感' ? [FOOD_THRESHOLD] : []);
+  row.append(title,gauge.track,gauge.value);
   needsBars.appendChild(row);
   return gauge;
 });
@@ -746,7 +745,7 @@ function updatePawnPanels(): void {
   setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
   pawnCorpseMass.hidden=!selectedPawn.dead;
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
-  setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%`);
+  setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%　装甲：${selectedPawn.armor}`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.happiness??50, selectedPawn.needs.satiety, selectedPawn.needs.wakefulness??100].entries()) {
@@ -794,7 +793,8 @@ const harvestQuantity = document.querySelector<HTMLElement>('#environment-harves
 const environmentHp = document.querySelector<HTMLElement>('#environment-hp')!;
 const animalFaction = document.querySelector<HTMLElement>('#animal-faction')!;
 const animalAction = document.querySelector<HTMLElement>('#animal-action')!;
-const animalSatiety = document.querySelector<HTMLElement>('#animal-satiety')!;
+const animalSatiety = createNeedsMeter('満腹感', [FOOD_THRESHOLD]);
+document.querySelector<HTMLElement>('#animal-satiety')!.append(animalSatiety.track, animalSatiety.value);
 const animalHp = document.querySelector<HTMLElement>('#animal-hp')!;
 const animalWakefulness = createNeedsMeter('覚醒度');
 document.querySelector<HTMLElement>('#animal-wakefulness')!.append(animalWakefulness.meter, animalWakefulness.value);
@@ -807,7 +807,8 @@ function updateObjectProperties(): void {
   } else if (infoFocus === 'deer' && selectedDeer) {
     setText(animalFaction, FACTIONS[selectedDeer.faction]);
     setText(animalAction, deerAction(selectedDeer));
-    setText(animalSatiety, `${Math.round(selectedDeer.needs.satiety)}%`);
+    animalSatiety.update(selectedDeer.needs.satiety);
+    setText(document.querySelector<HTMLElement>('#animal-armor')!, String(selectedDeer.armor ?? 0));
     setText(animalHp, `${Math.round(selectedDeer.hp ?? 100)}%`);
     animalWakefulness.update(selectedDeer.needs.wakefulness ?? 100);
   }
@@ -996,6 +997,7 @@ function updateItemSelection(): void {
   for (const element of document.querySelectorAll<HTMLElement>('[data-animal-property]')) element.hidden = infoFocus !== 'deer';
   for(const element of document.querySelectorAll<HTMLElement>('[data-wolf-property]'))element.hidden=infoFocus!=='deer'||selectedDeer?.kind!=='wolf';
   if(infoFocus==='deer'&&selectedDeer?.kind==='wolf')setText(document.querySelector<HTMLElement>('#wolf-retaliation')!,`${Math.round((selectedDeer.retaliationProbability??WOLF_RETALIATION_PROBABILITY)*100)}%`);
+  if(infoFocus==='deer'&&selectedDeer?.kind==='wolf')setText(document.querySelector<HTMLElement>('#wolf-attack')!, `${WOLF_BITE.name} / ${WOLF_BITE.interval}秒 / 命中${WOLF_BITE.accuracy*100}% / 威力${WOLF_BITE.damage}% / 貫徹${WOLF_BITE.penetration}`);
   for (const element of document.querySelectorAll<HTMLElement>('[data-corpse-property]')) element.hidden=!(infoFocus==='deer'&&selectedDeer?.dead);
   if(selectedDeer?.dead)setText(document.querySelector<HTMLElement>('#corpse-mass')!,`${ITEM_APPEARANCE[corpseItemType(selectedDeer)].massKg}kg`);
   for(const element of document.querySelectorAll<HTMLElement>('[data-food-property]'))element.hidden=infoFocus!=='item'||!selectedItem||foodNutrition(selectedItem.type)<=0;
@@ -1012,9 +1014,10 @@ function updateItemSelection(): void {
     itemPropertiesName.textContent = properties.name;
     itemPropertiesMass.textContent = `${properties.massKg}kg`;
     if (isWeaponItem(selectedItem.type)) {
-      setText(document.querySelector<HTMLElement>('#weapon-range')!, selectedItem.type === 'rifle' ? '半径16マス' : '隣接1マス（斜め含む）');
-      setText(document.querySelector<HTMLElement>('#weapon-damage')!, '40% / HIT');
-      setText(document.querySelector<HTMLElement>('#weapon-accuracy')!, `${WEAPONS[selectedItem.type].accuracy*100}%`);
+      setText(document.querySelector<HTMLElement>('#weapon-range')!, selectedItem.type === 'rifle' ? '半径20マス' : '隣接1マス（斜め含む）');
+      setText(document.querySelector<HTMLElement>('#weapon-damage')!, `${WEAPONS[selectedItem.type].damage}% / HIT`);
+      setText(document.querySelector<HTMLElement>('#weapon-accuracy')!, selectedItem.type === 'rifle' ? '距離4：80% / 10：50% / 15：30% / 20：10%（線形補間）' : `${WEAPONS[selectedItem.type].accuracy*100}%`);
+      setText(document.querySelector<HTMLElement>('#weapon-penetration')!, String(WEAPONS[selectedItem.type].penetration));
       setText(document.querySelector<HTMLElement>('#weapon-interval')!, `${WEAPONS[selectedItem.type].interval}秒`);
     }
   } else if (infoFocus === 'environment' && environment) {
@@ -1027,8 +1030,9 @@ function updateItemSelection(): void {
     itemPropertiesName.textContent = selectedDeer.kind==='wolf'?'狼':'鹿';
     animalFaction.textContent = FACTIONS[selectedDeer.faction];
     animalAction.textContent = deerAction(selectedDeer);
-    animalSatiety.textContent = `${Math.round(selectedDeer.needs.satiety)}%`;
+    animalSatiety.update(selectedDeer.needs.satiety);
     animalHp.textContent = `${Math.round(selectedDeer.hp ?? 100)}%`;
+    setText(document.querySelector<HTMLElement>('#animal-armor')!, String(selectedDeer.armor ?? 0));
     animalWakefulness.update(selectedDeer.needs.wakefulness ?? 100);
   } else itemProperties.close();
   updateEnvironmentViews();

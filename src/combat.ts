@@ -21,11 +21,28 @@ import type { Hauling } from './hauling';
 
 export type Weapon = 'unarmed' | 'rifle' | 'knife';
 export const WEAPONS = {
-  unarmed: { name: '素手', damage: 10, accuracy: .80, range: 1, interval: 2.5 },
-  knife: { name: 'ナイフ', damage: 40, accuracy: .90, range: 1, interval: 1 },
-  rifle: { name: 'ライフル', damage: 40, accuracy: .50, range: 16, interval: 2.5 },
+  unarmed: { name: '素手', damage: 10, accuracy: .30, range: 1, interval: .2, penetration: 1 },
+  knife: { name: 'ナイフ', damage: 50, accuracy: .50, range: 1, interval: .1, penetration: 2 },
+  rifle: { name: 'ライフル', damage: 30, accuracy: .80, range: 20, interval: .4, penetration: 4 },
 };
-export const ATTACK_INTERVAL = 1 / .4;
+export const WOLF_BITE = { name: '牙', damage: 40, accuracy: .50, range: 1, interval: .3, penetration: 3 };
+export const ATTACK_INTERVAL = WEAPONS.unarmed.interval;
+export function attackStats(pawn: { kind?: string; weapon?: Weapon }) {
+  return pawn.kind === 'wolf' ? WOLF_BITE : WEAPONS[pawn.weapon ?? 'unarmed'];
+}
+export function rifleAccuracy(distance: number): number {
+  if (distance > WEAPONS.rifle.range) return 0;
+  const points = [[4,.8],[10,.5],[15,.3],[20,.1]];
+  if (distance <= points[0][0]) return points[0][1];
+  for (let i=1;i<points.length;i++) {
+    const [end,accuracy]=points[i], [start,previous]=points[i-1];
+    if (distance <= end) return previous + (accuracy-previous)*(distance-start)/(end-start);
+  }
+  return 0;
+}
+export function attackDamage(damage: number, penetration: number, armor = 0): number {
+  return damage * (penetration < armor ? .5 : 1);
+}
 export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean; structure?:Wall };
 export interface AttackEvent {
   attacker: CombatPawn;
@@ -61,7 +78,7 @@ export type CombatPawn = CombatTarget & {
 export function inWeaponRange(weapon: Weapon, from: Tile, target: Tile): boolean {
   const dc = Math.abs(from.column - target.column), dr = Math.abs(from.row - target.row);
   if (!dc && !dr) return false;
-  return WEAPONS[weapon].range === 1 ? Math.max(dc, dr) <= 1 : dc * dc + dr * dr <= 16 * 16;
+  return WEAPONS[weapon].range === 1 ? Math.max(dc, dr) <= 1 : dc * dc + dr * dr <= WEAPONS[weapon].range ** 2;
 }
 
 const stationary = (pawn: CombatPawn): boolean => !pawn.movement.nextTile
@@ -119,7 +136,7 @@ export class Combat {
     const approach = this.attackApproach(pawn, target);
     if (!approach) return false;
     this.interrupt(pawn); this.cancel(pawn);
-    pawn.attackJob = { target, cooldown: WEAPONS[pawn.weapon ?? 'unarmed'].interval, retrySeconds: .25,
+    pawn.attackJob = { target, cooldown: attackStats(pawn).interval, retrySeconds: .25,
       targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true,
       holdPosition:stationary(pawn)&&positionKey(pawn.movement.tile)===positionKey(approach.goal)?{...approach.goal}:undefined };
     return setRoute(pawn.movement, approach.path.tiles);
@@ -138,7 +155,7 @@ export class Combat {
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach=this.attackApproach(pawn,target);if(!approach)return false;
     this.interrupt(pawn);this.cancel(pawn);
-    pawn.attackJob={target,cooldown:WEAPONS[pawn.weapon??'unarmed'].interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,hunting:true};
+    pawn.attackJob={target,cooldown:attackStats(pawn).interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,hunting:true};
     return setRoute(pawn.movement,approach.path.tiles);
   }
 
@@ -147,7 +164,7 @@ export class Combat {
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach=this.attackApproach(pawn,target);if(!approach)return false;
     this.interrupt(pawn);this.cancel(pawn);
-    pawn.attackJob={target,cooldown:WEAPONS.unarmed.interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,predation:true};
+    pawn.attackJob={target,cooldown:attackStats(pawn).interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,predation:true};
     return setRoute(pawn.movement,approach.path.tiles);
   }
 
@@ -220,7 +237,7 @@ export class Combat {
         const target = this.automaticTarget(pawn, targets);
         if (target) {
           this.interrupt(pawn);
-          pawn.attackJob = { target, cooldown: WEAPONS[pawn.weapon ?? 'unarmed'].interval, retrySeconds: .25, manual: false };
+          pawn.attackJob = { target, cooldown: attackStats(pawn).interval, retrySeconds: .25, manual: false };
         }
       }
     }
@@ -232,7 +249,8 @@ export class Combat {
       || !manual && !job.hunting && !job.predation && !job.retaliation && (!areHostile(pawn, job.target) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
-    const weapon = pawn.weapon ?? 'unarmed';
+    const weapon = pawn.kind === 'wolf' ? 'unarmed' : pawn.weapon ?? 'unarmed';
+    const stats = attackStats(pawn);
     if(manual&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
     if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
     if (!manual && !job.hunting && !job.predation && !job.retaliation && !stationary(pawn)) return true;
@@ -260,14 +278,15 @@ export class Combat {
     job.cooldown -= seconds;
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
-      job.cooldown += WEAPONS[weapon].interval;
+      job.cooldown += stats.interval;
       const aim=job.target.structure?this.aimPoint(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure)!:job.target.movement.tile;
       const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,aim,job.target.structure).covered;
-      const accuracy=Math.max(0,WEAPONS[weapon].accuracy-(covered?.4:0));
+      const distance=Math.hypot(aim.column-pawn.movement.tile.column,aim.row-pawn.movement.tile.row);
+      const accuracy=Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-(covered?.4:0));
       const hit = this.random() < accuracy;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
         from: renderedPosition(pawn.movement), to: job.target.structure?aim:renderedPosition(job.target.movement),
-        damage: hit ? WEAPONS[weapon].damage : 0 };
+        damage: hit ? attackDamage(stats.damage, stats.penetration, job.target.armor) : 0 };
       if(!hit&&weapon==='rifle'){
         const angle=this.random()*Math.PI*2,offset=.6+this.random()*.9;
         event.to={column:event.to.column+Math.cos(angle)*offset,row:event.to.row+Math.sin(angle)*offset};
@@ -282,13 +301,13 @@ export class Combat {
         }
         const impact=this.construction.walls.at({column:Math.floor(event.to.column+.5),row:Math.floor(event.to.row+.5)});
         if(impact?.state==='completed'){
-          event.impactStructure=impact;event.damage=WEAPONS[weapon].damage;
+          event.impactStructure=impact;event.damage=attackDamage(stats.damage,stats.penetration);
           impact.hp=Math.max(0,(impact.hp??100)-event.damage);
           if(impact.hp<=0)this.onDestroyStructure?.(impact);
         }
       }
       if (hit) {
-        job.target.hp = Math.max(0, (job.target.hp ?? 100) - WEAPONS[weapon].damage);
+        job.target.hp = Math.max(0, (job.target.hp ?? 100) - event.damage);
         if (job.target.hp <= 0) {
           if(job.hunting){job.target.collectCorpse=true;job.target.hunt=false;}
           if(job.target.structure)this.onDestroyStructure?.(job.target.structure);

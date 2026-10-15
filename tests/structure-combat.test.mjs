@@ -17,15 +17,15 @@ const s=scene('storage');s.structure.stored.wood=20;s.structure.stored.meat=10;c
 });
 
 test('multi-tile furniture can be hit at its far edge by melee or rifle without approaching the anchor',()=>{
-const s=scene('table'),target=s.combat.structureTarget(s.structure);s.pawn.weapon='knife';s.pawn.movement=createMovement(tile(8,5));let event;s.combat.onAttack=e=>event=e;assert.equal(s.combat.requestAttack(s.pawn,target),true);assert.deepEqual(s.pawn.movement.destination,tile(8,5));s.combat.update(s.pawn,1);assert.equal(s.structure.hp,60);assert.deepEqual(event.to,tile(7,5));
+const s=scene('table'),target=s.combat.structureTarget(s.structure);s.pawn.weapon='knife';s.pawn.movement=createMovement(tile(8,5));let event;s.combat.onAttack=e=>event=e;assert.equal(s.combat.requestAttack(s.pawn,target),true);assert.deepEqual(s.pawn.movement.destination,tile(8,5));s.combat.update(s.pawn,.1);assert.equal(s.structure.hp,50);assert.deepEqual(event.to,tile(7,5));
 assert.equal(s.combat.canFireFrom('rifle',tile(23,5),target.movement.tile,s.structure),true);const wall=s.walls.plan(tile(10,5),'wood');s.walls.complete(wall);assert.equal(s.combat.canFireFrom('rifle',tile(23,5),target.movement.tile,s.structure),false);
 });
 test('missed rifle shots damage their actual building impact, preserve the intended target, and ignore plans',()=>{
 for(const kind of ['wall','door','chair','table','planned','stoneFloor','woodFloor']){
  const s=scene('chair'),target=s.combat.structureTarget(s.structure),impact=s.walls.plan(tile(7,5),'wood',kind==='planned'?'wall':kind);if(kind!=='planned')s.walls.complete(impact);
- let draws=[.9,0,0],event;s.combat.random=()=>draws.shift()??0;s.combat.onAttack=e=>event=e;s.combat.requestAttack(s.pawn,target);s.combat.update(s.pawn,2.5);
+ let draws=[.9,0,0],event;s.combat.random=()=>draws.shift()??0;s.combat.onAttack=e=>event=e;s.combat.requestAttack(s.pawn,target);s.combat.update(s.pawn,.4);
  if(kind==='stoneFloor'||kind==='woodFloor'){assert.equal(impact.hp,undefined);assert.equal(impact.state,'completed');assert.equal(event.impactStructure,undefined);assert.equal(event.damage,0);assert.equal(s.combat.requestAttack(s.pawn,s.combat.structureTarget(impact)),false);continue;}
- assert.equal(event.hit,false);assert.equal(s.structure.hp,100);assert.equal(impact.hp,kind==='planned'?100:60);assert.equal(event.impactStructure,kind==='planned'?undefined:impact);assert.equal(event.damage,kind==='planned'?0:40);
- if(kind!=='planned'){draws=[.9,0,0,.9,0,0];s.combat.update(s.pawn,5);assert.equal(s.walls.at(impact),undefined);assert.equal(s.structure.hp,100);}
+ assert.equal(event.hit,false);assert.equal(s.structure.hp,100);assert.equal(impact.hp,kind==='planned'?100:70);assert.equal(event.impactStructure,kind==='planned'?undefined:impact);assert.equal(event.damage,kind==='planned'?0:30);
+ if(kind!=='planned'){draws=[.9,0,0,.9,0,0,.9,0,0];s.combat.update(s.pawn,1.2);assert.equal(s.walls.at(impact),undefined);assert.equal(s.structure.hp,100);}
 }
 });

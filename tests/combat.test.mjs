@@ -1,6 +1,7 @@
+import { createWolf, createDeer } from '../src/wildlife.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Combat, ATTACK_INTERVAL, inWeaponRange } from '../src/combat.ts';
+import { Combat, ATTACK_INTERVAL, WEAPONS, WOLF_BITE, rifleAccuracy, inWeaponRange } from '../src/combat.ts';
 import { PawnOccupancy } from '../src/pawn-occupancy.ts';
 import { createMovement } from '../src/movement.ts';
 import { advancePathMovement, findPaths } from '../src/pathfinding.ts';
@@ -26,27 +27,28 @@ function scene(random=()=>0){
  return{walls,items,storage,construction,harvesting,hauling,combat,occupancy,pawn,move,tick};
 }
 
-test('unarmed attacks include diagonal neighbors and rifle range uses the inclusive16tile circle',()=>{
+test('unarmed attacks include diagonal neighbors and rifle range uses the inclusive20tile circle',()=>{
  assert.ok(inWeaponRange('unarmed',tile(5,5),tile(6,6)));
  assert.equal(inWeaponRange('unarmed',tile(5,5),tile(7,5)),false);
  assert.equal(inWeaponRange('unarmed',tile(5,5),tile(5,5)),false);
- for(const t of [tile(16,0),tile(15,5),tile(11,11)])assert.ok(inWeaponRange('rifle',tile(0,0),t));
- assert.equal(inWeaponRange('rifle',tile(0,0),tile(16,1)),false);
- assert.equal(ATTACK_INTERVAL,2.5);
+ for(const t of [tile(20,0),tile(16,12),tile(14,14)])assert.ok(inWeaponRange('rifle',tile(0,0),t));
+ assert.equal(inWeaponRange('rifle',tile(0,0),tile(20,1)),false);
+ assert.equal(ATTACK_INTERVAL,.2);
 });
 
-test('unarmed hits do10HP damage every2.5seconds and exact80percent rolls miss',()=>{
- const s=scene(()=>.799),a=s.pawn(3,3),b=s.pawn(4,4);
- assert.ok(s.combat.requestAttack(a,b));s.combat.update(a,2.49);assert.equal(b.hp,100);s.combat.update(a,.01);assert.equal(b.hp,90);
- s.combat.update(a,5);assert.equal(b.hp,70);
- const t=scene(()=>.8),c=t.pawn(3,3),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
+test('unarmed hits do10HP damage every0.2seconds and exact30percent rolls miss',()=>{
+ const s=scene(()=>.299),a=s.pawn(3,3),b=s.pawn(4,4);
+ assert.ok(s.combat.requestAttack(a,b));s.combat.update(a,.199);assert.equal(b.hp,100);s.combat.update(a,.001);assert.equal(b.hp,90);
+ s.combat.update(a,.4);assert.equal(b.hp,70);
+ const t=scene(()=>.3),c=t.pawn(3,3),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
 });
 
-test('rifle hits use50percent accuracy and40HP damage, killing immediately at zero',()=>{
- const s=scene(()=>.499),a=s.pawn(3,3,'rifle'),b=s.pawn(15,3);
- s.combat.requestAttack(a,b);s.combat.update(a,2.5);assert.equal(b.hp,60);s.combat.update(a,2.5);assert.equal(b.hp,20);assert.equal(b.dead,undefined);
- s.combat.update(a,2.5);assert.equal(b.hp,0);assert.equal(b.dead,true);assert.equal(a.attackJob,null);
- const t=scene(()=>.5),c=t.pawn(3,3,'rifle'),d=t.pawn(15,3);t.combat.requestAttack(c,d);t.combat.update(c,10);assert.equal(d.hp,100);
+test('rifle hits at distance10 use50percent accuracy and30HP damage every0.4seconds',()=>{
+ const s=scene(()=>.499),a=s.pawn(3,3,'rifle'),b=s.pawn(13,3);
+ s.combat.requestAttack(a,b);s.combat.update(a,.399);assert.equal(b.hp,100);s.combat.update(a,.001);assert.equal(b.hp,70);
+ s.combat.update(a,.4);assert.equal(b.hp,40);s.combat.update(a,.4);assert.equal(b.hp,10);assert.equal(b.dead,undefined);
+ s.combat.update(a,.4);assert.equal(b.hp,0);assert.equal(b.dead,true);assert.equal(a.attackJob,null);
+ const t=scene(()=>.5),c=t.pawn(3,3,'rifle'),d=t.pawn(13,3);t.combat.requestAttack(c,d);t.combat.update(c,1.2);assert.equal(d.hp,100);
 });
 
 test('out-of-range attacks choose the nearest reachable stopping cell in range and never stop on a pawn',()=>{
@@ -58,7 +60,7 @@ test('out-of-range attacks choose the nearest reachable stopping cell in range a
  assert.ok(inWeaponRange('rifle',goal,b.movement.tile));assert.notEqual(key(goal),key(b.movement.tile));assert.notEqual(key(goal),'7,5');
  assert.equal(paths.get(goal.row*32+goal.column).distance,Math.min(...candidates.map(([,p])=>p.distance)));
  for(let i=0;i<100&&b.hp===100;i++)s.tick(a);
- assert.equal(b.hp,60);
+ assert.equal(b.hp,70);
 });
 
 test('an unreachable target receives no attack and auto, wild, dead and self attacks are rejected',()=>{
@@ -115,10 +117,10 @@ test('equipped workers haul and build using real3stone batches without exceeding
  assert.equal(box.stored.stone+(a.inventory?.quantity??0),18);
 });
 
- test('knife has90percent accuracy,40damage and diagonal melee range; equip replacement and drop preserve both weapons',()=>{
- const s=scene(()=>.899),a=s.pawn(3,3,'knife'),b=s.pawn(4,4);s.combat.requestAttack(a,b);s.combat.update(a,.99);assert.equal(b.hp,100);s.combat.update(a,.01);assert.equal(b.hp,60);
+ test('knife has50percent accuracy,50damage and diagonal melee range; equip replacement and drop preserve both weapons',()=>{
+ const s=scene(()=>.499),a=s.pawn(3,3,'knife'),b=s.pawn(4,4);s.combat.requestAttack(a,b);s.combat.update(a,.099);assert.equal(b.hp,100);s.combat.update(a,.001);assert.equal(b.hp,50);
  assert.equal(inWeaponRange('knife',tile(3,3),tile(5,3)),false);
- const t=scene(()=>.9),c=t.pawn(3,3,'knife'),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,2.5);assert.equal(d.hp,100);
+ const t=scene(()=>.5),c=t.pawn(3,3,'knife'),d=t.pawn(4,4);t.combat.requestAttack(c,d);t.combat.update(c,2.5);assert.equal(d.hp,100);
  const e=scene(),p=e.pawn(2,2,'rifle'),knife={...tile(3,2),type:'knife',quantity:1};e.items.push(knife);e.combat.requestEquip(p,knife);
  for(let i=0;i<30&&p.equipJob;i++){e.move(p);e.combat.update(p,.1)}
  assert.equal(p.weapon,'knife');assert.equal(knife.quantity,0);assert.equal(countItems(e.items).rifle,1);assert.equal(ITEM_APPEARANCE.knife.massKg,2);assert.equal(carryCapacity(p,'wood'),18);
@@ -126,9 +128,9 @@ test('equipped workers haul and build using real3stone batches without exceeding
  });
 
 test('rifles cannot fire through completed walls but barricades subtract40percentage points once',()=>{
- for(const roll of [.099,.1]){const s=scene(()=>roll),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(6,3),'wood','barricade');s.walls.complete(barrier);const second=s.walls.plan(tile(7,3),'wood','barricade');s.walls.complete(second);s.combat.requestAttack(a,b);s.combat.update(a,2.5);assert.equal(b.hp,roll<.1?60:100);}
+ for(const roll of [.299,.301]){const s=scene(()=>roll),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(6,3),'wood','barricade');s.walls.complete(barrier);const second=s.walls.plan(tile(7,3),'wood','barricade');s.walls.complete(second);s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,roll<.3?70:100);}
  const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);s.combat.requestAttack(a,b);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);let shots=0;s.combat.onAttack=()=>shots++;s.combat.update(a,10);assert.equal(b.hp,100);assert.equal(shots,0);assert.deepEqual(a.movement.destination,tile(3,3));
- s.walls.erase(wall);s.combat.update(a,2.5);assert.equal(b.hp,60);
+ s.walls.erase(wall);s.combat.update(a,.4);assert.equal(b.hp,70);
 });
 test('initial rifle approach chooses the nearest reachable point with an unobstructed shot',()=>{
  const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);assert.ok(s.combat.requestAttack(a,b));assert.notDeepEqual(a.movement.destination,a.movement.tile);assert.equal(shootingObstacles(s.walls,a.movement.destination,b.movement.tile).blocked,false);
@@ -136,4 +138,36 @@ test('initial rifle approach chooses the nearest reachable point with an unobstr
 
 test('completed doors block rifle shots while planned doors do not',()=>{
 const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const door=s.walls.plan(tile(6,3),'wood','door');assert.equal(s.combat.canFireFrom('rifle',a.movement.tile,b.movement.tile),true);s.walls.complete(door);assert.equal(s.combat.canFireFrom('rifle',a.movement.tile,b.movement.tile),false);assert.equal(s.combat.canFireFrom('knife',tile(5,3),tile(6,3)),true);
+});
+
+test('rifle accuracy interpolates all control points and interval midpoints and clamps close range',()=>{
+ for(const [distance,accuracy] of [[0,.8],[1,.8],[4,.8],[7,.65],[10,.5],[12.5,.4],[15,.3],[17.5,.2],[20,.1],[20.01,0]])assert.ok(Math.abs(rifleAccuracy(distance)-accuracy)<1e-12,`${distance}: ${rifleAccuracy(distance)}`);
+});
+
+test('rifle shots use the accuracy at their actual tile distance including the maximum range',()=>{
+ for(const [distance,accuracy] of [[1,.8],[4,.8],[7,.65],[10,.5],[15,.3],[20,.1]])for(const hit of [true,false]){
+  const s=scene(()=>accuracy+(hit?-.0001:.0001)),a=s.pawn(1,3,'rifle'),b=s.pawn(1+distance,3);
+  s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,hit?70:100,`distance ${distance}, hit ${hit}`);
+ }
+});
+
+test('every attack halves damage only when penetration is strictly below armor and reports actual damage',()=>{
+ for(const weapon of ['unarmed','knife','rifle','fangs'])for(const difference of [-1,0,1]){
+  const s=scene(),a=weapon==='fangs'?createWolf(tile(3,3),1):s.pawn(3,3,weapon),b=s.pawn(4,3);
+  const stats=weapon==='fangs'?WOLF_BITE:WEAPONS[weapon];b.armor=stats.penetration+difference;let event;s.combat.onAttack=e=>event=e;
+  assert.ok(weapon==='fangs'?s.combat.requestPredation(a,b):s.combat.requestAttack(a,b));
+  s.combat.update(a,stats.interval);
+  const expected=stats.damage*(difference>0?.5:1);assert.equal(b.hp,100-expected);assert.equal(event.damage,expected);
+ }
+});
+
+test('wolf fangs have their own0.3second interval,50percent accuracy,40damage and3penetration',()=>{
+ assert.equal(WOLF_BITE.penetration,3);
+ for(const [roll,hit]of [[.499,true],[.5,false]]){
+  const s=scene(()=>roll),wolf=createWolf(tile(3,3),1),target=s.pawn(4,3);
+  assert.equal(wolf.armor,0);assert.equal(createDeer(tile(5,3),2).armor,0);
+  s.combat.requestPredation(wolf,target);s.combat.update(wolf,.299);assert.equal(target.hp,100);
+  s.combat.update(wolf,.001);assert.equal(target.hp,hit?60:100);
+  s.combat.update(wolf,.3);assert.equal(target.hp,hit?20:100);
+ }
 });

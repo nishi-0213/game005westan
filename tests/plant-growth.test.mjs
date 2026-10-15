@@ -6,6 +6,7 @@ import { Walls } from '../src/walls.ts';
 import { findPath } from '../src/pathfinding.ts';
 import { Harvesting } from '../src/harvesting.ts';
 import { createMovement } from '../src/movement.ts';
+const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-8,`${actual} != ${expected}`);
 
 test('initial plants have independently randomized growth and remaining lifetimes while rocks stay fully grown',()=>{
  let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
@@ -21,28 +22,35 @@ test('plants grow from1 to100HP in exactly60daylight seconds and pause without e
   const rock = createEnvironment('rock', { column: 5, row: 5 });
   const growth = new PlantGrowth([tree, berry, rock], new Walls(8), () => true);
   growth.update(0); assert.equal(tree.hp, 1);
-  growth.update(30); assert.equal(tree.hp, 50.5); assert.equal(berry.hp, 50.5); assert.equal(rock.hp, 100);
+  growth.update(30); close(tree.hp, 50.5); close(berry.hp, 50.5); assert.equal(rock.hp, 100);
   growth.update(30); assert.equal(tree.hp, 100); assert.equal(berry.hp, 100);
   growth.update(120); assert.equal(tree.hp, 100); assert.equal(growth.growing.size, 0);
 });
 
-test('each minute spawns 100-150 trees, 6-9 berries and 20-30 grass without overlapping objects, structures or occupied tiles', () => {
+test('births are spread throughout each minute with100-150trees,6-9berries and200-300grass', () => {
   for (const random of [() => 0, () => .999]) {
     const walls = new Walls(32), objects = [createEnvironment('rock', { column: 0, row: 0 })];
     walls.plan({ column: 1, row: 0 }, 'wood');
     const growth = new PlantGrowth(objects, walls, tile => tile.column === 2 && tile.row === 0, () => {}, random);
-    growth.update(59.9); assert.equal(objects.length, 1);
-    growth.update(.1);
+    growth.update(0);assert.equal(objects.length,1);
+    growth.update(30);
     const count = random() === 0 ? 2 : 3;
-    for (const type of ['tree', 'wildStrawberry', 'grass']) assert.equal(objects.filter(object => object.type === type).length, count * (type === 'tree' ? 50 : type === 'grass' ? 10 : 3));
+    for(const [type,multiplier] of [['tree',50],['wildStrawberry',3],['grass',100]]) {
+      const half=objects.filter(object=>object.type===type).length;
+      assert.ok(half>0&&half<count*multiplier);
+    }
+    growth.update(30);
+    for (const [type,multiplier] of [['tree',50],['wildStrawberry',3],['grass',100]]) assert.equal(objects.filter(object => object.type === type).length, count * multiplier);
     assert.equal(new Set(objects.map(object => `${object.column},${object.row}`)).size, objects.length);
     for (const object of objects.slice(1)) {
-      assert.equal(object.hp, 1);
+      assert.ok(object.hp>1&&object.hp<100);
       assert.ok(object.row !== 0 || object.column > 2);
     }
+    const firstMinute=objects.slice(1);
+    assert.ok(new Set(firstMinute.map(object=>object.hp)).size>100);
     growth.update(60);
-    for (const object of objects.slice(1, 1 + count * 63)) assert.equal(object.hp, 100);
-    assert.equal(objects.length, 1 + count * 126);
+    for(const object of firstMinute)assert.equal(object.hp,100);
+    assert.equal(objects.length,1+count*306);
   }
 });
 
@@ -78,7 +86,7 @@ test('harvested plants stop growing', () => {
   assert.equal(harvestYield(object), 2);
   object.collected = true;
   growth.update(30);
-  assert.equal(object.hp, 50.5);
+  close(object.hp, 50.5);
   assert.equal(growth.growing.size, 0);
 });
 
@@ -105,11 +113,11 @@ test('harvest yield uses theHP at completion, including growth during the harves
 
 test('plants stop growing at18and resume at6 while lifespan continues at night',()=>{
  const tree=createEnvironment('tree',{column:2,row:2}),berry=createEnvironment('wildStrawberry',{column:3,row:2}),growth=new PlantGrowth([tree,berry],new Walls(8),()=>true);
- growth.update(2,17);assert.equal(tree.hp,1+99/60*2);const before=tree.hp;growth.update(24,18);assert.equal(tree.hp,before);assert.equal(berry.hp,before);assert.equal(tree.ageSeconds,26);growth.update(2,6);assert.equal(tree.hp,before+99/60*2);assert.equal(berry.ageSeconds,28);
+ growth.update(2,17);close(tree.hp,1+99/60*2);const before=tree.hp;growth.update(24,18);assert.equal(tree.hp,before);assert.equal(berry.hp,before);close(tree.ageSeconds,26);growth.update(2,6);close(tree.hp,before+99/60*2);close(berry.ageSeconds,28);
 });
 test('long updates split dawn, dusk and spawn boundaries without night growth',()=>{
  const a=createEnvironment('tree',{column:2,row:2}),b={...a},ga=new PlantGrowth([a],new Walls(8),()=>true),gb=new PlantGrowth([b],new Walls(8),()=>true);
- ga.update(100,17);for(let i=0;i<200;i++)gb.update(.5,(17+i*.25)%24);assert.ok(Math.abs(a.hp-b.hp)<1e-9);assert.equal(a.ageSeconds,100);assert.equal(b.ageSeconds,100);
+ ga.update(100,17);for(let i=0;i<200;i++)gb.update(.5,(17+i*.25)%24);assert.ok(Math.abs(a.hp-b.hp)<1e-9);close(a.ageSeconds,100);close(b.ageSeconds,100);
 });
 test('a plant with little remaining lifetime expires at night without growing',()=>{
  const tree={...createEnvironment('tree',{column:2,row:2}),hp:32,ageSeconds:179},growth=new PlantGrowth([tree],new Walls(8),()=>true);growth.update(1,0);assert.equal(tree.collected,true);assert.equal(tree.hp,32);assert.equal(growth.living.size,0);
@@ -141,5 +149,34 @@ test('laying either floor over existing grass removes it and prevents regrowth',
   growth.update(.1);assert.equal(grass.collected,true);assert.equal(growth.living.has(grass),false);assert.equal(growth.growing.has(grass),false);
   growth.update(180);
   assert.ok(objects.every(object=>object.collected||object.column!==3||object.row!==3));
+ }
+});
+
+test('each initial plant species covers young, middle and mature stages in shuffled spatial order',()=>{
+ for(const initialSeed of [17,42,99]){
+  let seed=initialSeed;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const objects=initialEnvironment(32,random);
+  for(const type of ['tree','wildStrawberry','grass']){
+   const plants=objects.filter(object=>object.type===type);
+   assert.ok(plants.some(object=>object.hp<15));assert.ok(plants.some(object=>object.hp>85));assert.ok(plants.some(object=>object.hp>=40&&object.hp<=60));
+   assert.ok(plants.some((object,index)=>index>0&&object.hp<plants[index-1].hp));
+  }
+ }
+});
+
+test('randomized individual births are independent across species and large updates preserve their ages',()=>{
+ const make=()=>{
+  let seed=123;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+  const objects=[],growth=new PlantGrowth(objects,new Walls(32),()=>false,()=>{},random);return {objects,growth};
+ };
+ const large=make(),small=make();large.growth.update(60);for(let i=0;i<600;i++)small.growth.update(.1);
+ assert.equal(large.objects.length,small.objects.length);
+ for(let i=0;i<large.objects.length;i++){
+  const a=large.objects[i],b=small.objects[i];assert.equal(a.type,b.type);assert.equal(a.column,b.column);assert.equal(a.row,b.row);close(a.hp,b.hp);close(a.ageSeconds??0,b.ageSeconds??0);
+ }
+ assert.equal(new Set(large.objects.map(object=>(object.ageSeconds??0).toFixed(6))).size,large.objects.length);
+ for(const type of ['tree','wildStrawberry','grass']){
+  const plants=large.objects.filter(object=>object.type===type);
+  assert.ok(plants.some(object=>object.ageSeconds<20));assert.ok(plants.some(object=>object.ageSeconds>40));
  }
 });

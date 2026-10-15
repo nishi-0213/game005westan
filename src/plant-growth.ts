@@ -1,6 +1,6 @@
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 import { createEnvironment } from './environment.ts';
-import type { EnvironmentObject } from './environment';
+import type { EnvironmentObject, EnvironmentType } from './environment';
 import type { Tile } from './movement';
 import type { Walls } from './walls';
 import { invalidatePaths } from './pathfinding.ts';
@@ -14,11 +14,14 @@ export class PlantGrowth {
   readonly onSpawn: (object: EnvironmentObject) => void;
   readonly random: () => number;
   private elapsed = 0;
+  private births: { time: number; type: Exclude<EnvironmentType, 'rock'> }[] = [];
+  private birthIndex = 0;
 
   constructor(objects: EnvironmentObject[], walls: Walls, occupied: (tile: Tile) => boolean,
     onSpawn: (object: EnvironmentObject) => void = () => {}, random: () => number = Math.random) {
     this.objects = objects; this.walls = walls; this.occupied = occupied;
     this.onSpawn = onSpawn; this.random = random;
+    this.scheduleBirths();
     for (const object of objects) if (object.type !== 'rock' && !object.collected) { this.living.add(object); if (object.hp < 100) this.growing.add(object); }
   }
 
@@ -28,7 +31,8 @@ export class PlantGrowth {
     while (remaining > 0) {
       const daylight=hour===undefined||hour>=6&&hour<18;
       const boundary=hour===undefined?Infinity:((daylight?18:hour<6?6:30)-hour)*60/GAME_MINUTES_PER_SECOND;
-      const step = Math.min(remaining, 60 - this.elapsed,boundary);
+      const nextBirth = this.births[this.birthIndex]?.time ?? 60;
+      const step = Math.min(remaining, 60 - this.elapsed, boundary, Math.max(0, nextBirth - this.elapsed));
       let expired = false;
       for (const object of this.living) {
         if (object.collected) { this.living.delete(object); continue; }
@@ -52,30 +56,40 @@ export class PlantGrowth {
       remaining -= step;
       if(hour!==undefined){hour=(hour+step*GAME_MINUTES_PER_SECOND/60)%24;for(const edge of [0,6,18,24])if(Math.abs(hour-edge)<1e-9)hour=edge%24;}
       this.elapsed += step;
-      if (this.elapsed >= 60 - 1e-9) { this.elapsed = 0; this.spawn(); }
+      while (this.birthIndex < this.births.length && this.births[this.birthIndex].time <= this.elapsed + 1e-9) {
+        this.spawn(this.births[this.birthIndex++].type);
+      }
+      if (this.elapsed >= 60 - 1e-9) { this.elapsed = 0; this.scheduleBirths(); }
     }
   }
 
-  private spawn(): void {
+  private scheduleBirths(): void {
+    this.births = [];
+    this.birthIndex = 0;
+    for (const type of ['tree', 'wildStrawberry', 'grass'] as const) {
+      const count = (2 + Math.floor(this.random() * 2)) * (type === 'tree' ? 50 : type === 'grass' ? 100 : 3);
+      // Randomize every birth inside its own slot; species have independent clocks.
+      for (let index = 0; index < count; index++) {
+        this.births.push({ type, time: (index + .05 + .9 * this.random()) * 60 / count });
+      }
+    }
+    this.births.sort((a, b) => a.time - b.time);
+  }
+
+  private spawn(type: Exclude<EnvironmentType, 'rock'>): void {
     const occupied = new Set(this.objects.filter(object => !object.collected).map(object => `${object.column},${object.row}`));
     const available: Tile[] = [];
     for (let row = 0; row < this.walls.mapSize; row++) for (let column = 0; column < this.walls.mapSize; column++) {
       const tile = { column, row }, key = `${column},${row}`;
       if (!occupied.has(key) && !this.walls.at(tile) && !this.walls.floorAt(tile) && !this.occupied(tile)) available.push(tile);
     }
-    let spawned = false;
-    for (const type of ['tree', 'wildStrawberry', 'grass'] as const) {
-      const count = (2 + Math.floor(this.random() * 2)) * (type === 'tree' ? 50 : type === 'grass' ? 10 : 3);
-      for (let i = 0; i < count && available.length; i++) {
-        const tile = available.splice(Math.floor(this.random() * available.length), 1)[0];
-        const object = createEnvironment(type, tile);
-        this.objects.push(object);
-        this.growing.add(object);
-        this.living.add(object);
-        this.onSpawn(object);
-        spawned = true;
-      }
-    }
-    if (spawned) invalidatePaths(this.walls.isBlocked);
+    if (!available.length) return;
+    const tile = available[Math.floor(this.random() * available.length)];
+    const object = createEnvironment(type, tile);
+    this.objects.push(object);
+    this.growing.add(object);
+    this.living.add(object);
+    this.onSpawn(object);
+    invalidatePaths(this.walls.isBlocked);
   }
 }
