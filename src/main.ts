@@ -1694,12 +1694,23 @@ stationWorkWindow.addEventListener('keydown',event=>{if(event.key==='Escape'){ev
 
 const simulationClock = new SimulationClock();
 const speedButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-game-speed]')];
-for (const button of speedButtons) {
-  button.addEventListener('click', () => {
-    simulationClock.speed = Number(button.dataset.gameSpeed) as GameSpeed;
-    for (const choice of speedButtons) choice.setAttribute('aria-pressed', String(choice === button));
-  });
+let resumeSpeed: Exclude<GameSpeed,0> = 1;
+function setGameSpeed(speed:GameSpeed):void {
+  if(speed!==0)resumeSpeed=speed;
+  simulationClock.speed=speed;
+  for(const button of speedButtons)button.setAttribute('aria-pressed',String(Number(button.dataset.gameSpeed)===speed));
 }
+for(const button of speedButtons)button.addEventListener('click',()=>setGameSpeed(Number(button.dataset.gameSpeed) as GameSpeed));
+window.addEventListener('keydown',event=>{
+  const target=event.target;
+  if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey
+    || target instanceof HTMLElement&&(target.isContentEditable||Boolean(target.closest('input,textarea,select'))))return;
+  const speed=event.code==='Digit1'||event.code==='Numpad1'?1:event.code==='Digit3'||event.code==='Numpad3'?3:undefined;
+  if(event.code!=='Space'&&speed===undefined)return;
+  event.preventDefault();
+  if(event.repeat)return;
+  setGameSpeed(speed??(simulationClock.speed===0?resumeSpeed:0));
+});
 
 let stressTickerTime=performance.now();
 // Opt-in production profiling for this isolated load-test branch.
