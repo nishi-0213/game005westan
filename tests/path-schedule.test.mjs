@@ -43,3 +43,19 @@ test('ongoing movement and construction continue between planning slots',async()
  for(let i=0;i<60;i++)updateWork(worker,construction,harvesting,1/60);
  assert.equal(target.state,'completed');
 });
+
+test('free actions spread across five seconds and keep their phase after work interrupts them',async()=>{
+ const {updateRoaming}=await import('../src/roaming.ts');const {advancePathMovement}=await import('../src/pathfinding.ts');
+ const schedule=new PathSearchSchedule(),walls=new Walls(32),pawns=Array.from({length:50},(_,i)=>({movement:createMovement({column:5+i%10,row:5+Math.floor(i/10)}),freeSeconds:0,starts:[]}));
+ for(let frame=0;frame<1800;frame++){
+  schedule.advance();for(const pawn of pawns){
+   schedule.assign(pawn.movement);
+   if(frame===650)pawn.freeSeconds=0;
+   if(frame<650||frame>=710){const before=pawn.freeSeconds;updateRoaming(pawn,walls,1/60,()=>.5);if(before+1/60+1e-9>=5&&pawn.freeSeconds===0){assert.ok(canPlan(pawn.movement));pawn.starts.push(frame);}}
+   advancePathMovement(pawn.movement,1/60,32,walls.isBlocked,walls.cannotStop);
+  }
+ }
+ assert.equal(new Set(pawns.map(p=>Math.floor(p.starts[0]/60))).size,5);
+ const resumed=pawns.map(p=>p.starts.find(frame=>frame>=710));assert.ok(resumed.every(frame=>frame>=1009));assert.ok(Math.max(...resumed)-Math.min(...resumed)>=240);
+ for(const pawn of pawns){assert.ok(pawn.starts.length>=3);for(let i=1;i<pawn.starts.length;i++)assert.ok(pawn.starts[i]-pawn.starts[i-1]>=300);}
+});

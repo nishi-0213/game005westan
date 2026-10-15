@@ -5,6 +5,7 @@ export interface Tile {
 
 export interface Movement {
   planningAllowed?: boolean;
+  roamingAllowed?: boolean;
   pendingRepath?: Tile;
   tile: Tile;
   destination: Tile;
