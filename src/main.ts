@@ -147,7 +147,7 @@ const itemViews = new Map<(typeof mapItems)[number], { view: Container; quantity
 map.addChild(itemLayer);
 function drawWeapon(view: Graphics, weapon: Weapon): Graphics {
   clearArtwork(view);
-  if (weapon !== 'unarmed') { const sprite = spriteArtwork(weapon); sprite.position.set(4,5); view.addChild(sprite); }
+  if (weapon !== 'unarmed') { const sprite = spriteArtwork(weapon); sprite.position.set(0,5); view.addChild(sprite); }
   return view;
 }
 const itemIconTypes = new WeakMap<Graphics,import('./items').ItemType>();
