@@ -31,7 +31,7 @@ export const WALL_COLORS: Record<WallMaterial, number> = {
   wood: 0x916039,
   stone: 0x929292,
 };
-export const WALL_PLAN_ALPHA = 0.7;
+export const WALL_PLAN_ALPHA = 0.3;
 export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; seconds: number } | null> = {
   stoneFloor:{materialCount:1,seconds:.2},
   woodFloor:{materialCount:1,seconds:.2},
