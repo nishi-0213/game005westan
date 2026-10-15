@@ -3,8 +3,11 @@ import { invalidatePaths, registerPathCache, registerReachability, registerHiera
 import type { ItemType } from './items';
 import type { Movement, Tile } from './movement';
 
+export type DoorMode='automatic'|'closed'|'open';
 export type WallMaterial = 'wood' | 'stone';
-export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher' | 'cooker' | 'torch' | 'bed' | 'table' | 'chair';
+export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher' | 'cooker' | 'torch' | 'bed' | 'table' | 'chair' | 'stoneFloor' | 'woodFloor';
+export const isFloor=(kind:ConstructionKind):boolean=>kind==='stoneFloor'||kind==='woodFloor';
+export const constructionKey=(tile:Tile&{kind?:ConstructionKind}):string=>`${tile.kind&&isFloor(tile.kind)?'floor:':''}${tile.column},${tile.row}`;
 export interface Wall extends Tile {
   kind: ConstructionKind;
   orientation?: 0 | 1;
@@ -14,8 +17,9 @@ export interface Wall extends Tile {
   state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
-  hp: number;
+  hp?: number;
   openness?: number;
+  doorMode?:DoorMode;
   storedCorpses?: import('./needs').EatingWorker[];
   stored?: Record<ItemType, number>;
   demolition?: boolean;
@@ -29,6 +33,8 @@ export const WALL_COLORS: Record<WallMaterial, number> = {
 };
 export const WALL_PLAN_ALPHA = 0.7;
 export const BUILD_RECIPES: Record<ConstructionKind, { materialCount: number; seconds: number } | null> = {
+  stoneFloor:{materialCount:1,seconds:.2},
+  woodFloor:{materialCount:1,seconds:.2},
   wall: { materialCount: 10, seconds: 1 },
   door: { materialCount: 15, seconds: 1 },
   barricade: { materialCount: 5, seconds: 1 },
@@ -73,39 +79,40 @@ export class Walls {
   plan(tile: Tile, material: WallMaterial, kind: ConstructionKind = 'wall', orientation: 0 | 1 = 0): Wall | null {
     if (!Number.isInteger(tile.column) || !Number.isInteger(tile.row)
       || tile.column < 0 || tile.row < 0 || tile.column >= this.mapSize || tile.row >= this.mapSize) return null;
-    const key = `${tile.column},${tile.row}`;
+    const key = constructionKey({...tile,kind});
+    const floor=isFloor(kind);
     const cells = footprint({ ...tile, kind, orientation });
-    if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || this.at(cell))) return null;
-    const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0, hp:100 };
+    if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || (floor?this.floorAt(cell):this.at(cell)))) return null;
+    const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0, ...(floor?{}:{hp:100}) };
     if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, ration: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true, wolfCorpse: true }; }
-    if (kind === 'door'||kind==='torch'||kind==='bed') wall.material='wood';
+    if (floor||kind === 'door'||kind==='torch'||kind==='bed') wall.material='wood';
     if(kind==='cooker'){wall.material='wood';wall.cooking={mode:'count',remaining:0,target:0,seconds:0,meat:0,strawberry:0};}
     if (kind === 'butcher') { wall.material = 'wood'; wall.butcher = { mode: 'count', remaining: 0, target: 0, seconds: 0 }; }
     this.revision++;
     this.items.set(key, wall);
-    for (const cell of cells) this.occupied.set(`${cell.column},${cell.row}`, wall);
+    if(!floor)for (const cell of cells) this.occupied.set(`${cell.column},${cell.row}`, wall);
     return wall;
   }
 
   complete(tile: Tile): boolean {
-    const wall = this.at(tile);
+    const wall = this.at(tile)??this.floorAt(tile);
     if (!wall || wall.state === 'completed') return false;
     wall.state = 'completed';
     this.completed.add(wall);
     this.rooms.structureChanged(wall);
     this.invalidateChunks(wall);
     this.revision++;
-    invalidatePaths(this.isBlocked);
+    if(!isFloor(wall.kind))invalidatePaths(this.isBlocked);
     return true;
   }
 
   removePlan(tile: Tile): Wall | null {
-    const key = `${tile.column},${tile.row}`;
-    const item = this.at(tile);
+    const structure=this.at(tile);
+    const item = structure?.state==='planned'?structure:this.floorAt(tile);
     if (!item || item.state !== 'planned') return null;
     item.state = 'cancelled';
     this.erase(item);
-    invalidatePaths(this.isBlocked);
+    if(!isFloor(item.kind))invalidatePaths(this.isBlocked);
     return item;
   }
 
@@ -114,38 +121,49 @@ export class Walls {
     const cells=footprint(wall);invalidateHierarchy(this.isBlocked,cells);invalidateHierarchy(this.nonPlayerBlocked,cells);
   }
 
-  at(tile: Tile): Wall | undefined { return this.occupied.get(`${tile.column},${tile.row}`) ?? this.items.get(`${tile.column},${tile.row}`); }
+  floorAt(tile:Tile):Wall|undefined{return this.items.get(`floor:${tile.column},${tile.row}`);}
+  speedMultiplier=(tile:Tile):number=>this.floorAt(tile)?.state==='completed'?1.2:1;
+  // Position lookups exclude ground; a construction reference keeps its own layer.
+  at(tile: Tile): Wall | undefined { if('kind' in tile&&isFloor((tile as Wall).kind))return this.floorAt(tile);return this.occupied.get(`${tile.column},${tile.row}`) ?? this.items.get(`${tile.column},${tile.row}`); }
 
   erase(item: Wall): void {
     if(this.completed.has(item)||item.state==='completed'){this.rooms.structureChanged(item);this.invalidateChunks(item);this.completed.delete(item);}
     this.revision++;
-    this.items.delete(`${item.column},${item.row}`);
-    for (const cell of footprint(item)) this.occupied.delete(`${cell.column},${cell.row}`);
-    invalidatePaths(this.isBlocked);
+    this.items.delete(constructionKey(item));
+    if(!isFloor(item.kind))for (const cell of footprint(item)) this.occupied.delete(`${cell.column},${cell.row}`);
+    if(!isFloor(item.kind))invalidatePaths(this.isBlocked);
   }
 
   isBlocked = (tile: Tile): boolean => {
-    const item = this.at(tile);
-    return item?.state === 'completed' && (item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher' || item.kind==='cooker' || item.kind==='bed' || item.kind==='table');
+    const item = this.occupied.get(`${tile.column},${tile.row}`);
+    return item?.state === 'completed' && ((item.kind==='door'&&item.doorMode==='closed'&&(item.openness??0)<=0)||item.kind === 'wall' || item.kind === 'storage' || item.kind === 'butcher' || item.kind==='cooker' || item.kind==='bed' || item.kind==='table');
   };
 
   nonPlayerBlocked = (tile: Tile): boolean => {
-    const door=this.at(tile);
+    const door=this.occupied.get(`${tile.column},${tile.row}`);
     return this.isBlocked(tile) || (door?.state==='completed' && door.kind==='door' && (door.openness??0)<=0);
   };
+
+  setDoorMode(door:Wall,mode:DoorMode):void {
+    if(door.kind!=='door'||door.state!=='completed'||(door.doorMode??'automatic')===mode)return;
+    door.doorMode=mode;
+    this.rooms.doorChanged(true);
+    invalidateHierarchy(this.isBlocked,[door]);invalidateHierarchy(this.nonPlayerBlocked,[door]);invalidatePaths(this.isBlocked);
+  }
 
   setDoorOpenness(door:Wall,openness:number):void {
     const wasOpen=(door.openness??0)>0;
     door.openness=Math.max(0,Math.min(1,openness));
-    if(wasOpen!==(door.openness>0)){this.rooms.doorChanged();invalidateHierarchy(this.nonPlayerBlocked,[door]);invalidatePaths(this.nonPlayerBlocked);}
+    if(wasOpen!==(door.openness>0)){this.rooms.doorChanged(door.doorMode==='closed');if(door.doorMode==='closed')invalidateHierarchy(this.isBlocked,[door]);invalidateHierarchy(this.nonPlayerBlocked,[door]);invalidatePaths(this.nonPlayerBlocked);}
   }
 
   bindMovement(movement: Movement, faction: import('./factions').Faction): void {
+    movement.speedMultiplier=this.speedMultiplier;
     movement.terrainBlocked=faction==='player'?this.isBlocked:this.nonPlayerBlocked;
   }
 
   cannotStop = (tile: Tile): boolean => {
-    const item = this.at(tile);
+    const item = this.occupied.get(`${tile.column},${tile.row}`);
     return (item?.state === 'completed' && item.kind === 'barricade') || this.environmentCannotStop(tile);
   };
 }

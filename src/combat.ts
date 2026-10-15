@@ -1,3 +1,4 @@
+import {isFloor} from './walls.ts';
 import { canPlan } from './path-schedule.ts';
 import { canGiveOrders, rememberMood } from './mood.ts';
 import { footprint } from './walls.ts';
@@ -85,7 +86,7 @@ export class Combat {
     const walls=this.construction.walls;
     target={structure,faction:'player',mode:'automatic',movement:createMovement(structure),needs:{satiety:100},eatJob:null,inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,
       get hp(){return structure.hp??100;},set hp(value:number){structure.hp=value;},
-      get dead(){return structure.hp<=0||structure.state!=='completed'||walls.at(structure)!==structure;}};
+      get dead(){return (structure.hp??100)<=0||structure.state!=='completed'||walls.at(structure)!==structure;}};
     this.structureTargets.set(structure,target);return target;
   }
 
@@ -112,7 +113,7 @@ export class Combat {
   }
 
   requestAttack(pawn: CombatPawn, target: CombatTarget): boolean {
-    if(target.structure&&(!isPlayerControlled(pawn)||'kind' in pawn&&pawn.kind!=='human'||target.structure.state!=='completed'))return false;
+    if(target.structure&&(!isPlayerControlled(pawn)||'kind' in pawn&&pawn.kind!=='human'||target.structure.state!=='completed'||isFloor(target.structure.kind)))return false;
     if (!canGiveOrders(pawn)||pawn.sleep||pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach = this.attackApproach(pawn, target);
@@ -282,7 +283,7 @@ export class Combat {
         const impact=this.construction.walls.at({column:Math.floor(event.to.column+.5),row:Math.floor(event.to.row+.5)});
         if(impact?.state==='completed'){
           event.impactStructure=impact;event.damage=WEAPONS[weapon].damage;
-          impact.hp=Math.max(0,impact.hp-event.damage);
+          impact.hp=Math.max(0,(impact.hp??100)-event.damage);
           if(impact.hp<=0)this.onDestroyStructure?.(impact);
         }
       }

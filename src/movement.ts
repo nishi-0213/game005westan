@@ -4,6 +4,8 @@ export interface Tile {
 }
 
 export interface Movement {
+  tilesPerSecond?:number;
+  speedMultiplier?:(tile:Tile)=>number;
   queuedPlanning?: boolean;
   pendingRoute?:{goal:Tile;cancel:()=>void};
   planningAllowed?: boolean;
@@ -23,7 +25,7 @@ export interface Movement {
 const TILES_PER_SECOND = 4;
 
 export function createMovement(tile: Tile): Movement {
-  return { tile: { ...tile }, destination: { ...tile }, nextTile: null, progress: 0 };
+  return { tilesPerSecond:TILES_PER_SECOND, tile: { ...tile }, destination: { ...tile }, nextTile: null, progress: 0 };
 }
 
 type TileRule = (tile: Tile) => boolean;
@@ -116,7 +118,7 @@ export function advanceMovement(movement: Movement, seconds: number, isBlocked: 
 }
 
 function advanceSegments(movement: Movement, seconds: number, isBlocked: TileRule, cannotStop: TileRule): void {
-  let remaining = Math.max(0, seconds) * TILES_PER_SECOND;
+  let remaining = Math.max(0, seconds) * Math.max(0,movement.tilesPerSecond??TILES_PER_SECOND);
   while (remaining > 0) {
     movement.nextTile ??= movement.route ? (movement.route.shift() ?? null) : nextStep(movement.tile, movement.destination);
     if (!movement.nextTile) return;
@@ -133,9 +135,13 @@ function advanceSegments(movement: Movement, seconds: number, isBlocked: TileRul
       movement.nextTile.column - movement.tile.column,
       movement.nextTile.row - movement.tile.row,
     );
-    const progress = Math.min(remaining / segmentLength, 1 - movement.progress);
+    // Each half of a center-to-center segment belongs to its respective ground tile.
+    const surface=movement.progress<.5?movement.tile:next;
+    const multiplier=Math.max(.001,movement.speedMultiplier?.(surface)??1);
+    const boundary=movement.progress<.5?.5:1;
+    const progress = Math.min(remaining * multiplier / segmentLength, boundary - movement.progress);
     movement.progress += progress;
-    remaining = Math.max(0, remaining - progress * segmentLength);
+    remaining = Math.max(0, remaining - progress * segmentLength / multiplier);
     if (movement.progress >= 1) {
       movement.tile = movement.nextTile;
       movement.nextTile = null;

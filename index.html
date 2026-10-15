@@ -19,6 +19,7 @@
       <span id="pawn-mode-icon" aria-hidden="true">⚔</span>
       <span id="pawn-mode-label">徴兵</span>
     </button>
+    <button id="door-mode-button" type="button" aria-label="扉の動作：開閉" hidden><span aria-hidden="true">🚪</span><span id="door-mode-label">開閉</span></button>
     <button id="drop-inventory-button" type="button" hidden disabled>
       <span aria-hidden="true">↓</span><span>地面に置く</span>
     </button>
@@ -63,8 +64,11 @@
       <button id="furniture-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="furniture-options">家具</button>
       <button id="storage-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="storage-options">保管</button>
       <button id="defense-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="defense-options">防衛</button>
+      <button id="floors-tab" class="construction-subtab" type="button" aria-expanded="false" aria-controls="floor-options">床</button>
       <button id="demolition-button" class="construction-subtab" type="button" aria-pressed="false">破壊</button>
     </nav>
+    <nav id="floor-options" class="building-options" aria-label="床の選択" hidden><button id="stone-floor-button" class="construction-subtab" type="button" aria-pressed="false">石張り</button><button id="wood-floor-button" class="construction-subtab" type="button" aria-pressed="false">木張り</button></nav>
+    <nav id="stone-floor-materials" class="wall-materials" hidden></nav><nav id="wood-floor-materials" class="wall-materials" hidden></nav>
     <nav id="furniture-options" class="building-options" aria-label="家具の選択" hidden><button id="bed-button" class="construction-subtab" type="button" aria-pressed="false">ベッド（木材）</button><button id="table-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="table-materials">テーブル（木材）</button><button id="chair-button" class="construction-subtab" type="button" aria-pressed="false" aria-haspopup="true" aria-expanded="false" aria-controls="chair-materials">椅子（木材）</button></nav>
     <nav id="table-materials" class="wall-materials" aria-label="テーブルの素材" hidden>
       <button class="construction-subtab" type="button" data-material="wood" aria-pressed="true">木材</button>

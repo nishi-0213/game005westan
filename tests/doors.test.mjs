@@ -25,3 +25,12 @@ const walls=scene();for(const faction of ['player','enemy1','wild']){const m=cre
 test('partially open doors allow enemy and wild routes, closing invalidates their cached routes',()=>{
 const walls=scene(),door=walls.at(tile(3,3));for(const faction of ['enemy1','wild']){const m=createMovement(tile(1,3));walls.bindMovement(m,faction);assert.equal(findPath(m.tile,tile(5,3),7,walls.isBlocked,walls.cannotStop,m),null);walls.setDoorOpenness(door,.001);assert.ok(findPath(m.tile,tile(5,3),7,walls.isBlocked,walls.cannotStop,m));assert.equal(commandMove(m,tile(3,3),7,walls.isBlocked,walls.cannotStop),true);advancePathMovement(m,1,7,walls.isBlocked,walls.cannotStop);assert.deepEqual(m.tile,tile(3,3));walls.setDoorOpenness(door,0);const other=createMovement(tile(1,3));walls.bindMovement(other,faction);assert.equal(findPath(other.tile,tile(5,3),7,walls.isBlocked,walls.cannotStop,other),null);}
 });
+
+test('door modes invalidate faction routes without changing rooms; closing waits for animation to reach zero',()=>{
+ const walls=scene(),door=walls.at(tile(3,3)),from=tile(1,3),to=tile(5,3);walls.rooms.update();const generation=walls.rooms.generation;
+ assert.ok(findPath(from,to,7,walls.isBlocked,walls.cannotStop));
+ walls.setDoorMode(door,'closed');assert.equal(findPath(from,to,7,walls.isBlocked,walls.cannotStop),null);
+ walls.setDoorMode(door,'open');walls.setDoorOpenness(door,1);assert.ok(findPath(from,to,7,walls.isBlocked,walls.cannotStop));assert.ok(findPath(from,to,7,walls.nonPlayerBlocked,walls.cannotStop));
+ walls.setDoorMode(door,'closed');assert.ok(findPath(from,to,7,walls.isBlocked,walls.cannotStop));walls.setDoorOpenness(door,0);assert.equal(findPath(from,to,7,walls.isBlocked,walls.cannotStop),null);assert.equal(findPath(from,to,7,walls.nonPlayerBlocked,walls.cannotStop),null);
+ walls.setDoorMode(door,'automatic');assert.ok(findPath(from,to,7,walls.isBlocked,walls.cannotStop));assert.equal(findPath(from,to,7,walls.nonPlayerBlocked,walls.cannotStop),null);walls.rooms.update();assert.equal(walls.rooms.generation,generation);
+});

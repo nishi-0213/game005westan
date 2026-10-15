@@ -26,7 +26,7 @@ import type { Corpse } from './butchery';
 import type { MapItem } from './items';
 import { Butchery, BUTCHER_SECONDS, adjustButcherCount, corpsePosition, corpseItemType } from './butchery';
 import type { Tile } from './movement';
-import { BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
+import { isFloor, constructionKey, BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
 import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems, isWeaponItem } from './items';
 import { Storage } from './storage';
@@ -96,6 +96,7 @@ for (let line = 0; line <= MAP_SIZE; line++) {
 }
 terrain.stroke({ color: 0x27392a, width: 1, alpha: 0.65 });
 map.addChild(terrain);
+const floorLayer=new Container();map.addChild(floorLayer);
 const shadowLayer=new Container();map.addChild(shadowLayer);
 const environmentObjects = initialEnvironment(MAP_SIZE);
 const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
@@ -253,12 +254,12 @@ function updateDoors(seconds:number):void {
       return (pawn.movement.nextTile?.column===door.column&&pawn.movement.nextTile.row===door.row)
         ||Math.max(Math.abs(position.column-door.column),Math.abs(position.row-door.row))<.8;
     });
-    state.hold=nearby?.2:Math.max(0,state.hold-seconds);
-    const occupied=state.openness>0&&actors.some(actor=>{
+    state.hold=(door.doorMode??'automatic')==='automatic'&&nearby?.2:Math.max(0,state.hold-seconds);
+    const occupied=(state.openness>0||door.doorMode==='closed')&&actors.some(actor=>{
       const position=renderedPosition(actor.movement);
       return Math.max(Math.abs(position.column-door.column),Math.abs(position.row-door.row))<.8;
     });
-    const next=Math.max(0,Math.min(1,state.openness+(state.hold>0||occupied?1:-1)*seconds*5));
+    const next=Math.max(0,Math.min(1,state.openness+(door.doorMode==='open'||state.hold>0||occupied?1:-1)*seconds*5));
     if(next!==state.openness){state.openness=next;walls.setDoorOpenness(door,next);const view=wallViews.get(`${door.column},${door.row}`);if(view)drawDoor(view,next);}
   }
   for(const door of doorAnimations.keys())if(walls.at(door)!==door)doorAnimations.delete(door);
@@ -340,7 +341,8 @@ function updateDeerViews(): void {
     entry.view.position.set((position.column + .5) * TILE_SIZE, (position.row + .5) * TILE_SIZE);
     entry.view.rotation = (deer.dead || deer.sleep?.phase==='sleeping') ? Math.PI / 2 : attackWobble(deer);
     entry.selection.visible = selectedDeerSet.has(deer);
-    entry.food.visible = Boolean(deer.eatJob);
+    const meal=deer.eatJob;
+    entry.food.visible=Boolean(!deer.dead&&!deer.sleep&&meal&&meal.eatingSeconds!==undefined&&!deer.movement.nextTile&&deer.movement.tile.column===meal.goal.column&&deer.movement.tile.row===meal.goal.row);
     entry.food.tint=deer.kind==='wolf'?ITEM_APPEARANCE.meat.color:0xffffff;
     entry.view.visible = !deer.consumed && !deer.corpseStorage;
     entry.corpseIcon.visible = Boolean(deer.dead && deer.collectCorpse && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && !deer.consumed);
@@ -415,6 +417,7 @@ const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},
   || clearing.isClearing(tile);
 const needsClearing = (tile: Tile): boolean => {
   const building = walls.at(tile);
+  if(building&&isFloor(building.kind))return false;
   return (building ? footprint(building) : [tile]).some(needsClearingCell);
 };
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
@@ -538,8 +541,8 @@ for (const [index, pawn] of pawns.entries()) {
       button.dataset.priority = button.textContent;
       button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
     };
-    button.addEventListener('click', () => { if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3); refresh(); });
-    button.addEventListener('contextmenu', (event) => { event.preventDefault();if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
+    button.addEventListener('click', () => { if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
+    button.addEventListener('contextmenu', (event) => { event.preventDefault();if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3); refresh(); });
     refresh(); cell.appendChild(button); row.appendChild(cell);
   }
   prioritiesRows.appendChild(row);priorityRowsByPawn.set(pawn,row);
@@ -1081,13 +1084,15 @@ let selectedConstruction: ConstructionKind | null = null;
 let demolitionSelected = false;
 const demolitionButton = document.querySelector<HTMLButtonElement>('#demolition-button')!;
 const demolitionMarks = new Map<Wall, Graphics>();
-const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood', cooker:'wood',torch:'wood',bed:'wood',table:'wood',chair:'wood' };
+const constructionMaterials: Record<ConstructionKind, WallMaterial> = { wall: 'wood', door: 'wood', barricade: 'wood', storage: 'wood', storageArea: 'wood', butcher: 'wood', cooker:'wood',torch:'wood',bed:'wood',table:'wood',chair:'wood',stoneFloor:'wood',woodFloor:'wood' };
 let stationOrientation: 0 | 1 = 0;
 let drawingPointer: number | null = null;
 let previousDragTile: Tile | null = null;
 const constructionTab = document.querySelector<HTMLButtonElement>('.construction-tab')!;
 const constructionSubtabs = document.querySelector<HTMLElement>('#construction-subtabs')!;
 const constructionChoices = [
+  {kind:'stoneFloor' as const,tabId:'#floors-tab',optionsId:'#floor-options',buttonId:'#stone-floor-button',materialsId:'#stone-floor-materials'},
+  {kind:'woodFloor' as const,tabId:'#floors-tab',optionsId:'#floor-options',buttonId:'#wood-floor-button',materialsId:'#wood-floor-materials'},
   {kind:'table' as const,tabId:'#furniture-tab',optionsId:'#furniture-options',buttonId:'#table-button',materialsId:'#table-materials'},
   {kind:'chair' as const,tabId:'#furniture-tab',optionsId:'#furniture-options',buttonId:'#chair-button',materialsId:'#chair-materials'},
   {kind:'bed' as const,tabId:'#furniture-tab',optionsId:'#furniture-options',buttonId:'#bed-button',materialsId:'#bed-materials'},
@@ -1108,6 +1113,7 @@ const constructionChoices = [
 }));
 function updateConstructionLabels(): void {
   for (const choice of constructionChoices) {
+    if(isFloor(choice.kind)){choice.button.textContent=choice.kind==='stoneFloor'?'石張り':'木張り';continue;}
     if (choice.kind === 'storageArea') { choice.button.textContent = '保管エリア'; continue; }
     choice.button.textContent = `${choice.kind === 'wall' ? '壁' : choice.kind === 'door' ? '扉' : choice.kind === 'storage' ? '保管箱' : choice.kind === 'butcher' ? '解体所' : choice.kind==='cooker'?'調理器':choice.kind==='torch'?'たいまつ':choice.kind==='bed'?'ベッド':choice.kind==='table'?'テーブル':choice.kind==='chair'?'椅子': 'バリケード'}（${ITEM_APPEARANCE[constructionMaterials[choice.kind]].name}）`;
   }
@@ -1178,7 +1184,7 @@ for (const choice of constructionChoices) {
   });
   choice.button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
-    if (choice.kind==='bed'||choice.kind==='torch'||choice.kind === 'door' || choice.kind === 'storage' || choice.kind === 'storageArea' || isWorkshop(choice.kind)) return;
+    if (isFloor(choice.kind)||choice.kind==='bed'||choice.kind==='torch'||choice.kind === 'door' || choice.kind === 'storage' || choice.kind === 'storageArea' || isWorkshop(choice.kind)) return;
     const opening = choice.materials.hidden;
     hideMaterials();
     choice.materials.hidden = !opening;
@@ -1255,7 +1261,7 @@ function placeConstruction(tile: Tile): void {
   if (!selectedConstruction) return;
   const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction, stationOrientation);
   if (!wall) return;
-  for (const cell of footprint(wall)) {
+  if(!isFloor(wall.kind))for (const cell of footprint(wall)) {
     const environment = environmentByTile.get(`${cell.column},${cell.row}`);
     if (environment && !environment.collected) environment.collect = true;
   }
@@ -1263,6 +1269,7 @@ function placeConstruction(tile: Tile): void {
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
     .fill(WALL_COLORS[wall.material]);
+  if(isFloor(wall.kind)){view.clear().rect(0,0,TILE_SIZE,TILE_SIZE).fill(wall.kind==='stoneFloor'?0x858a8d:0x9a7047);if(wall.kind==='woodFloor')for(const offset of [0,TILE_SIZE/3,2*TILE_SIZE/3])view.moveTo(0,offset).lineTo(TILE_SIZE,offset);else view.rect(1,1,TILE_SIZE-2,TILE_SIZE-2);view.stroke({color:wall.kind==='stoneFloor'?0x555e63:0x715035,width:1});}
   if(wall.kind==='door')drawDoor(view,0);
   if(wall.kind==='torch')view.clear().rect(10,8,4,14).fill(0x916039).poly([7,10,8,4,11,6,13,1,17,8,16,11]).fill(0xff9b36).poly([10,10,12,5,14,10]).fill(0xffed9a);
   if (isWorkshop(wall.kind)) {
@@ -1277,20 +1284,25 @@ function placeConstruction(tile: Tile): void {
   if (wall.kind === 'storage') view.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).stroke({ color: 0xd7b97d, width: 2 }).moveTo(2, 8).lineTo(TILE_SIZE - 2, 8).stroke({ color: 0xd7b97d, width: 1 }).rect(10, 7, 4, 5).fill(0xd7b97d);
   view.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
   view.alpha = WALL_PLAN_ALPHA;
-  wallLayer.addChild(view);
-  wallViews.set(`${tile.column},${tile.row}`, view);
+  (isFloor(wall.kind)?floorLayer:wallLayer).addChild(view);
+  wallViews.set(constructionKey(wall), view);
   const { view: progressView, fill } = createProgressBar();
   progressView.position.set(tile.column * TILE_SIZE, (wall.kind==='bed'||wall.kind==='table'?Math.max(...footprint(wall).map(cell=>cell.row))+1:tile.row+1) * TILE_SIZE + 1);
   progressView.visible = false;
   constructionProgressLayer.addChild(progressView);
-  constructionProgressViews.set(`${tile.column},${tile.row}`, { view: progressView, fill, progress: -1 });
+  constructionProgressViews.set(constructionKey(wall), { view: progressView, fill, progress: -1 });
   if (wall.kind === 'storageArea' && !needsClearing(tile)) { walls.complete(tile); view.alpha = 1; }
 }
 
 // Finalize only when no pawn or active route would be trapped by the new structure.
 export function completeConstruction(tile: Tile): boolean {
-  const item = walls.at(tile);
+  const item = walls.at(tile)??walls.floorAt(tile);
   if (!item || item.state === 'completed') return false;
+  if(isFloor(item.kind)){
+    if(!walls.complete(item))return false;
+    const key=constructionKey(item);wallViews.get(key)!.alpha=1;
+    constructionProgressViews.get(key)?.view.destroy({children:true});constructionProgressViews.delete(key);return true;
+  }
   if (needsClearing(tile)) return false;
   const sameTile = (entry: Tile): boolean => footprint(item).some(cell => entry.column === cell.column && entry.row === cell.row);
   const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage' || isMultiTile(item.kind)) && sameTile(entry));
@@ -1324,7 +1336,7 @@ function removeConstructionPlan(tile: Tile): boolean {
     if (pawn.clearJob?.target === removed) clearing.cancel(pawn);
   }
   returnItems(mapItems, removed, removed.material, removed.delivered);
-  const key = `${removed.column},${removed.row}`;
+  const key = constructionKey(removed);
   wallViews.get(key)?.destroy();
   wallViews.delete(key);
   constructionProgressViews.get(key)?.view.destroy({ children: true });
@@ -1446,7 +1458,8 @@ function hitSelection(event: MouseEvent) {
   }
   if(building?.state==='completed')return {kind:'structure' as const,value:building};
   const environment = environmentByTile.get(`${tile.column},${tile.row}`);
-  return environment && !environment.collected ? { kind: 'environment' as const, value: environment } : null;
+  if(environment&&!environment.collected)return {kind:'environment' as const,value:environment};
+  const floor=walls.floorAt(tile);return floor?{kind:'structure' as const,value:floor}:null;
 }
 
 function selectHit(event: MouseEvent, additive: boolean, nearby = false): void {
@@ -1511,7 +1524,8 @@ app.canvas.addEventListener('pointerdown', (event) => {
     else if (event.button === 2) selectConstruction(null);
     return;
   }
-  const constructionTarget=walls.at({column:Math.floor(x/TILE_SIZE),row:Math.floor(y/TILE_SIZE)});
+  const clickedTile={column:Math.floor(x/TILE_SIZE),row:Math.floor(y/TILE_SIZE)};
+  const constructionTarget=walls.at(clickedTile)??walls.floorAt(clickedTile);
   if(event.button===2&&!selectedConstruction&&selectedPawn&&canGiveOrders(selectedPawn)&&!selectedPawn.dead&&constructionTarget?.state==='planned'){
     openConstructionCommand(selectedPawn,constructionTarget,event);return;
   }
@@ -1686,7 +1700,17 @@ const stationWorkWindow = document.querySelector<HTMLDialogElement>('#station-wo
 let workStation: Wall | null = null;
 const billCount = document.querySelector<HTMLElement>('#butcher-count')!;
 const meatTarget = document.querySelector<HTMLInputElement>('#meat-target')!;
+const doorModeButton=document.querySelector<HTMLButtonElement>('#door-mode-button')!;
+const doorModeNames={automatic:'開閉',closed:'閉鎖',open:'解放'} as const;
+doorModeButton.addEventListener('click',()=>{
+  if(!selectedStation||selectedStation.kind!=='door'||selectedStation.state!=='completed')return;
+  const mode=selectedStation.doorMode??'automatic',next=mode==='automatic'?'closed':mode==='closed'?'open':'automatic';
+  for(const door of selectedStructures)if(door.kind==='door'&&door.state==='completed')walls.setDoorMode(door,next);
+  updateStationInfo();
+});
 function updateStationInfo(): void {
+  doorModeButton.hidden=!buildingInfoActive||selectedStation?.kind!=='door'||selectedStation.state!=='completed';
+  if(!doorModeButton.hidden&&selectedStation){const label=doorModeNames[selectedStation.doorMode??'automatic'];setText(document.querySelector<HTMLElement>('#door-mode-label')!,label);setAttribute(doorModeButton,'aria-label',`扉の動作：${label}。クリックで切り替え`);}
   stationInfo.hidden = !selectedStation||!buildingInfoActive;
   if (selectedStation && pawnPanelLayoutDirty) {
     let top = window.innerHeight-40;
@@ -1695,8 +1719,9 @@ function updateStationInfo(): void {
     pawnPanelLayoutDirty=false;
   }
   if (selectedStation) {
-    const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所',cooker:'調理器',torch:'たいまつ',bed:'ベッド',table:'テーブル',chair:'椅子'};
+    const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所',cooker:'調理器',torch:'たいまつ',bed:'ベッド',table:'テーブル',chair:'椅子',stoneFloor:'石張り',woodFloor:'木張り'};
     setText(document.querySelector<HTMLElement>('#station-info h2')!,names[selectedStation.kind]);
+    document.querySelector<HTMLElement>('#structure-hp')!.hidden=isFloor(selectedStation.kind);
     setText(document.querySelector<HTMLElement>('#structure-hp')!,`HP ${Math.round(selectedStation.hp??100)}%`);
     document.querySelector<HTMLButtonElement>('#station-work-button')!.hidden=selectedStation.state!=='completed'||!isWorkshop(selectedStation.kind);
     const state=selectedStation.butcher;

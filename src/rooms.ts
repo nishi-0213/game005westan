@@ -36,14 +36,14 @@ export class Rooms {
     this.masksDirty=true;this.playerDirty=true;this.otherDirty=true;this.otherMaskDirty=true;
     if(wall.kind==='wall'||wall.kind==='door')this.roomsDirty=true;
   }
-  doorChanged():void{this.otherDirty=true;this.otherMaskDirty=true;}
+  doorChanged(player=false):void{this.otherDirty=true;this.otherMaskDirty=true;if(player){this.masksDirty=true;this.playerDirty=true;}}
   private masks():void{
     if(!this.masksDirty)return;
     this.roomMask.fill(0);this.playerMask.fill(0);
     for(const wall of this.structures())if(wall.state==='completed')for(const tile of this.footprint(wall)){
       const index=tile.row*this.size+tile.column;
       if(wall.kind==='wall'||wall.kind==='door')this.roomMask[index]=1;
-      if(movementObstacle.has(wall.kind))this.playerMask[index]=1;
+      if(movementObstacle.has(wall.kind)||wall.kind==='door'&&wall.doorMode==='closed'&&(wall.openness??0)<=0)this.playerMask[index]=1;
     }
     this.masksDirty=false;
   }
