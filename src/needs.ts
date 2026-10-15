@@ -8,9 +8,11 @@ import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 
-export interface Needs { satiety: number; health: number }
+export interface Needs { satiety: number; health: number; wakefulness?:number }
 export type EatingWorker = HarvestWorker & HaulWorker & {
   needs: Needs;
+  sleep?:import('./sleep').SleepState;
+  sleepRetrySeconds?:number;
   hp?: number;
   consumed?: boolean;
   collectCorpse?: boolean;
@@ -26,7 +28,7 @@ export const SATIETY_LOSS_PER_SECOND = 1;
 export const FOOD_THRESHOLD = 20;
 export const STRAWBERRY_SATIETY = 20;
 export const EATING_SECONDS = 1;
-export const initialNeeds = (): Needs => ({ satiety: 100, health: 100 });
+export const initialNeeds = (): Needs => ({ satiety: 100, health: 100, wakefulness:100 });
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
 
 function interruptWork(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling): void {
@@ -74,7 +76,7 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
   worker.movement.changed?.();
 }
 
-export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true, fallbackFood?: (worker:EatingWorker)=>boolean, animalDiet?: readonly ItemType[]): boolean {
+export function updateNeeds(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling, seconds: number, automaticFood = true, fallbackFood?: (worker:EatingWorker)=>boolean, animalDiet?: readonly ItemType[], allowEating=true): boolean {
   if (worker.dead) return true;
   const elapsed = Math.max(0, seconds);
   const previousSatiety = worker.needs.satiety;
@@ -88,6 +90,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
     killPawn(worker, construction, harvesting, hauling);
     return true;
   }
+  if(!allowEating)return true;
   if (worker.dropRequested) { worker.eatJob = null; return false; }
   if(worker.mode==='drafted'){
     if(worker.eatJob&&!worker.eatJob.manual){worker.eatJob=null;stopAtNextSafeTile(worker.movement,construction.walls.cannotStop);}
@@ -142,7 +145,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
 }
 
 export function requestEat(worker: EatingWorker, source: MapItem, construction: Construction, harvesting: Harvesting, hauling: Hauling): boolean {
-  if (worker.dead || foodNutrition(source.type) <= 0 || source.quantity <= 0) return false;
+  if (worker.dead || worker.sleep || foodNutrition(source.type) <= 0 || source.quantity <= 0) return false;
   const walls = construction.walls;
   const from = worker.movement.nextTile ?? worker.movement.tile;
   const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);

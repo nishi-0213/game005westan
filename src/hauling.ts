@@ -96,7 +96,7 @@ export class Hauling {
   }
 
   canRequest(worker: HaulWorker, source: MapItem): boolean {
-    return worker.mode === 'automatic' && !worker.dead && this.forcedWork(worker, source) !== null;
+    return worker.mode === 'automatic' && !worker.sleep && !worker.dead && this.forcedWork(worker, source) !== null;
   }
 
   request(worker: HaulWorker, source: MapItem): boolean {

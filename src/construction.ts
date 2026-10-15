@@ -9,6 +9,7 @@ import type { Wall, Walls } from './walls';
 import type { Storage } from './storage';
 
 export interface Builder {
+  sleep?:import('./sleep').SleepState;
   movement: Movement;
   dead?: boolean;
   cookJob?: import('./cooking').CookingJob|null;

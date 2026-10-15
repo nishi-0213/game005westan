@@ -96,7 +96,7 @@ export class Combat {
   }
 
   requestEquip(pawn: CombatPawn, source: MapItem): boolean {
-    if (pawn.dead || !isPlayerControlled(pawn) || !isWeaponItem(source.type) || source.quantity <= 0) return false;
+    if (pawn.dead || pawn.sleep || !isPlayerControlled(pawn) || !isWeaponItem(source.type) || source.quantity <= 0) return false;
     const walls = this.construction.walls, from = pawn.movement.nextTile ?? pawn.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     const direct = paths.get(source.row * walls.mapSize + source.column);
@@ -109,7 +109,7 @@ export class Combat {
 
   requestAttack(pawn: CombatPawn, target: CombatTarget): boolean {
     if(target.structure&&(!isPlayerControlled(pawn)||'kind' in pawn&&pawn.kind!=='human'||target.structure.state!=='completed'))return false;
-    if (pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
+    if (pawn.sleep||pawn === target || pawn.dead || target.dead || target.departed || pawn.mode !== 'drafted' || !isPlayerControlled(pawn)) return false;
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach = this.attackApproach(pawn, target);
     if (!approach) return false;
@@ -179,7 +179,7 @@ export class Combat {
   }
 
   update(pawn: CombatPawn, seconds: number, targets: readonly CombatTarget[] = []): boolean {
-    if (pawn.dead || pawn.faction === 'wild' && !pawn.attackJob?.predation&&!pawn.attackJob?.retaliation) { this.cancel(pawn); return false; }
+    if (pawn.dead || pawn.sleep || pawn.faction === 'wild' && !pawn.attackJob?.predation&&!pawn.attackJob?.retaliation) { this.cancel(pawn); return false; }
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const equip = pawn.equipJob;
     if (equip) {

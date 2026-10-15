@@ -214,6 +214,9 @@ canvas { display: block; width: 100%; height: 100%; }
 #close-priorities { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border: 0; background: transparent; color: inherit; font: 20px system-ui, sans-serif; cursor: pointer; }
 
 .construction-subtabs {
+  max-width: 100vw;
+  overflow-x: auto;
+  scrollbar-width: none;
   position: fixed;
   left: 0;
   bottom: 40px;
@@ -221,9 +224,12 @@ canvas { display: block; width: 100%; height: 100%; }
   display: flex;
 }
 
+.construction-subtabs::-webkit-scrollbar { display: none; }
+
 .construction-subtabs[hidden] { display: none; }
 
 .construction-subtab {
+  flex-shrink: 0;
   width: 96px;
   height: 40px;
   padding: 0;

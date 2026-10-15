@@ -105,7 +105,7 @@ export class Butchery {
     return best;
   }
   canRequest(worker: Builder, corpse: Corpse): boolean {
-    return !worker.dead && worker.mode==='automatic' && Boolean(this.findTransport(worker,corpse)??this.findStorage(worker,corpse));
+    return !worker.dead && !worker.sleep && worker.mode==='automatic' && Boolean(this.findTransport(worker,corpse)??this.findStorage(worker,corpse));
   }
   request(worker: Builder, corpse: Corpse): boolean {
     if(!this.canRequest(worker,corpse))return false;

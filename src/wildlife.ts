@@ -46,6 +46,7 @@ export function createDeer(tile: Tile, id: number): Deer {
 
 export function deerAction(deer: Animal): string {
   if (deer.dead) return '死亡';
+  if(deer.sleep?.phase==='sleeping')return '就寝中';
   if (deer.fleeGoal) return '逃走中';
   if (deer.leaving) return 'マップ外へ移動中';
   if (deer.eatJob) return '食事中';
@@ -60,6 +61,7 @@ export class Wildlife {
   readonly wolves:Wolf[]=[];
   get animals():Animal[]{return [...this.deer,...this.wolves];}
   combat?:Combat;
+  sleeping?:import('./sleep').Sleeping;
   corpseEating?:CorpseEating;
   players:()=>readonly CombatTarget[]=()=>[];
   private wolfSpawnSeconds=0;
@@ -176,7 +178,9 @@ export class Wildlife {
     if (deer.dead || deer.departed) return;
     const walls = this.construction.walls;
     walls.bindMovement(deer.movement,deer.faction);
-    const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, !deer.leaving&&!deer.fleeGoal,undefined,['strawberry','ration']);
+    const resting=this.sleeping?.update(deer,seconds,false)??false;
+    const eating = updateNeeds(deer, this.construction, this.harvesting, this.hauling, seconds, !deer.leaving&&!deer.fleeGoal,undefined,['strawberry','ration'],!resting);
+    if(resting){if(deer.dead)this.sleeping?.cancel(deer);return;}
     if (deer.dead) return;
     if (deer.fleeGoal) {
       if (deer.movement.nextTile || !sameTile(deer.movement.tile, deer.movement.destination)) return;
@@ -212,7 +216,7 @@ export class Wildlife {
   }
 
   reactToAttack(wolf:Wolf,attacker:CombatTarget):'retaliate'|'flee'|null {
-    if(wolf.dead||wolf.departed||attacker.dead||attacker.departed)return null;
+    if(wolf.dead||wolf.sleep||wolf.departed||attacker.dead||attacker.departed)return null;
     wolf.prey=undefined;
     this.combat?.cancel(wolf);
     if(this.random()<wolf.retaliationProbability){
@@ -225,7 +229,9 @@ export class Wildlife {
   updateWolf(wolf:Wolf,seconds:number):void {
     if(wolf.dead||wolf.departed)return;
     const walls=this.construction.walls;walls.bindMovement(wolf.movement,wolf.faction);
-    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,!wolf.leaving&&!wolf.fleeGoal&&!wolf.attackJob?.retaliation,undefined,['meat','ration']);
+    const resting=this.sleeping?.update(wolf,seconds,false)??false;
+    const eating=updateNeeds(wolf,this.construction,this.harvesting,this.hauling,seconds,!wolf.leaving&&!wolf.fleeGoal&&!wolf.attackJob?.retaliation,undefined,['meat','ration'],!resting);
+    if(resting){if(wolf.dead)this.sleeping?.cancel(wolf);return;}
     if(wolf.dead){this.combat?.cancel(wolf);return;}
     if(wolf.fleeGoal){
       if(wolf.movement.nextTile||!sameTile(wolf.movement.tile,wolf.movement.destination))return;
