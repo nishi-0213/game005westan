@@ -191,13 +191,15 @@ export class Combat {
     for (const [index, path] of paths) {
       const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
       if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile,target.structure)
-        && (pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn))) return { goal, path };
+        && (pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn,target))) return { goal, path };
     }
     return null;
   }
 
-  private predationClear(from:Tile,to:Tile,pawn:CombatPawn):boolean {
-    return !rayTiles(from,to).slice(1).some(pawn.movement.terrainBlocked??this.construction.walls.isBlocked);
+  private predationClear(from:Tile,to:Tile,pawn:CombatPawn,target:CombatTarget):boolean {
+    const walls=this.construction.walls,blocked=pawn.movement.terrainBlocked??walls.isBlocked;
+    const bed=target.sleep?.phase==='sleeping'?target.sleep.bed:undefined;
+    return !rayTiles(from,to).slice(1).some(tile=>blocked(tile)&&!(bed&&walls.at(tile)===bed));
   }
 
   private automaticTarget(pawn: CombatPawn, targets: readonly CombatTarget[]): CombatTarget | null {
@@ -255,7 +257,7 @@ export class Combat {
     if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
     if (!manual && !job.hunting && !job.predation && !job.retaliation && !stationary(pawn)) return true;
     if (!stationary(pawn) || (!this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)
-      || (job.predation||job.retaliation)&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn))) {
+      || (job.predation||job.retaliation)&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn,job.target))) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
       const changedGoal = job.goal && positionKey(job.goal) !== positionKey(pawn.movement.destination);

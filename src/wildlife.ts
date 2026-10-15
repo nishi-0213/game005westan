@@ -141,6 +141,15 @@ export class Wildlife {
     deer.decisionSeconds = 0;
   }
 
+  wakeAndFlee(pawn: FleeingPawn, attacker: Tile): boolean {
+    if (!pawn.sleep) return false;
+    if (this.sleeping) this.sleeping.cancel(pawn);
+    else pawn.sleep = undefined;
+    if (pawn.dead) return false;
+    this.flee(pawn, attacker);
+    return true;
+  }
+
   flee(deer: FleeingPawn & {departed?:boolean}, attacker: Tile): boolean {
     if (deer.dead || deer.departed) return false;
     const walls = this.construction.walls;

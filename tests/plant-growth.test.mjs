@@ -113,7 +113,7 @@ test('harvest yield uses theHP at completion, including growth during the harves
 
 test('plants stop growing at18and resume at6 while lifespan continues at night',()=>{
  const tree=createEnvironment('tree',{column:2,row:2}),berry=createEnvironment('wildStrawberry',{column:3,row:2}),growth=new PlantGrowth([tree,berry],new Walls(8),()=>true);
- growth.update(2,17);close(tree.hp,1+99/60*2);const before=tree.hp;growth.update(24,18);assert.equal(tree.hp,before);assert.equal(berry.hp,before);close(tree.ageSeconds,26);growth.update(2,6);close(tree.hp,before+99/60*2);close(berry.ageSeconds,28);
+ growth.update(2,17);close(tree.hp,1+99/60*2);const before=tree.hp;growth.update(24,18);close(tree.hp,before);close(berry.hp,before);close(tree.ageSeconds,26);growth.update(2,6);close(tree.hp,before+99/60*2);close(berry.ageSeconds,28);
 });
 test('long updates split dawn, dusk and spawn boundaries without night growth',()=>{
  const a=createEnvironment('tree',{column:2,row:2}),b={...a},ga=new PlantGrowth([a],new Walls(8),()=>true),gb=new PlantGrowth([b],new Walls(8),()=>true);

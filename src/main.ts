@@ -1655,17 +1655,19 @@ combat.onAttack = event => {
   const pawn = pawns.find(pawn => pawn === event.attacker);
   if (pawn && event.weapon === 'rifle') { pawn.weaponView.rotation = Math.atan2(event.to.row - event.from.row, event.to.column - event.from.column); pawn.shotSeconds=.12; }
   if(pawn && event.weapon==='knife'){pawn.swingSeconds=.25;pawn.swingAngle=Math.atan2(event.to.row-event.from.row,event.to.column-event.from.column);}
-  if ('kind' in event.target && event.target.kind === 'deer' && !event.target.sleep) wildlife.flee(event.target as Deer, event.from);
-  if(!event.target.dead&&'kind' in event.target&&event.target.kind==='wolf')wildlife.reactToAttack(event.target as Wolf,event.attacker);
   const player=pawns.find(pawn=>pawn===event.target&&pawn.faction==='player');
   if(player){
     player.attackedSeconds=3;
-    if(!player.dead && (!player.sleep || player.sleep.phase==='approach')){
+    if(!player.dead){
+      // Cancel work before choosing the escape route; cancellation can stop movement.
       butchery.cancel(player);
       player.manualMove=false;player.workTask=undefined;player.decisionSeconds=0;
-      wildlife.flee(player,event.from);
     }
   }
+  const awakened = wildlife.wakeAndFlee(event.target, event.from);
+  if (!awakened && 'kind' in event.target && event.target.kind === 'deer' && !event.target.sleep) wildlife.flee(event.target as Deer, event.from);
+  if(!awakened&&!event.target.dead&&'kind' in event.target&&event.target.kind==='wolf')wildlife.reactToAttack(event.target as Wolf,event.attacker);
+  if(player&&!player.dead&&!awakened)wildlife.flee(player,event.from);
 };
 
 function updateAttackRanges(): void {

@@ -9,7 +9,7 @@ import {findPaths,findNearest} from './pathfinding.ts';
 import {GAME_MINUTES_PER_SECOND} from './game-time.ts';
 import {SATIETY_LOSS_PER_SECOND} from './needs.ts';
 export interface SleepState {phase:'approach'|'settle'|'sleeping'|'exit';goal:Tile;bed?:Wall}
-export type SleepWorker=EatingWorker & {sleep?:SleepState;sleepRetrySeconds?:number};
+export type SleepWorker=EatingWorker & {sleep?:SleepState;sleepRetrySeconds?:number;fleeGoal?:Tile};
 export const GROUND_SLEEP_RECOVERY=100/(8*60/GAME_MINUTES_PER_SECOND);
 export const BED_SLEEP_RECOVERY=100/(6*60/GAME_MINUTES_PER_SECOND);
 const same=(a:Tile,b:Tile)=>a.column===b.column&&a.row===b.row;
@@ -51,6 +51,8 @@ export class Sleeping {
   update(p:SleepWorker,seconds:number,useBeds:boolean):boolean {
     if(p.dead){this.cancel(p);return false;}
     const elapsed=Math.max(0,seconds),walls=this.construction.walls;
+    // An exhausted pawn must be able to reach safety before collapsing again.
+    if(p.fleeGoal){p.needs.wakefulness=Math.max(0,(p.needs.wakefulness??100)-elapsed*SATIETY_LOSS_PER_SECOND);return false;}
     let state=p.sleep;
     if(state?.bed&&(state.bed.state!=='completed'||walls.at(state.bed)!==state.bed)){
       this.release(p);

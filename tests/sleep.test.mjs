@@ -1,3 +1,4 @@
+import {Combat,WEAPONS,WOLF_BITE} from '../src/combat.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Sleeping,GROUND_SLEEP_RECOVERY,BED_SLEEP_RECOVERY} from '../src/sleep.ts';
@@ -82,4 +83,40 @@ for(const create of [createDeer,createWolf]){
 }
 test('a bed destroyed while approaching triggers immediate reselection of another reachable bed',()=>{
  const s=scene(),first=s.bed(),alternate=s.bed(7,2);s.worker.needs.wakefulness=10;s.tick(0);assert.equal(s.worker.sleep.bed,first);s.tick(.1);s.walls.erase(first);s.tick(0);assert.equal(s.worker.sleep.bed,alternate);assert.equal(s.sleeping.claims.has(first),false);assert.equal(s.sleeping.claims.get(alternate),s.worker);
+});
+
+test('all attack types wake human, deer and wolf sleepers on hits and misses and start an escape',()=>{
+ for(const kind of ['human','deer','wolf'])for(const inBed of kind==='human'?[false,true]:[false])for(const weapon of ['unarmed','knife','rifle','fangs'])for(const hit of [false,true]){
+  const s=scene(),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>0),combat=new Combat(s.construction,s.harvesting,s.hauling,()=>hit?0:.99);
+  wildlife.sleeping=s.sleeping;wildlife.combat=combat;
+  const target=kind==='human'?Object.assign(s.worker,{kind:'human',faction:'player'}):kind==='deer'?createDeer({column:4,row:4},1):createWolf({column:4,row:4},1);
+  if(inBed){s.bed();target.needs.wakefulness=10;for(let i=0;i<100&&target.sleep?.phase!=='sleeping';i++)s.tick(.05,target);}
+  else{target.needs.wakefulness=0;s.sleeping.update(target,0,false);}
+  assert.equal(target.sleep.phase,'sleeping');target.needs.wakefulness=0;
+  const start={...target.movement.tile},bed=target.sleep.bed;
+  const from={column:start.column-1,row:start.row};
+  const attacker=weapon==='fangs'?createWolf(from,99):{...s.worker,kind:'human',faction:'player',mode:'drafted',sleep:undefined,movement:createMovement(from),needs:initialNeeds(),weapon,job:null,eatJob:null};
+  let reaction=false;combat.onAttack=event=>{reaction=wildlife.wakeAndFlee(event.target,event.from);};
+  assert.ok(weapon==='fangs'?combat.requestPredation(attacker,target):combat.requestAttack(attacker,target),`${kind}, bed ${inBed}, ${weapon}`);
+  const stats=weapon==='fangs'?WOLF_BITE:WEAPONS[weapon];combat.update(attacker,stats.interval);
+  assert.equal(reaction,true);assert.equal(target.sleep,undefined);assert.ok(target.fleeGoal);assert.equal(target.hp,hit?100-stats.damage:100);
+  if(bed)assert.equal(s.sleeping.claims.has(bed),false);
+  if(kind==='wolf')assert.ok(!target.attackJob);
+  const goal={...target.fleeGoal};
+  for(let i=0;i<60&&(target.movement.tile.column!==goal.column||target.movement.tile.row!==goal.row);i++){
+   assert.equal(s.sleeping.update(target,.05,kind==='human'),false);assert.equal(target.sleep,undefined);
+   advancePathMovement(target.movement,.05,12,s.walls.isBlocked,s.walls.cannotStop);
+  }
+  assert.deepEqual(target.movement.tile,goal);assert.notDeepEqual(goal,start);assert.equal(target.needs.wakefulness,0);
+ }
+});
+
+test('a lethal attack releases the sleeping bed without making the dead pawn flee',()=>{
+ const s=scene(),bed=s.bed(),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling);wildlife.sleeping=s.sleeping;
+ s.worker.needs.wakefulness=10;for(let i=0;i<100&&s.worker.sleep?.phase!=='sleeping';i++)s.tick();
+ const combat=new Combat(s.construction,s.harvesting,s.hauling,()=>0),from={column:s.worker.movement.tile.column-1,row:s.worker.movement.tile.row};
+ const attacker={...s.worker,faction:'player',mode:'drafted',sleep:undefined,movement:createMovement(from),needs:initialNeeds(),weapon:'rifle',job:null,eatJob:null};
+ s.worker.hp=10;combat.onAttack=event=>assert.equal(wildlife.wakeAndFlee(event.target,event.from),false);
+ assert.equal(combat.requestAttack(attacker,s.worker),true);combat.update(attacker,.4);
+ assert.equal(s.worker.dead,true);assert.equal(s.worker.sleep,undefined);assert.equal(s.sleeping.claims.has(bed),false);assert.equal(s.worker.fleeGoal,undefined);
 });
