@@ -1,3 +1,4 @@
+import { SPRITE_URLS, loadSprites, spriteArtwork, drawArtwork, clearArtwork, itemSprite } from './sprite-assets';
 import { canGiveOrders, moodEffects, updateMood } from './mood';
 import { createNeedsMeter } from './needs-meter';
 import { Sleeping, type SleepState } from './sleep';
@@ -61,6 +62,7 @@ await app.init({
   resolution: RENDER_RESOLUTION,
   autoDensity: true,
 });
+await loadSprites();
 document.body.appendChild(app.canvas);
 app.canvas.setAttribute('aria-label', 'れ・こんきすた。32×32マスのマップと中央の3人のポーン');
 document.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -116,10 +118,8 @@ function createEnvironmentView(object: EnvironmentObject) {
   const outline = new Graphics().rect(-11, -11, 22, 22).stroke({ color: 0xfff2a3, width: 1.5 });
   outline.visible = false;
   const shape = new Graphics();
-  if (object.type === 'tree') shape.rect(-2, 1, 4, 8).fill(0x916039).circle(0, -3, 8).fill(0x8fba7a);
-  else if (object.type === 'grass') shape.moveTo(-4, 7).lineTo(-9, -4).moveTo(0, 7).lineTo(0, -8).moveTo(4, 7).lineTo(9, -4).stroke({ color: 0x6b8458, width: 2.5 });
-  else if (object.type === 'wildStrawberry') shape.ellipse(0, 3, 9, 5).fill(0x8fba7a).circle(-4, 1, 3).circle(3, -1, 3).circle(1, 5, 3).fill(0xe75b70);
-  else shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
+  if (object.type === 'rock') shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
+  else drawArtwork(shape, object.type === 'wildStrawberry' ? 'strawberry' : object.type);
   if (object.type !== 'rock') shape.scale.set(object.type === 'grass' ? .6 + .4 * object.hp / 100 : .35 + .65 * object.hp / 100);
   const collectIcon = new Graphics()
     .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
@@ -146,30 +146,25 @@ const itemLayer = new Container();
 const itemViews = new Map<(typeof mapItems)[number], { view: Container; quantity: Text; collectIcon: Graphics }>();
 map.addChild(itemLayer);
 function drawWeapon(view: Graphics, weapon: Weapon): Graphics {
-  view.clear();
-  if (weapon === 'rifle') view.rect(-9, 1, 15, 3).fill(0x46515b).rect(-10, 0, 5, 5).fill(0x916039).rect(0, 3, 3, 4).fill(0x46515b);
-  if (weapon === 'knife') view.poly([-2,2,9,2,13,0,9,-2,-2,-2]).fill(0xb9c3ca).rect(-8,-2,6,4).fill(0x916039).rect(-3,-4,2,8).fill(0x46515b);
+  clearArtwork(view);
+  if (weapon !== 'unarmed') { const sprite = spriteArtwork(weapon); sprite.position.set(4,5); view.addChild(sprite); }
   return view;
 }
 const itemIconTypes = new WeakMap<Graphics,import('./items').ItemType>();
-function drawWolf(view:Graphics):Graphics {
-  return view.ellipse(-1,0,8,4).rect(-6,1,2,7).rect(4,1,2,7).fill(0x89928d)
-    .poly([3,-2,5,-9,8,-5,10,-2,8,1]).fill(0xb3bbb5)
-    .poly([-7,-2,-13,-6,-11,0,-7,2]).fill(0x89928d).circle(8,-3,1).fill(0x202a25);
-}
 function drawItem(view: Graphics, type: import('./items').ItemType): Graphics {
   if(itemIconTypes.get(view)===type)return view;
   itemIconTypes.set(view,type);
-  view.clear(); view.tint = 0xffffff; view.rotation=0;
+  clearArtwork(view); view.tint = 0xffffff; view.rotation=0;
+  const asset = itemSprite(type);
   if (isWeaponItem(type)) { drawWeapon(view,type); view.position.set(0,7); }
-  else if(type==='wolfCorpse'){drawWolf(view);view.position.set(0,7);view.rotation=Math.PI/2;}
-  else if(type==='deerCorpse') {
-    view.ellipse(-1,0,8,4).ellipse(6,-4,3,5).circle(8,-7,3).fill(0xc79868)
-      .rect(-6,1,2,7).rect(4,1,2,7).fill(0x725036)
-      .moveTo(7,-9).lineTo(6,-14).moveTo(6,-12).lineTo(3,-14).moveTo(9,-9).lineTo(10,-14).stroke({color:0xe1c6a3,width:1.3});
-    view.position.set(0,7); view.rotation=Math.PI/2;
-  } else { view.rect(-6,1,12,12).fill(ITEM_APPEARANCE[type].color); view.position.set(0,0); }
+  else if (asset) { drawArtwork(view,asset,20); view.position.set(0,10); if(type.endsWith('Corpse'))view.rotation=Math.PI/2; }
+  else { view.rect(-6,1,12,12).fill(ITEM_APPEARANCE[type].color); view.position.set(0,0); }
   return view;
+}
+function applyItemIcon(icon: HTMLElement, type: import('./items').ItemType): void {
+  const asset=itemSprite(type);
+  icon.style.backgroundColor=asset?'transparent':`#${ITEM_APPEARANCE[type].color.toString(16).padStart(6,'0')}`;
+  icon.style.backgroundImage=asset?`url("${SPRITE_URLS[asset]}")`:'';
 }
 function createItemView(item: (typeof mapItems)[number]): void {
   const view = new Container();
@@ -200,7 +195,7 @@ const summaryRows = ITEM_TYPES.map((type) => {
   const row = document.createElement('li');
   const icon = document.createElement('span');
   icon.className = 'item-icon';
-  icon.style.backgroundColor = `#${ITEM_APPEARANCE[type].color.toString(16).padStart(6, '0')}`;
+  applyItemIcon(icon,type);
   icon.setAttribute('role', 'img');
   icon.setAttribute('aria-label', ITEM_APPEARANCE[type].name);
   const quantity = document.createElement('span');
@@ -330,12 +325,8 @@ function updateDeerViews(): void {
     if (!entry) {
       const view = new Container();
       const selection = new Graphics().ellipse(0, 1, 11, 9).stroke({ color: 0xfff2a3, width: 1.5 });
-      const body = deer.kind==='wolf'?drawWolf(new Graphics()):new Graphics().ellipse(0, 7, 10, 3).fill({ color: 0x17261c, alpha: .5 })
-        .rect(-6, 1, 2, 7).rect(4, 1, 2, 7).fill(0x725036)
-        .ellipse(-1, 0, 8, 4).ellipse(6, -4, 3, 5).circle(8, -7, 3).fill(0xc79868)
-        .moveTo(7, -9).lineTo(6, -14).moveTo(6, -12).lineTo(3, -14)
-        .moveTo(9, -9).lineTo(10, -14).moveTo(10, -12).lineTo(13, -14).stroke({ color: 0xe1c6a3, width: 1.3 });
-      const food = new Graphics().circle(10, -5, 2).fill(ITEM_APPEARANCE.strawberry.color);
+      const body = spriteArtwork(deer.kind);
+      const food = new Graphics();
       view.addChild(selection, body, food);
       deerLayer.addChild(view);
       entry = { view, selection, food, corpseIcon:createCorpseIcon(), sleepLabel:createSleepLabel() };
@@ -347,7 +338,7 @@ function updateDeerViews(): void {
     entry.selection.visible = selectedDeerSet.has(deer);
     const meal=deer.eatJob;
     entry.food.visible=Boolean(!deer.dead&&!deer.sleep&&meal&&meal.eatingSeconds!==undefined&&!deer.movement.nextTile&&deer.movement.tile.column===meal.goal.column&&deer.movement.tile.row===meal.goal.row);
-    entry.food.tint=deer.kind==='wolf'?ITEM_APPEARANCE.meat.color:0xffffff;
+    if(meal){drawItem(entry.food,meal.source.type);entry.food.scale.set(.3);entry.food.position.set(10,-5);}
     entry.view.visible = !deer.consumed && !deer.corpseStorage;
     entry.corpseIcon.visible = Boolean(deer.dead && deer.collectCorpse && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && !deer.consumed);
     entry.corpseIcon.position.set(entry.view.x,entry.view.y-8);
@@ -394,13 +385,10 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
     .stroke({ color: 0xfff2a3, width: 2 });
   selection.visible = false;
   view.addChild(selection);
-  const body = new Graphics()
-    .ellipse(0, 7, 7, 3).fill({ color: 0x17261c, alpha: 0.5 })
-    .roundRect(-5, -1, 10, 10, 4).fill(color)
-    .circle(0, -5, 4).fill(0xffe3bd)
-    .stroke({ color: 0x25312a, width: 1 });
+  const body = spriteArtwork('pawn');
   view.addChild(body);
-  const heldItem = new Graphics().rect(4, 0, 6, 6).fill(0xffffff);
+  const heldItem = new Graphics();
+  heldItem.scale.set(.45);
   heldItem.visible = false;
   view.addChild(heldItem);
   const mealIcon=new Graphics();mealIcon.visible=false;mealIcon.eventMode='none';mealIcon.scale.set(.5);map.addChild(mealIcon);
@@ -516,11 +504,12 @@ map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
 const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
 const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorities-rows')!;
-function createPawnPortrait(index: number): SVGSVGElement {
-  const portrait = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  portrait.setAttribute('viewBox', '-12 -14 24 28');
+function createPawnPortrait(): HTMLImageElement {
+  const portrait = document.createElement('img');
+  portrait.src = SPRITE_URLS.pawn;
+  portrait.alt = '';
   portrait.setAttribute('aria-hidden', 'true');
-  portrait.innerHTML = `<ellipse cx="0" cy="7" rx="7" ry="3" fill="#17261c" opacity=".5"/><rect x="-5" y="-1" width="10" height="10" rx="4" fill="#${spawnTiles[index].color.toString(16)}"/><circle cx="0" cy="-5" r="4" fill="#ffe3bd" stroke="#25312a" stroke-width="1"/>`;
+  portrait.width = 32; portrait.height = 32;
   return portrait;
 }
 for (const [index, pawn] of pawns.entries()) {
@@ -531,7 +520,7 @@ for (const [index, pawn] of pawns.entries()) {
   nameLabel.textContent = formatPawnName(pawn.name);
   const identity = document.createElement('div');
   identity.className = 'priority-pawn';
-  identity.append(createPawnPortrait(index), nameLabel);
+  identity.append(createPawnPortrait(), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
   for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['cooking','調理'], ['hunting','狩猟'], ['free', '自由']] as const) {
@@ -676,7 +665,7 @@ const rosterButtons = pawns.map((pawn, index) => {
   button.setAttribute('aria-label', `${formatPawnName(pawn.name)}を選択`);
   button.setAttribute('aria-pressed', 'false');
   button.title = formatPawnName(pawn.name);
-  const portrait = createPawnPortrait(index);
+  const portrait = createPawnPortrait();
   const label = document.createElement('span');
   label.textContent = pawn.name.nickname || pawn.name.givenName;
   button.append(portrait, label);
@@ -762,7 +751,7 @@ function updatePawnPanels(): void {
   if (pawnSpecsItemLabel.textContent !== inventoryLabel) pawnSpecsItemLabel.textContent = inventoryLabel;
   if (held && pawnSpecsItemIcon.dataset.type !== held.type) {
     pawnSpecsItemIcon.dataset.type = held.type;
-    pawnSpecsItemIcon.style.backgroundColor = `#${ITEM_APPEARANCE[held.type].color.toString(16).padStart(6, '0')}`;
+    applyItemIcon(pawnSpecsItemIcon,held.type);
   }
   if (pawnPanelLayoutDirty) {
     let top = window.innerHeight - 40;
@@ -1881,7 +1870,7 @@ app.ticker.add((ticker) => {
     if(pawn.weapon==='knife'&&pawn.swingSeconds>0)pawn.weaponView.rotation=pawn.swingAngle+(.5-pawn.swingSeconds/.25)*Math.PI;
     pawn.weaponView.visible = pawn.weapon !== 'unarmed';
     pawn.heldItem.visible = Boolean(pawn.inventory?.quantity);
-    if (pawn.inventory) pawn.heldItem.tint = ITEM_APPEARANCE[pawn.inventory.type].color;
+    if (pawn.inventory) { drawItem(pawn.heldItem,pawn.inventory.type); pawn.heldItem.position.set(6,3); }
     const meal=pawn.eatJob,seat=meal?.seat;
     pawn.mealIcon.visible=Boolean(!pawn.dead&&!pawn.sleep&&!pawn.fleeGoal&&seat&&meal.eatingSeconds!==undefined&&walls.at(seat.table)===seat.table&&seat.table.state==='completed'&&walls.at(seat.chair)===seat.chair&&seat.chair.state==='completed');
     if(pawn.mealIcon.visible&&seat&&meal){
