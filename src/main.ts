@@ -1408,6 +1408,7 @@ function hitSelection(event: MouseEvent) {
   const deer = [...deerViews].reverse().find(([deer, { view }]) => !deer.consumed && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && Math.abs(view.x - x) <= TILE_SIZE * .5 && Math.abs(view.y - y) <= TILE_SIZE * .5)?.[0];
   if (deer) return { kind: 'deer' as const, value: deer };
   const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
+  if(building?.state==='planned')return {kind:'structure' as const,value:building};
   if (walls.isBlocked(tile)) return building?.state==='completed'?{kind:'structure' as const,value:building}:null;
   const item = [...mapItems].reverse().find(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row);
   if (item) return { kind: 'item' as const, value: item };
@@ -1665,9 +1666,9 @@ function updateStationInfo(): void {
     const names:Record<ConstructionKind,string>={wall:'壁',door:'扉',barricade:'バリケード',storage:'保管箱',storageArea:'保管エリア',butcher:'解体所',cooker:'調理器',torch:'たいまつ',bed:'ベッド',table:'テーブル',chair:'椅子'};
     setText(document.querySelector<HTMLElement>('#station-info h2')!,names[selectedStation.kind]);
     setText(document.querySelector<HTMLElement>('#structure-hp')!,`HP ${Math.round(selectedStation.hp??100)}%`);
-    document.querySelector<HTMLButtonElement>('#station-work-button')!.hidden=!isWorkshop(selectedStation.kind);
+    document.querySelector<HTMLButtonElement>('#station-work-button')!.hidden=selectedStation.state!=='completed'||!isWorkshop(selectedStation.kind);
     const state=selectedStation.butcher;
-    setText(stationStatus,selectedStation.cooking?`材料：栄養 ${stagedNutrition(selectedStation.cooking)} / 100・調理進捗：${Math.round(selectedStation.cooking.seconds/COOK_SECONDS*100)}%`:state?(state.corpse?`解体進捗：${Math.round(state.seconds/5*100)}%`:'死体なし'):`${ITEM_APPEARANCE[selectedStation.material].name}${selectedStructures.size>1?`・${selectedStructures.size}個選択中`:''}`);
+    setText(stationStatus,selectedStation.state==='planned'?`投入済み素材：${ITEM_APPEARANCE[selectedStation.material].name} ${selectedStation.delivered} / ${BUILD_RECIPES[selectedStation.kind]?.materialCount??0}個`:selectedStation.cooking?`材料：栄養 ${stagedNutrition(selectedStation.cooking)} / 100・調理進捗：${Math.round(selectedStation.cooking.seconds/COOK_SECONDS*100)}%`:state?(state.corpse?`解体進捗：${Math.round(state.seconds/5*100)}%`:'死体なし'):`${ITEM_APPEARANCE[selectedStation.material].name}${selectedStructures.size>1?`・${selectedStructures.size}個選択中`:''}`);
   }
   if (stationWorkWindow.open && billState(workStation)) {
     const state=billState(workStation)!;
