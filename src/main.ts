@@ -1060,7 +1060,11 @@ function setPawnMode(pawn:typeof pawns[number],mode:'drafted'|'automatic'):void 
     resetDraftTimer(pawn);
     constructionCommandWindow.close();foodCommandWindow.close();haulCommandWindow.close();equipmentCommandWindow.close();
   }
-  if(mode==='drafted'&&pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
+  if(mode==='drafted'){
+    sleeping.cancel(pawn);
+    stopAtNextSafeTile(pawn.movement,walls.cannotStop);
+    if(pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
+  }
   pawn.manualMove=false;
   combat.cancel(pawn);
   hauling.cancel(pawn);construction.cancel(pawn);harvesting.cancel(pawn);
