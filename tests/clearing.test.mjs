@@ -46,7 +46,7 @@ test('a changed placement destination is reselected while retaining cargo',()=>{
 test('floor sites relocate loose harvested materials before construction',()=>{
  for(const kind of ['woodFloor','stoneFloor']){
   const s=scene([{column:3,row:3,type:'stone',quantity:8,collect:true}],kind);
-  const box=s.walls.plan({column:6,row:6},'wood','storage');s.walls.complete(box);s.hauling.storage.deposit(box,'wood',1);s.tick(150);
+  const box=s.walls.plan({column:6,row:6},'wood','storage');s.walls.complete(box);s.hauling.storage.deposit(box,kind==='stoneFloor'?'stone':'wood',1);s.tick(150);
   assert.equal(s.plan.state,'completed');assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.column!==3||i.row!==3));
   assert.equal(countItems(s.items).stone+s.hauling.storage.totals().stone,8);
  }

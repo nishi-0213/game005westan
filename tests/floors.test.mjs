@@ -5,11 +5,12 @@ import {Construction} from '../src/construction.ts';
 import {createMovement,setDestination,advanceMovement,renderedPosition} from '../src/movement.ts';
 import {findPath} from '../src/pathfinding.ts';
 const tile=(column,row)=>({column,row});
-test('both floor kinds use one wood and0.2seconds, have no HP and coexist with structures without occupying their layer',()=>{
+test('floors use one matching material and0.2seconds, have no HP and coexist with structures without occupying their layer',()=>{
  for(const kind of ['stoneFloor','woodFloor']){
-  const walls=new Walls(8),floor=walls.plan(tile(3,2),'stone',kind),engine=new Construction(walls,[],target=>walls.complete(target));
-  const worker={movement:createMovement(tile(2,2)),mode:'automatic',inventory:{type:'wood',quantity:1},job:null,retrySeconds:0};
-  assert.equal(floor.material,'wood');assert.equal('hp' in floor,false);assert.deepEqual(BUILD_RECIPES[kind],{materialCount:1,seconds:.2});
+  const material=kind==='stoneFloor'?'stone':'wood';
+  const walls=new Walls(8),floor=walls.plan(tile(3,2),material==='stone'?'wood':'stone',kind),engine=new Construction(walls,[],target=>walls.complete(target));
+  const worker={movement:createMovement(tile(2,2)),mode:'automatic',inventory:{type:material,quantity:1},job:null,retrySeconds:0};
+  assert.equal(floor.material,material);assert.equal('hp' in floor,false);assert.deepEqual(BUILD_RECIPES[kind],{materialCount:1,seconds:.2});
   engine.update(worker,.01);engine.update(worker,.01);assert.equal(floor.delivered,1);assert.equal(worker.inventory,null);
   engine.update(worker,.19);assert.equal(floor.state,'planned');engine.update(worker,.01);assert.equal(floor.state,'completed');
   assert.equal(walls.at(tile(3,2)),undefined);assert.equal(walls.isBlocked(floor),false);assert.equal(walls.cannotStop(floor),false);

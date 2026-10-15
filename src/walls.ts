@@ -85,7 +85,8 @@ export class Walls {
     if (cells.some(cell => cell.column < 0 || cell.row < 0 || cell.column >= this.mapSize || cell.row >= this.mapSize || (floor?this.floorAt(cell):this.at(cell)))) return null;
     const wall: Wall = { ...tile, material, kind, orientation, state: 'planned', delivered: 0, workSeconds: 0, ...(floor?{}:{hp:100}) };
     if (kind === 'storage' || kind === 'storageArea') { wall.material = 'wood'; wall.stored = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 }; wall.accepted = { wood: true, stone: true, strawberry: true, ration: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true, wolfCorpse: true }; }
-    if (floor||kind === 'door'||kind==='torch'||kind==='bed') wall.material='wood';
+    if (kind==='stoneFloor') wall.material='stone';
+    if (kind==='woodFloor'||kind === 'door'||kind==='torch'||kind==='bed') wall.material='wood';
     if(kind==='cooker'){wall.material='wood';wall.cooking={mode:'count',remaining:0,target:0,seconds:0,meat:0,strawberry:0};}
     if (kind === 'butcher') { wall.material = 'wood'; wall.butcher = { mode: 'count', remaining: 0, target: 0, seconds: 0 }; }
     this.revision++;
