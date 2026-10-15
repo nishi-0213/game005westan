@@ -11,6 +11,7 @@ import type { CombatPawn, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
 import { attackRangeEdges } from './attack-range';
 import { WorldLighting } from './world-lighting';
+import { draftExpired } from './draft-duration';
 import { GameTime } from './game-time';
 import { StructureShadows } from './structure-shadows';
 import { SimulationClock } from './simulation-clock';
@@ -371,7 +372,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, draftedSeconds:0, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -943,17 +944,20 @@ function updatePawnModeButton(): void {
     : 'ポーンを選択して状態を切り替え');
 }
 
+function setPawnMode(pawn:typeof pawns[number],mode:'drafted'|'automatic'):void {
+  if(pawn.mode!==mode)pawn.draftedSeconds=0;
+  pawn.mode=mode;
+  if(mode==='drafted'&&pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
+  pawn.manualMove=false;
+  combat.cancel(pawn);
+  hauling.cancel(pawn);construction.cancel(pawn);harvesting.cancel(pawn);
+  pawn.workTask=undefined;pawn.decisionSeconds=0;
+  if(mode==='automatic')stopAtNextSafeTile(pawn.movement,walls.cannotStop);
+}
 pawnModeButton.addEventListener('click', () => {
-  const controlled = controlledSelection();
-  const mode = controlled.every(pawn => pawn.mode === 'drafted') ? 'automatic' : 'drafted';
-  for (const pawn of controlled) {
-    pawn.mode = mode;
-    if(mode==='drafted'&&pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
-    pawn.manualMove = false;
-    combat.cancel(pawn);
-    hauling.cancel(pawn); construction.cancel(pawn); harvesting.cancel(pawn);
-    if (mode === 'automatic') stopAtNextSafeTile(pawn.movement, walls.cannotStop);
-  }
+  const controlled=controlledSelection();
+  const mode=controlled.every(pawn=>pawn.mode==='drafted')?'automatic':'drafted';
+  for(const pawn of controlled)setPawnMode(pawn,mode);
   updatePawnModeButton();
 });
 updatePawnModeButton();
@@ -1631,6 +1635,7 @@ app.ticker.add((ticker) => {
     plantGrowth.update(seconds);
     corpseEating.updateClaims(seconds);
     for (const pawn of pawns) {
+      if(pawn.faction==='player'&&draftExpired(pawn,seconds))setPawnMode(pawn,'automatic');
       walls.bindMovement(pawn.movement,pawn.faction);
       pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
       if(pawn.fleeGoal){

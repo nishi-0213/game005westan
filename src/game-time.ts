@@ -5,7 +5,7 @@ export class GameTime {
   advance(seconds:number):void {this.milliseconds+=Math.max(0,seconds)*GAME_MINUTES_PER_SECOND*60000;}
   get date():Date{return new Date(this.milliseconds);}
   get hour():number {const d=this.date;return d.getUTCHours()+d.getUTCMinutes()/60+d.getUTCSeconds()/3600+d.getUTCMilliseconds()/3600000;}
-  get label():string {const d=this.date;return `${d.getUTCFullYear()}年${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;}
+  get label():string {const d=this.date;return `${d.getUTCFullYear()}年${d.getUTCMonth()+1}月${d.getUTCDate()}日 ${String(d.getUTCHours()).padStart(2,'0')}時`;}
 }
 export function daylight(hour:number):{red:number;green:number;blue:number;shadowX:number;shadowY:number;shadowAlpha:number} {
   const h=((hour%24)+24)%24;
