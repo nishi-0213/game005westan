@@ -294,6 +294,20 @@ function updateStoredItemViews(): void {
   }
 }
 
+const sleepLabelLayer = new Container();
+function createSleepLabel(): Text {
+  const label = new Text({text:'zzz',resolution:RENDER_RESOLUTION*2,roundPixels:true,style:{fontFamily:'sans-serif',fontSize:10,fontWeight:'bold',fill:0xe7efff,stroke:{color:0x152019,width:2}}});
+  label.anchor.set(.5,1);
+  label.visible=false;
+  sleepLabelLayer.addChild(label);
+  return label;
+}
+function updateSleepLabel(actor:{dead?:boolean;sleep?:SleepState},view:Container,label:Text):void {
+  label.visible=!actor.dead&&view.visible&&actor.sleep?.phase==='sleeping';
+  if(!label.visible)return;
+  label.scale.set(1/map.scale.x);
+  label.position.set(view.x,view.y-12-3/map.scale.y);
+}
 const corpseHud = new Container();
 map.addChild(corpseHud);
 function createCorpseIcon(): Graphics {
@@ -302,7 +316,7 @@ function createCorpseIcon(): Graphics {
 }
 const deerLayer = new Container();
 map.addChild(deerLayer);
-const deerViews = new Map<Animal, { view: Container; selection: Graphics; food: Graphics; corpseIcon: Graphics }>();
+const deerViews = new Map<Animal, { view: Container; selection: Graphics; food: Graphics; corpseIcon: Graphics; sleepLabel: Text }>();
 function updateDeerViews(): void {
   for (const deer of wildlife.animals) {
     let entry = deerViews.get(deer);
@@ -317,7 +331,7 @@ function updateDeerViews(): void {
       const food = new Graphics().circle(10, -5, 2).fill(ITEM_APPEARANCE.strawberry.color);
       view.addChild(selection, body, food);
       deerLayer.addChild(view);
-      entry = { view, selection, food, corpseIcon:createCorpseIcon() };
+      entry = { view, selection, food, corpseIcon:createCorpseIcon(), sleepLabel:createSleepLabel() };
       deerViews.set(deer, entry);
     }
     const position = deer.dead ? corpsePosition(deer) : renderedPosition(deer.movement);
@@ -329,10 +343,12 @@ function updateDeerViews(): void {
     entry.view.visible = !deer.consumed && !deer.corpseStorage;
     entry.corpseIcon.visible = Boolean(deer.dead && deer.collectCorpse && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && !deer.consumed);
     entry.corpseIcon.position.set(entry.view.x,entry.view.y-8);
+    updateSleepLabel(deer,entry.view,entry.sleepLabel);
   }
   for (const [deer, entry] of deerViews) if (deer.departed) {
     entry.view.destroy({ children: true });
     entry.corpseIcon.destroy();
+    entry.sleepLabel.destroy();
     deerViews.delete(deer);
     if (selectedDeerSet.delete(deer)) refreshSelection();
   }
@@ -374,7 +390,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
+  return { view, selection, heldItem, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index] } };
 });
 const needsClearingCell = (tile: Tile) => environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false
   || (walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -1519,6 +1535,7 @@ function attackWobble(actor:{attackMotionSeconds?:number}):number {
 }
 const attackEffects = new AttackEffects(TILE_SIZE);
 map.addChild(attackEffects.view);
+map.addChild(sleepLabelLayer);
 combat.onAttack = event => {
   attackEffects.show(event);
   const pawn = pawns.find(pawn => pawn === event.attacker);
@@ -1690,6 +1707,7 @@ app.ticker.add((ticker) => {
     pawn.corpseIcon.position.set(pawn.view.x,pawn.view.y-8);
     pawn.view.rotation = (pawn.dead || pawn.sleep?.phase==='sleeping') ? Math.PI / 2 : attackWobble(pawn);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
+    updateSleepLabel(pawn,pawn.view,pawn.sleepLabel);
     if(pawn.drawnWeapon!==pawn.weapon){drawWeapon(pawn.weaponView,pawn.weapon);pawn.drawnWeapon=pawn.weapon;}
     if(pawn.shotSeconds<=0 || pawn.weapon!=='rifle')pawn.weaponView.rotation=0;
     if(pawn.weapon==='knife'&&pawn.swingSeconds>0)pawn.weaponView.rotation=pawn.swingAngle+(.5-pawn.swingSeconds/.25)*Math.PI;
