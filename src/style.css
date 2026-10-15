@@ -343,3 +343,17 @@ canvas { touch-action: none; }
 
 .pawn-roster-button img, .priority-pawn img { image-rendering: pixelated; object-fit: contain; }
 .item-icon { background-position: center; background-size: contain; background-repeat: no-repeat; image-rendering: pixelated; }
+
+/* Use the same dark action-button style in every command menu. */
+:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]) {
+  padding: 8px 14px;
+  border: 1px solid #708268;
+  border-radius: 0;
+  background: #263529;
+  color: #f4e9cc;
+  font: 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]):hover:not(:disabled) { background: #354936; }
+:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:disabled { opacity: .5; cursor: default; }
+:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:focus-visible { outline: 2px solid #f2c66d; outline-offset: 2px; }

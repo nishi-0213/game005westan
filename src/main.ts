@@ -808,7 +808,7 @@ let constructionCommand:{pawn:typeof pawns[number];target:Wall}|null=null;
 function openConstructionCommand(pawn:typeof pawns[number],target:Wall,event:MouseEvent):void {
   constructionCommand={pawn,target};
   const button=document.querySelector<HTMLButtonElement>('#immediate-construction')!;
-  button.disabled=!construction.canRequest(pawn,target);
+  button.disabled=pawn.mode!=='automatic'||!construction.canRequest(pawn,target);
   button.title=button.disabled?'建設場所を空け、到達できる状態にしてください。他のポーンが作業中の場合は指示できません。':'';
   haulCommandWindow.close();equipmentCommandWindow.close();foodCommandWindow.close();
   constructionCommandWindow.style.left=`${Math.max(0,Math.min(event.clientX,innerWidth-190))}px`;
@@ -817,7 +817,7 @@ function openConstructionCommand(pawn:typeof pawns[number],target:Wall,event:Mou
 }
 document.querySelector<HTMLButtonElement>('#immediate-construction')!.addEventListener('click',()=>{
   const command=constructionCommand;
-  if(command&&command.pawn===selectedPawn&&construction.canRequest(command.pawn,command.target)){
+  if(command&&command.pawn===selectedPawn&&command.pawn.mode==='automatic'&&construction.canRequest(command.pawn,command.target)){
     const pawn=command.pawn;
     combat.cancel(pawn);hauling.cancel(pawn);harvesting.cancel(pawn);butchery.cancel(pawn);cooking.cancel(pawn);
     pawn.eatJob=null;pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;
@@ -881,12 +881,13 @@ let foodCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[numbe
 function openFoodCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
   prepareHaulCommand(pawn, source); haulCommandWindow.close(); equipmentCommandWindow.close();
   foodCommand = { pawn, source };
+  document.querySelector<HTMLButtonElement>('#eat-now-button')!.disabled=pawn.mode!=='automatic';
   foodCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
   foodCommandWindow.style.top = `${Math.max(0, Math.min(event.clientY, window.innerHeight - 80))}px`;
   if (!foodCommandWindow.open) foodCommandWindow.show();
 }
 document.querySelector<HTMLButtonElement>('#eat-now-button')!.addEventListener('click', () => {
-  if (foodCommand && requestEat(foodCommand.pawn, foodCommand.source, construction, harvesting, hauling)) { combat.cancel(foodCommand.pawn); foodCommand.pawn.manualMove = false; }
+  if (foodCommand && foodCommand.pawn.mode==='automatic' && requestEat(foodCommand.pawn, foodCommand.source, construction, harvesting, hauling)) { combat.cancel(foodCommand.pawn); foodCommand.pawn.manualMove = false; }
   foodCommandWindow.close();
 });
 document.querySelector<HTMLButtonElement>('#close-food-command')!.addEventListener('click', () => foodCommandWindow.close());
@@ -1055,7 +1056,10 @@ function updatePawnModeButton(): void {
 function setPawnMode(pawn:typeof pawns[number],mode:'drafted'|'automatic'):void {
   const changed=pawn.mode!==mode;
   pawn.mode=mode;
-  if(changed)resetDraftTimer(pawn);
+  if(changed){
+    resetDraftTimer(pawn);
+    constructionCommandWindow.close();foodCommandWindow.close();haulCommandWindow.close();equipmentCommandWindow.close();
+  }
   if(mode==='drafted'&&pawn.eatJob&&!pawn.eatJob.manual)pawn.eatJob=null;
   pawn.manualMove=false;
   combat.cancel(pawn);
@@ -1523,10 +1527,10 @@ app.canvas.addEventListener('pointerdown', (event) => {
   }
   const clickedTile={column:Math.floor(x/TILE_SIZE),row:Math.floor(y/TILE_SIZE)};
   const constructionTarget=walls.at(clickedTile)??walls.floorAt(clickedTile);
-  if(event.button===2&&!selectedConstruction&&selectedPawn&&canGiveOrders(selectedPawn)&&!selectedPawn.dead&&constructionTarget?.state==='planned'){
+  if(event.button===2&&!selectedConstruction&&selectedPawn?.mode==='automatic'&&canGiveOrders(selectedPawn)&&!selectedPawn.dead&&constructionTarget?.state==='planned'){
     openConstructionCommand(selectedPawn,constructionTarget,event);return;
   }
-  if (event.button === 2 && removeConstructionPlan({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) })) {
+  if (event.button === 2 && !controlledSelection().some(pawn=>pawn.mode==='drafted') && removeConstructionPlan({ column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) })) {
     if (selectedConstruction) { selectConstruction(null); hideMaterials(); }
     return;
   }
@@ -1548,7 +1552,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
       if (source) { openEquipmentCommand(selectedPawn, source, event); return; }
     }
   }
-  if (event.button === 2 && selectedPawn && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn)) && !selectedPawn.dead) {
+  if (event.button === 2 && selectedPawn?.mode === 'automatic' && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn)) && !selectedPawn.dead) {
     const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
     const source = [...mapItems].reverse().find(item => foodNutrition(item.type) > 0 && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
       ?? (walls.at(tile)?.kind === 'storageArea' ? [...storage.sources('strawberry'), ...storage.sources('meat'),...storage.sources('ration')].find(item => item.column === tile.column && item.row === tile.row) : undefined);
