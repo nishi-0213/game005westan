@@ -436,18 +436,52 @@ butchery.onPickup = corpse => {
   if (changed) refreshSelection();
 };
 butchery.onDrop = corpse => pawnOccupancy.track(corpse.movement);
+const consumedHumans=new Set<typeof pawns[number]>();
+const priorityRowsByPawn=new Map<typeof pawns[number],HTMLTableRowElement>();
 butchery.onConsume = corpse => {
   pawnOccupancy.untrack(corpse.movement);
   const index = pawns.findIndex(pawn => pawn === corpse);
   if (index >= 0) {
-    pawns[index].view.visible = false;
-    rosterButtons[index].button.hidden = true;
-    (prioritiesRows.children[index] as HTMLElement).hidden = true;
+    consumedHumans.add(pawns[index]);
     selectedPawns.delete(pawns[index]);
   } else { (corpse as Animal).departed = true; selectedDeerSet.delete(corpse as Animal); }
   refreshSelection();
 };
 corpseEating.onConsume=butchery.onConsume;
+
+// Consume callbacks run inside actor loops; remove actors only at the step boundary.
+function removeConsumedHumans():void {
+  if(!consumedHumans.size)return;
+  for(const pawn of consumedHumans){
+    sleeping.cancel(pawn);combat.cancel(pawn);hauling.cancel(pawn);harvesting.cancel(pawn);construction.cancel(pawn);butchery.cancel(pawn);cooking.cancel(pawn);
+    for(const worker of [...pawns,...wildlife.animals]){
+      if(worker.attackJob?.target===pawn){combat.cancel(worker);stopAtNextSafeTile(worker.movement,walls.cannotStop);}
+      if('prey' in worker&&worker.prey===pawn)worker.prey=undefined;
+      if(worker.carryingCorpse===pawn)worker.carryingCorpse=null;
+      if(worker.butcherJob?.corpse===pawn||worker.forcedCorpse===pawn)butchery.cancel(worker);
+      if('corpseEater' in worker&&worker.corpseEater===pawn)worker.corpseEater=undefined;
+    }
+    butchery.corpseClaims.delete(pawn);
+    corpseEating.claims.delete(pawn);
+    for(const [body,claim] of corpseEating.claims)if(claim.worker===pawn){body.corpseEater=undefined;corpseEating.claims.delete(body);}
+    for(const [body,owner] of butchery.corpseClaims)if(owner===pawn)butchery.corpseClaims.delete(body);
+    storage.withdrawCorpse(pawn,'humanCorpse');
+    for(const structure of walls.items.values())if(structure.butcher?.corpse===pawn)structure.butcher.corpse=undefined;
+    if(foodCommand?.pawn===pawn){foodCommandWindow.close();foodCommand=null;}
+    if(equipmentCommand?.pawn===pawn){equipmentCommandWindow.close();equipmentCommand=null;}
+    if(haulCommand&&(haulCommand.pawn===pawn||haulCommand.source===pawn)){haulCommandWindow.close();haulCommand=null;}
+    pawnOccupancy.untrack(pawn.movement);
+    selectedPawns.delete(pawn);
+    const rosterIndex=rosterButtons.findIndex(entry=>entry.pawn===pawn);
+    if(rosterIndex>=0){rosterButtons[rosterIndex].button.remove();rosterButtons.splice(rosterIndex,1);}
+    priorityRowsByPawn.get(pawn)?.remove();priorityRowsByPawn.delete(pawn);
+    pawn.view.destroy({children:true});pawn.corpseIcon.destroy();pawn.sleepLabel.destroy();pawn.attackRange.destroy();pawn.movementPath.destroy();
+    const index=pawns.indexOf(pawn);if(index>=0)pawns.splice(index,1);
+  }
+  consumedHumans.clear();
+  refreshSelection();
+}
+
 const plantGrowth = new PlantGrowth(environmentObjects, walls,
   tile => pawnOccupies(tile) || mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row),
   object => {
@@ -490,7 +524,7 @@ for (const [index, pawn] of pawns.entries()) {
     button.addEventListener('contextmenu', (event) => { event.preventDefault();if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
     refresh(); cell.appendChild(button); row.appendChild(cell);
   }
-  prioritiesRows.appendChild(row);
+  prioritiesRows.appendChild(row);priorityRowsByPawn.set(pawn,row);
 }
 prioritiesTab.addEventListener('click', () => {
   if (prioritiesWindow.open) prioritiesWindow.close(); else {
@@ -1694,7 +1728,7 @@ app.ticker.add((ticker) => {
       updateMood(pawn,0);
       const blocked=!canGiveOrders(pawn)&&!pawn.dead;
       if(blocked&&!pawn.controlBlocked&&(pawn.mode==='drafted'||pawn.manualMove||pawn.equipJob||pawn.forcedHaulSource||pawn.forcedCorpse||pawn.eatJob?.manual||pawn.dropRequested||pawn.attackJob?.manual)){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
-      if(blocked!==pawn.controlBlocked){const row=prioritiesRows.children[pawns.indexOf(pawn)];for(const button of row?.querySelectorAll('button')??[])button.disabled=blocked;}
+      if(blocked!==pawn.controlBlocked){const row=priorityRowsByPawn.get(pawn);for(const button of row?.querySelectorAll('button')??[])button.disabled=blocked;}
       pawn.controlBlocked=blocked;
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
       if(pawn.dead)sleeping.cancel(pawn);
@@ -1706,6 +1740,7 @@ app.ticker.add((ticker) => {
     }
     for(const animal of wildlife.animals)animal.attackMotionSeconds=Math.max(0,(animal.attackMotionSeconds??0)-seconds);
     wildlife.update(seconds, pawnOccupies);
+    removeConsumedHumans();
     attackEffects.update(seconds);
     for (const deer of wildlife.animals) if (!deer.dead && deer.sleep?.phase!=='sleeping') advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     updateDoors(seconds);
