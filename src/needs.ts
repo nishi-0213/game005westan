@@ -12,7 +12,7 @@ import type { HaulWorker, Hauling } from './hauling';
 import type { MapItem, ItemType } from './items';
 import { foodNutrition, returnItems, carryCapacity } from './items.ts';
 import type { Tile } from './movement';
-import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
+import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths, rankedTargets } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 
@@ -86,11 +86,11 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
   if (worker.dead) return;
   worker.hp = 0;
   if(worker.bodyHp&&healthHp(worker)>0)worker.bodyHp.torso=0;
-  worker.deadPosition = renderedPosition(worker.movement);
+  worker.deadPosition = { ...worker.movement.tile };
   let restingTile = worker.movement.tile;
-  if (worker.movement.stopBlocked?.(restingTile)
-    || worker.movement.nextTile && worker.movement.stopBlocked?.(worker.movement.nextTile)) {
-    // A pawn dying during a crossing must not leave a body on another pawn.
+  if (!worker.movement.nextTile && worker.movement.stopBlocked?.(restingTile)) {
+    // Keep the existing free-cell fallback for stationary pawns.
+    // During a crossing, death always returns to the source tile.
     const walls = construction.walls;
     const paths = findPaths(worker.movement.nextTile ?? restingTile, walls.mapSize, walls.isBlocked, walls.cannotStop, worker.movement);
     let nearestDistance = Infinity;

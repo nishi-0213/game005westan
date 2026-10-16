@@ -139,14 +139,15 @@ test('a newly stationary occupant diverts an existing destination, while passing
   advancePathMovement(b,.1,10,open,open);assert.deepEqual(b.tile,tile(7,2));
 });
 
-test('a pawn dying while passing another pawn leaves its body in an unoccupied cell', () => {
+test('a pawn dying during a crossing returns to the segment source even when another pawn occupies it', () => {
   const s=scene(), a=s.worker(2,2), b=s.worker(3,2);
   commandMove(a.movement,tile(5,2),12,s.walls.isBlocked,s.walls.cannotStop);
   s.move(a,.3);assert.deepEqual(a.movement.tile,b.movement.tile);
   a.needs.satiety=0;a.hp=.025;
   updateNeeds(a,s.construction,s.harvesting,s.hauling,.1);
   assert.equal(a.dead,true);
-  assert.notDeepEqual(a.movement.tile,b.movement.tile);
-  assert.notDeepEqual(a.deadPosition,b.movement.tile);
-  assert.equal(commandMove(b.movement,a.movement.tile,12,s.walls.isBlocked,s.walls.cannotStop),false);
+  assert.deepEqual(a.movement.tile,b.movement.tile);
+  assert.deepEqual(a.deadPosition,b.movement.tile);
+  assert.equal(a.movement.nextTile,null);
+  assert.equal(a.movement.progress,0);
 });

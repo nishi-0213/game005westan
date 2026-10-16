@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initialNeeds, requestEat, updateNeeds } from '../src/needs.ts';
+import { initialNeeds, requestEat, updateNeeds, killPawn } from '../src/needs.ts';
 import { Walls } from '../src/walls.ts';
 import { Storage } from '../src/storage.ts';
 import { Construction } from '../src/construction.ts';
@@ -42,4 +42,12 @@ test('portable rations weigh1kg and provide30nutrition from stored food in a one
 const s=scene(),box=s.walls.plan({column:3,row:2},'wood','storage');s.walls.complete(box);s.storage.deposit(box,'ration',40);s.worker.needs.satiety=20;
 for(let i=0;i<50&&s.worker.needs.satiety<=20;i++){s.tick(.1);advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);}
 assert.equal(s.worker.needs.satiety,100);assert.equal(box.stored.ration,37);assert.equal(ITEM_APPEARANCE.ration.massKg,1);assert.equal(ITEM_APPEARANCE.ration.nutrition,30);
+});
+
+for(const kind of ['human','deer','wolf'])for(const progress of [.01,.5,.99])test(`${kind} death at segment progress${progress} snaps to source and clears movement`,()=>{
+ const s=scene(),p=s.worker;p.kind=kind;
+ const source={column:3,row:4};Object.assign(p.movement,{tile:{...source},nextTile:{column:4,row:5},progress,destination:{column:6,row:7},route:[{column:5,row:6},{column:6,row:7}]});
+ killPawn(p,s.construction,s.harvesting,s.hauling);
+ assert.deepEqual(p.deadPosition,source);assert.deepEqual(p.movement.tile,source);assert.deepEqual(p.movement.destination,source);assert.equal(p.movement.nextTile,null);assert.equal(p.movement.progress,0);assert.deepEqual(p.movement.route,[]);
+ advancePathMovement(p.movement,10,10,s.walls.isBlocked,s.walls.cannotStop);assert.deepEqual(p.movement.tile,source);
 });
