@@ -42,7 +42,7 @@ export class Storage {
   }
 
   totals(): Record<ItemType, number> {
-    const totals = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 };
+    const totals = { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0, hat: 0, jacket: 0, trousers: 0, ballisticVest: 0, gloves: 0 };
     for (const box of this.boxes()) for (const type of ITEM_TYPES) totals[type] += box.stored?.[type] ?? 0;
     return totals;
   }
@@ -65,7 +65,7 @@ export class Storage {
 
   deposit(box: Wall, type: ItemType, quantity: number): number {
     if (!this.accepts(box, type) || quantity <= 0) return 0;
-    box.stored ??= { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0 };
+    box.stored ??= { wood: 0, stone: 0, strawberry: 0, ration: 0, rifle: 0, knife: 0, meat: 0, humanCorpse: 0, deerCorpse: 0, wolfCorpse: 0, hat: 0, jacket: 0, trousers: 0, ballisticVest: 0, gloves: 0 };
     const deposited = Math.min(quantity, this.capacity(box, type));
     box.stored[type] = (box.stored[type] ?? 0) + deposited;
     return deposited;

@@ -1,3 +1,4 @@
+import { drawClothing } from './clothing-artwork';
 import { SPRITE_URLS, loadSprites, spriteArtwork, drawArtwork, clearArtwork, itemSprite } from './sprite-assets';
 import { canGiveOrders, moodEffects, updateMood } from './mood';
 import { createNeedsMeter } from './needs-meter';
@@ -29,7 +30,7 @@ import { Butchery, BUTCHER_SECONDS, adjustButcherCount, corpsePosition, corpseIt
 import type { Tile } from './movement';
 import { isFloor, constructionKey, BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
-import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems, isWeaponItem } from './items';
+import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems, isWeaponItem, isClothingItem, CLOTHING, CLOTHING_SLOTS, initialClothing, totalArmor, carriedMassKg } from './items';
 import { Storage } from './storage';
 import { Hauling } from './hauling';
 import type { HaulWorker } from './hauling';
@@ -166,6 +167,7 @@ function drawItem(view: Graphics, type: import('./items').ItemType): Graphics {
   clearArtwork(view); view.tint = 0xffffff; view.rotation=0;
   const asset = itemSprite(type);
   if (isWeaponItem(type)) { drawWeapon(view,type); view.position.set(0,7); }
+  else if(isClothingItem(type)){drawClothing(view,{[CLOTHING[type].slot]:type});view.position.set(0,12);}
   else if (asset) { drawArtwork(view,asset,20); view.position.set(0,10); if(type.endsWith('Corpse'))view.rotation=Math.PI/2; }
   else { view.rect(-6,1,12,12).fill(ITEM_APPEARANCE[type].color); view.position.set(0,0); }
   return view;
@@ -398,6 +400,8 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   view.addChild(selection);
   const body = spriteArtwork('pawn');
   view.addChild(body);
+  const clothing=initialClothing();
+  const clothingView=new Graphics();drawClothing(clothingView,clothing);view.addChild(clothingView);
   const heldItem = new Graphics();
   heldItem.scale.set(.45);
   heldItem.visible = false;
@@ -413,7 +417,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || ((walls.at(tile)?.state === 'planned' || walls.floorAt(tile)?.state === 'planned') && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -626,6 +630,18 @@ const pawnSpecsAction = document.createElement('div');
 const pawnSpecsFaction = document.createElement('div');
 const pawnSpecsHp = document.createElement('div');
 const pawnSpecsWeapon = document.createElement('div');
+const pawnClothing=document.createElement('div');pawnClothing.id='pawn-clothing';
+const pawnCarriedMass=document.createElement('div');pawnCarriedMass.id='pawn-carried-mass';
+const clothingRows=Object.entries(CLOTHING_SLOTS).map(([slot,label])=>{
+  const row=document.createElement('div'),value=document.createElement('span'),button=document.createElement('button');
+  button.type='button';button.textContent='外す';button.setAttribute('aria-label',`${label}の装備を外す`);
+  button.addEventListener('click',()=>{
+    const pawn=selectedPawn;if(!pawn||pawn.dead||pawn.sleep||!canGiveOrders(pawn))return;
+    const type=pawn.clothing[slot as keyof typeof CLOTHING_SLOTS];if(!type)return;
+    returnItems(mapItems,pawn.movement.tile,type,1);delete pawn.clothing[slot as keyof typeof CLOTHING_SLOTS];updatePawnPanels();
+  });
+  row.append(value,button);pawnClothing.append(row);return {slot:slot as keyof typeof CLOTHING_SLOTS,label,value,button};
+});
 const pawnCorpseMass = document.createElement('div');
 pawnSpecsWeapon.id = 'pawn-weapon';
 pawnSpecsHp.id = 'pawn-hp';
@@ -646,7 +662,7 @@ needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute
 pawnSpecsTabs.append(overviewTab, needsTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
-pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory);
+pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory, pawnCarriedMass, pawnClothing);
 const pawnNeeds = document.createElement('div');
 pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
 const needsBars=document.createElement('div');
@@ -745,7 +761,7 @@ function updatePawnPanels(): void {
   setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
   pawnCorpseMass.hidden=!selectedPawn.dead;
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
-  setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%　装甲：${selectedPawn.armor}`);
+  setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%　装甲：${totalArmor(selectedPawn)}`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.happiness??50, selectedPawn.needs.satiety, selectedPawn.needs.wakefulness??100].entries()) {
@@ -756,6 +772,12 @@ function updatePawnPanels(): void {
   const fullName = formatPawnName(selectedPawn.name);
   if (pawnSpecsName.textContent !== fullName) pawnSpecsName.textContent = fullName;
   if (pawnSpecsAction.textContent !== action) pawnSpecsAction.textContent = action;
+  setText(pawnCarriedMass,`所持重量：${Number(carriedMassKg(selectedPawn).toFixed(2))}kg / 20kg`);
+  for(const row of clothingRows){
+    const type=selectedPawn.clothing[row.slot];
+    setText(row.value,`${row.label}：${type?ITEM_APPEARANCE[type].name:'なし'}`);
+    row.button.hidden=!type;row.button.disabled=selectedPawn.dead||Boolean(selectedPawn.sleep)||!canGiveOrders(selectedPawn);
+  }
   const held = selectedPawn.inventory;
   if (pawnSpecsItemIcon.hidden !== !held?.quantity) pawnSpecsItemIcon.hidden = !held?.quantity;
   const inventoryLabel = held?.quantity ? `所持：${ITEM_APPEARANCE[held.type].name} × ${held.quantity}` : '所持：なし';
@@ -927,7 +949,7 @@ function openStorageSettings(box: Wall): void {
 for (const input of document.querySelectorAll<HTMLInputElement>('[data-storage-type]')) {
   input.addEventListener('change', () => {
     if (!configuredBox) return;
-    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true, ration: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true, wolfCorpse: true };
+    configuredBox.accepted ??= { wood: true, stone: true, strawberry: true, ration: true, rifle: true, knife: true, meat: true, humanCorpse: true, deerCorpse: true, wolfCorpse: true, hat: true, jacket: true, trousers: true, ballisticVest: true, gloves: true };
     configuredBox.accepted[input.dataset.storageType as (typeof ITEM_TYPES)[number]] = input.checked;
   });
 }
@@ -1003,6 +1025,7 @@ function updateItemSelection(): void {
   if(selectedDeer?.dead)setText(document.querySelector<HTMLElement>('#corpse-mass')!,`${ITEM_APPEARANCE[corpseItemType(selectedDeer)].massKg}kg`);
   for(const element of document.querySelectorAll<HTMLElement>('[data-food-property]'))element.hidden=infoFocus!=='item'||!selectedItem||foodNutrition(selectedItem.type)<=0;
   if(infoFocus==='item'&&selectedItem&&foodNutrition(selectedItem.type)>0)setText(document.querySelector<HTMLElement>('#food-nutrition')!,String(foodNutrition(selectedItem.type)));
+  for(const element of document.querySelectorAll<HTMLElement>('[data-clothing-property]'))element.hidden=infoFocus!=='item'||!selectedItem||!isClothingItem(selectedItem.type);
   for (const element of document.querySelectorAll<HTMLElement>('[data-weapon-property]')) element.hidden = infoFocus !== 'item' || !selectedItem || !isWeaponItem(selectedItem.type);
   itemSelection.visible = selectedItems.size > 0;
   itemSelection.clear();
@@ -1014,6 +1037,10 @@ function updateItemSelection(): void {
 
     itemPropertiesName.textContent = properties.name;
     itemPropertiesMass.textContent = `${properties.massKg}kg`;
+    if(isClothingItem(selectedItem.type)){
+      setText(document.querySelector<HTMLElement>('#clothing-slot')!,CLOTHING_SLOTS[CLOTHING[selectedItem.type].slot]);
+      setText(document.querySelector<HTMLElement>('#clothing-armor')!,String(CLOTHING[selectedItem.type].armor));
+    }
     if (isWeaponItem(selectedItem.type)) {
       setText(document.querySelector<HTMLElement>('#weapon-range')!, selectedItem.type === 'rifle' ? '半径20マス' : '隣接1マス（斜め含む）');
       setText(document.querySelector<HTMLElement>('#weapon-damage')!, `${WEAPONS[selectedItem.type].damage}% / HIT`);
@@ -1559,8 +1586,8 @@ app.canvas.addEventListener('pointerdown', (event) => {
     if(storedBody&&selectedPawn&&!selectedPawn.dead&&(isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn))){openHaulCommand(selectedPawn,storedBody,event);return;}
     if (selectedPawn && !selectedPawn.dead && (isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn))) {
       const tile = { column: Math.floor(x / TILE_SIZE), row: Math.floor(y / TILE_SIZE) };
-      const source = [...mapItems].reverse().find(item => isWeaponItem(item.type) && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
-        ?? (walls.at(tile)?.kind === 'storageArea' ? [...storage.sources('rifle'),...storage.sources('knife')].find(item => item.column === tile.column && item.row === tile.row) : undefined);
+      const source = [...mapItems].reverse().find(item => (isWeaponItem(item.type)||isClothingItem(item.type)) && item.quantity > 0 && item.column === tile.column && item.row === tile.row)
+        ?? (walls.at(tile)?.kind === 'storageArea' ? ITEM_TYPES.filter(type=>isWeaponItem(type)||isClothingItem(type)).flatMap(type=>storage.sources(type)).find(item => item.column === tile.column && item.row === tile.row) : undefined);
       if (source) { openEquipmentCommand(selectedPawn, source, event); return; }
     }
   }
@@ -1878,6 +1905,8 @@ app.ticker.add((ticker) => {
     pawn.view.visible = !pawn.consumed && !pawn.corpseStorage;
     pawn.corpseIcon.visible = Boolean(pawn.dead&&pawn.collectCorpse&&!pawn.consumed&&!pawn.corpseCarrier&&!pawn.corpseStation&&!pawn.corpseStorage);
     pawn.corpseIcon.position.set(pawn.view.x,pawn.view.y-8);
+    const clothingSignature=JSON.stringify(pawn.clothing);
+    if(clothingSignature!==pawn.clothingSignature){drawClothing(pawn.clothingView,pawn.clothing);pawn.clothingSignature=clothingSignature;}
     pawn.view.rotation = (pawn.dead || pawn.sleep?.phase==='sleeping') ? Math.PI / 2 : attackWobble(pawn);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     updateSleepLabel(pawn,pawn.view,pawn.sleepLabel);

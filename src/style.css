@@ -357,3 +357,7 @@ canvas { touch-action: none; }
 :is(#construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]):hover:not(:disabled) { background: #354936; }
 :is(#construction-command, #food-command, #equipment-command, #haul-command) > button:disabled { opacity: .5; cursor: default; }
 :is(#construction-command, #food-command, #equipment-command, #haul-command) > button:focus-visible { outline: 2px solid #f2c66d; outline-offset: 2px; }
+#pawn-clothing { margin-top: 6px; }
+#pawn-clothing > div { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-height: 24px; }
+#pawn-clothing button { border: 1px solid #708268; background: #263529; color: #f4e9cc; cursor: pointer; }
+#pawn-clothing button:disabled { opacity: .5; cursor: default; }

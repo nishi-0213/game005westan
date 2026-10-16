@@ -12,7 +12,7 @@ import { killPawn } from './needs.ts';
 import type { FactionMember } from './factions';
 import { areHostile, isPlayerControlled } from './factions.ts';
 import type { MapItem } from './items';
-import { carryCapacity, returnItems, isWeaponItem } from './items.ts';
+import { carryCapacity, returnItems, isWeaponItem, isClothingItem, CLOTHING, totalArmor } from './items.ts';
 import { createMovement } from './movement.ts';
 import type {Wall} from './walls';
 import type { Construction } from './construction';
@@ -127,7 +127,7 @@ export class Combat {
   }
 
   requestEquip(pawn: CombatPawn, source: MapItem): boolean {
-    if (!canGiveOrders(pawn) || pawn.dead || pawn.sleep || !isPlayerControlled(pawn) || !isWeaponItem(source.type) || source.quantity <= 0) return false;
+    if (!canGiveOrders(pawn) || pawn.dead || pawn.sleep || !isPlayerControlled(pawn) || (!isWeaponItem(source.type) && !isClothingItem(source.type)) || source.quantity <= 0) return false;
     const walls = this.construction.walls, from = pawn.movement.nextTile ?? pawn.movement.tile;
     const paths = findPaths(from, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     const direct = paths.get(source.row * walls.mapSize + source.column);
@@ -232,8 +232,17 @@ export class Combat {
       if (!stationary(pawn)) return true;
       if (positionKey(pawn.movement.tile) !== positionKey(equip.goal)) { this.cancel(pawn); return false; }
       equip.source.quantity -= 1;
-      if (pawn.weapon && pawn.weapon !== 'unarmed') returnItems(this.construction.items, pawn.movement.tile, pawn.weapon, 1);
-      pawn.weapon = equip.source.type as Exclude<Weapon, 'unarmed'>; pawn.equipJob = null;
+      if(isClothingItem(equip.source.type)){
+        const slot=CLOTHING[equip.source.type].slot;
+        pawn.clothing ??= {};
+        const previous=pawn.clothing[slot];
+        if(previous)returnItems(this.construction.items,pawn.movement.tile,previous,1);
+        pawn.clothing[slot]=equip.source.type;
+      }else{
+        if (pawn.weapon && pawn.weapon !== 'unarmed') returnItems(this.construction.items, pawn.movement.tile, pawn.weapon, 1);
+        pawn.weapon = equip.source.type as Exclude<Weapon, 'unarmed'>;
+      }
+      pawn.equipJob = null;
       if (pawn.inventory) {
         const excess = Math.max(0, pawn.inventory.quantity - carryCapacity(pawn, pawn.inventory.type));
         if (excess) { returnItems(this.construction.items, pawn.movement.tile, pawn.inventory.type, excess); pawn.inventory.quantity -= excess; }
@@ -302,7 +311,7 @@ export class Combat {
       const hit = this.random() < accuracy;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
         from: renderedPosition(pawn.movement), to: job.target.structure?aim:renderedPosition(job.target.movement),
-        damage: hit ? attackDamage(stats.damage, stats.penetration, job.target.armor) : 0 };
+        damage: hit ? attackDamage(stats.damage, stats.penetration, totalArmor(job.target)) : 0 };
       if(!hit&&weapon==='rifle'){
         const angle=this.random()*Math.PI*2,offset=.6+this.random()*.9;
         event.to={column:event.to.column+Math.cos(angle)*offset,row:event.to.row+Math.sin(angle)*offset};

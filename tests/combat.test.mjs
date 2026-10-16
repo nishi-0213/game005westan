@@ -171,3 +171,21 @@ test('wolf fangs have their own0.3second interval,50percent accuracy,40damage an
   s.combat.update(wolf,.3);assert.equal(target.hp,hit?20:100);
  }
 });
+
+test('equipping clothes consumes one, replaces its slot, preserves weapons and drops excess cargo',()=>{
+ const s=scene(),p=s.pawn(3,3,'rifle');p.clothing={head:'hat',torso:'jacket',legs:'trousers'};p.inventory={type:'wood',quantity:12};
+ const source={column:3,row:3,type:'ballisticVest',quantity:2};s.items.push(source);
+ assert.equal(s.combat.requestEquip(p,source),true);s.combat.update(p,0);
+ assert.equal(source.quantity,1);assert.equal(p.clothing.outerwear,'ballisticVest');assert.equal(p.weapon,'rifle');assert.equal(p.inventory.quantity,2);
+ assert.equal(countItems(s.items).wood,10);
+ const replacement={column:3,row:3,type:'jacket',quantity:1};s.items.push(replacement);
+ assert.equal(s.combat.requestEquip(p,replacement),true);s.combat.update(p,0);
+ assert.equal(replacement.quantity,1);assert.equal(p.clothing.torso,'jacket');
+ assert.equal(p.clothing.outerwear,'ballisticVest');
+});
+
+test('clothes protect targets in real combat and removing clothes restores full damage',()=>{
+ const s=scene(),a=s.pawn(3,3,'knife'),b=s.pawn(4,3);b.clothing={head:'hat',torso:'jacket',legs:'trousers'};
+ assert.equal(s.combat.requestAttack(a,b),true);s.combat.update(a,.1);assert.equal(b.hp,75);
+ b.clothing={};s.combat.update(a,.1);assert.equal(b.hp,25);
+});

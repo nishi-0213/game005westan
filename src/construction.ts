@@ -19,6 +19,7 @@ export interface Builder {
   butcherJob?: import('./butchery').ButcherJob | null;
   forcedCorpse?: import('./butchery').Corpse | null;
   carryingCorpse?: import('./butchery').Corpse | null;
+  clothing?: import('./items').Clothing;
   weapon?: 'unarmed' | 'rifle' | 'knife';
   mode: 'drafted' | 'automatic';
   inventory: { type: ItemType; quantity: number } | null;
