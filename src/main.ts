@@ -675,7 +675,7 @@ const healthTab=document.createElement('button');healthTab.type='button';healthT
 pawnSpecsTabs.append(overviewTab, needsTab, healthTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
-pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory, pawnCarriedMass, pawnClothing);
+pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory, pawnCarriedMass);
 const pawnNeeds = document.createElement('div');
 pawnNeeds.className = 'pawn-needs'; pawnNeeds.hidden = true;
 const needsBars=document.createElement('div');
@@ -696,9 +696,9 @@ const healthMeters=Object.entries(BODY_PARTS).map(([part,label])=>{
   armor.className='body-armor';row.append(title,gauge.track,gauge.value,armor);pawnHealth.append(row);
   return {part:part as keyof typeof BODY_PARTS,gauge,armor};
 });
+pawnHealth.append(pawnClothing);
 function selectPawnInfoTab(tab:'overview'|'needs'|'health'):void {
   pawnOverview.hidden=tab!=='overview';pawnNeeds.hidden=tab!=='needs';pawnHealth.hidden=tab!=='health';
-  pawnSpecs.classList.toggle('show-needs',tab==='needs');
   for(const [button,name] of [[overviewTab,'overview'],[needsTab,'needs'],[healthTab,'health']] as const)button.setAttribute('aria-pressed',String(tab===name));
   updatePawnPanels();
 }
@@ -786,7 +786,7 @@ function updatePawnPanels(): void {
   setText(pawnSpecsHp, `HP：${Math.round(healthHp(selectedPawn))}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
-  if(!pawnHealth.hidden)for(const entry of healthMeters){entry.gauge.update(selectedPawn.bodyHp[entry.part]);setText(entry.armor,`装甲：${armorForPart(selectedPawn,entry.part)}`);}
+  for(const entry of healthMeters){entry.gauge.update(selectedPawn.bodyHp[entry.part]);setText(entry.armor,`装甲：${armorForPart(selectedPawn,entry.part)}`);}
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.happiness??50, selectedPawn.needs.satiety, selectedPawn.needs.wakefulness??100].entries()) {
     needsMeters[index].update(value);
   }
