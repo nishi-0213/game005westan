@@ -519,12 +519,27 @@ map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
 const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
 const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorities-rows')!;
-function createPawnPortrait(): HTMLImageElement {
+const portraitSources=new Map<string,string>();
+const pawnPortraits=new Map<typeof pawns[number],HTMLImageElement[]>();
+function clothingPortraitSource(pawn:typeof pawns[number]):string {
+  const key=JSON.stringify(pawn.clothing);
+  let source=portraitSources.get(key);
+  if(!source){
+    const artwork=new Container(),clothes=new Graphics();
+    artwork.addChild(spriteArtwork('pawn'));drawClothing(clothes,pawn.clothing);artwork.addChild(clothes);
+    const canvas=app.renderer.extract.canvas({target:artwork,frame:new Rectangle(-16,-16,32,32),resolution:2}) as HTMLCanvasElement;
+    source=canvas.toDataURL();portraitSources.set(key,source);
+    artwork.destroy({children:true});
+  }
+  return source;
+}
+function createPawnPortrait(pawn:typeof pawns[number]): HTMLImageElement {
   const portrait = document.createElement('img');
-  portrait.src = SPRITE_URLS.pawn;
+  portrait.src = clothingPortraitSource(pawn);
   portrait.alt = '';
   portrait.setAttribute('aria-hidden', 'true');
   portrait.width = 32; portrait.height = 32;
+  const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
 }
 for (const [index, pawn] of pawns.entries()) {
@@ -535,7 +550,7 @@ for (const [index, pawn] of pawns.entries()) {
   nameLabel.textContent = formatPawnName(pawn.name);
   const identity = document.createElement('div');
   identity.className = 'priority-pawn';
-  identity.append(createPawnPortrait(), nameLabel);
+  identity.append(createPawnPortrait(pawn), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
   for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['cooking','調理'], ['hunting','狩猟'], ['free', '自由']] as const) {
@@ -692,7 +707,7 @@ const rosterButtons = pawns.map((pawn, index) => {
   button.setAttribute('aria-label', `${formatPawnName(pawn.name)}を選択`);
   button.setAttribute('aria-pressed', 'false');
   button.title = formatPawnName(pawn.name);
-  const portrait = createPawnPortrait();
+  const portrait = createPawnPortrait(pawn);
   const label = document.createElement('span');
   label.textContent = pawn.name.nickname || pawn.name.givenName;
   button.append(portrait, label);
@@ -1906,7 +1921,11 @@ app.ticker.add((ticker) => {
     pawn.corpseIcon.visible = Boolean(pawn.dead&&pawn.collectCorpse&&!pawn.consumed&&!pawn.corpseCarrier&&!pawn.corpseStation&&!pawn.corpseStorage);
     pawn.corpseIcon.position.set(pawn.view.x,pawn.view.y-8);
     const clothingSignature=JSON.stringify(pawn.clothing);
-    if(clothingSignature!==pawn.clothingSignature){drawClothing(pawn.clothingView,pawn.clothing);pawn.clothingSignature=clothingSignature;}
+    if(clothingSignature!==pawn.clothingSignature){
+      drawClothing(pawn.clothingView,pawn.clothing);pawn.clothingSignature=clothingSignature;
+      const source=clothingPortraitSource(pawn);
+      for(const portrait of pawnPortraits.get(pawn)??[])portrait.src=source;
+    }
     pawn.view.rotation = (pawn.dead || pawn.sleep?.phase==='sleeping') ? Math.PI / 2 : attackWobble(pawn);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     updateSleepLabel(pawn,pawn.view,pawn.sleepLabel);

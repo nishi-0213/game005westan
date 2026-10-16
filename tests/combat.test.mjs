@@ -189,3 +189,14 @@ test('clothes protect targets in real combat and removing clothes restores full 
  assert.equal(s.combat.requestAttack(a,b),true);s.combat.update(a,.1);assert.equal(b.hp,75);
  b.clothing={};s.combat.update(a,.1);assert.equal(b.hp,25);
 });
+
+test('death retains every clothing slot on the corpse and drops only the equipped weapon once',()=>{
+ const s=scene(),attacker=s.pawn(3,3,'rifle'),target=s.pawn(4,3,'knife');target.hp=10;
+ target.clothing={head:'hat',outerwear:'ballisticVest',torso:'jacket',arms:'gloves',legs:'trousers'};
+ const clothes={...target.clothing};
+ assert.equal(s.combat.requestAttack(attacker,target),true);s.combat.update(attacker,.4);
+ assert.equal(target.dead,true);assert.deepEqual(target.clothing,clothes);assert.equal(target.weapon,'unarmed');
+ const totals=countItems(s.items);assert.equal(totals.knife,1);
+ for(const type of Object.values(clothes))assert.equal(totals[type],0);
+ s.combat.update(attacker,1);assert.deepEqual(countItems(s.items),totals);assert.deepEqual(target.clothing,clothes);
+});

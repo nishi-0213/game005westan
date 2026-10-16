@@ -96,6 +96,7 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
     }
     worker.deadPosition = { ...restingTile };
   }
+  // Clothing stays equipped on the corpse; only the weapon is dropped here.
   if(worker.weapon && worker.weapon!=='unarmed') {
     const walls=construction.walls;
     const nearby=[];
