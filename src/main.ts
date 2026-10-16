@@ -1,3 +1,4 @@
+import { clothingShapes } from './clothing-shapes';
 import { drawClothing } from './clothing-artwork';
 import { SPRITE_URLS, loadSprites, spriteArtwork, drawArtwork, clearArtwork, itemSprite } from './sprite-assets';
 import { canGiveOrders, moodEffects, updateMood } from './mood';
@@ -519,26 +520,21 @@ map.addChild(environmentHud);
 const prioritiesTab = document.querySelector<HTMLButtonElement>('#priorities-tab')!;
 const prioritiesWindow = document.querySelector<HTMLDialogElement>('#priorities-window')!;
 const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorities-rows')!;
-const portraitSources=new Map<string,string>();
-const pawnPortraits=new Map<typeof pawns[number],HTMLImageElement[]>();
-function clothingPortraitSource(pawn:typeof pawns[number]):string {
-  const key=JSON.stringify(pawn.clothing);
-  let source=portraitSources.get(key);
-  if(!source){
-    const artwork=new Container(),clothes=new Graphics();
-    artwork.addChild(spriteArtwork('pawn'));drawClothing(clothes,pawn.clothing);artwork.addChild(clothes);
-    const canvas=app.renderer.extract.canvas({target:artwork,frame:new Rectangle(-16,-16,32,32),resolution:2}) as HTMLCanvasElement;
-    source=canvas.toDataURL();portraitSources.set(key,source);
-    artwork.destroy({children:true});
-  }
-  return source;
+const pawnPortraits=new Map<typeof pawns[number],HTMLDivElement[]>();
+function updatePawnPortrait(portrait:HTMLDivElement,pawn:typeof pawns[number]):void {
+  const svg=portrait.querySelector('svg')!;
+  svg.replaceChildren(...clothingShapes(pawn.clothing).map(shape=>{
+    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    for(const name of ['x','y','width','height'] as const)rect.setAttribute(name,String(shape[name]));
+    rect.setAttribute('fill',`#${shape.color.toString(16).padStart(6,'0')}`);return rect;
+  }));
 }
-function createPawnPortrait(pawn:typeof pawns[number]): HTMLImageElement {
-  const portrait = document.createElement('img');
-  portrait.src = clothingPortraitSource(pawn);
-  portrait.alt = '';
-  portrait.setAttribute('aria-hidden', 'true');
-  portrait.width = 32; portrait.height = 32;
+function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
+  const portrait = document.createElement('div');portrait.className='pawn-portrait';
+  portrait.setAttribute('aria-hidden','true');
+  const body=document.createElement('img');body.src=SPRITE_URLS.pawn;body.alt='';
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','-16 -16 32 32');
+  portrait.append(body,svg);updatePawnPortrait(portrait,pawn);
   const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
 }
@@ -1923,8 +1919,7 @@ app.ticker.add((ticker) => {
     const clothingSignature=JSON.stringify(pawn.clothing);
     if(clothingSignature!==pawn.clothingSignature){
       drawClothing(pawn.clothingView,pawn.clothing);pawn.clothingSignature=clothingSignature;
-      const source=clothingPortraitSource(pawn);
-      for(const portrait of pawnPortraits.get(pawn)??[])portrait.src=source;
+      for(const portrait of pawnPortraits.get(pawn)??[])updatePawnPortrait(portrait,pawn);
     }
     pawn.view.rotation = (pawn.dead || pawn.sleep?.phase==='sleeping') ? Math.PI / 2 : attackWobble(pawn);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);

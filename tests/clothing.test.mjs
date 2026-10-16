@@ -24,3 +24,11 @@ test('clothing stacks participate in storage and item counts',()=>{
  assert.equal(storage.deposit(box,'ballisticVest',1),1);assert.equal(storage.deposit(box,'gloves',1),1);
  assert.equal(storage.totals().ballisticVest,1);assert.equal(storage.sources('gloves')[0].quantity,1);
 });
+
+test('portrait geometry contains each equipped slot and layers outerwear above the torso',async()=>{
+ const {clothingShapes}=await import('../src/clothing-shapes.ts');
+ const initial=initialClothing(),base=clothingShapes(initial);assert.equal(base.length,5);
+ const full=clothingShapes({...initial,outerwear:'ballisticVest',arms:'gloves'});assert.equal(full.length,9);
+ assert.ok(full.findIndex(shape=>shape.color===0x555e46)>full.findIndex(shape=>shape.color===0x6386a1));
+ assert.equal(clothingShapes({}).length,0);assert.equal(clothingShapes({arms:'gloves'}).length,2);
+});

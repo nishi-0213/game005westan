@@ -361,3 +361,10 @@ canvas { touch-action: none; }
 #pawn-clothing > div { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-height: 24px; }
 #pawn-clothing button { border: 1px solid #708268; background: #263529; color: #f4e9cc; cursor: pointer; }
 #pawn-clothing button:disabled { opacity: .5; cursor: default; }
+
+/* Draw clothes directly in the DOM, independently of renderer image extraction. */
+.pawn-portrait { position: relative; width: 32px; aspect-ratio: 1; flex: none; }
+.pawn-roster-button .pawn-portrait { width: min(48px, 65%); max-height: 65%; margin: 0 auto; }
+.priority-pawn .pawn-portrait { width: 24px; }
+.pawn-portrait > svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; shape-rendering: crispEdges; }
+:is(.pawn-roster-button, .priority-pawn) .pawn-portrait > img { position: absolute; left: 12.5%; top: 12.5%; width: 75%; height: 75%; max-height: none; margin: 0; image-rendering: pixelated; }
