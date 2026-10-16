@@ -29,7 +29,7 @@ test('filters prevent new deposits and can be changed while hauling; contents re
 test('construction uses a reachable nearest box and ignores unmarked ground resources',()=>{
  const s=scene([{column:2,row:2,type:'wood',quantity:100}]);const plan=s.walls.plan({column:3,row:3},'wood');s.tick(30);assert.equal(plan.delivered,0);const far=s.box({column:9,row:9}),near=s.box({column:4,row:2});s.storage.deposit(far,'wood',50);s.storage.deposit(near,'wood',20);s.worker.priorities.construction=1;s.tick(100);assert.equal(plan.state,'completed');assert.equal(far.stored.wood,50);assert.equal(s.items[0].quantity,100);
 });
-test('free storage areas enable the first box without building directly from ground resources',()=>{
+test('unmarked supplies wait until marked; the first box and area preserve all resources',()=>{
  const stack={column:3,row:2,type:'wood',quantity:100};const s=scene([stack]);const box=s.walls.plan({column:4,row:3},'wood','storage');s.tick(50);assert.equal(box.delivered,0);
  const area=s.walls.plan({column:5,row:4},'wood','storageArea');s.walls.complete(area);assert.deepEqual(BUILD_RECIPES.storageArea,{materialCount:0,seconds:0});assert.equal(s.walls.isBlocked(area),false);assert.equal(s.walls.cannotStop(area),false);
  stack.collect=true;s.tick(500);assert.equal(box.state,'completed');assert.equal(box.delivered,30);assert.equal(box.workSeconds,3);assert.equal(s.storage.totals().wood,70);assert.equal(stack.quantity,0);
@@ -61,4 +61,34 @@ test('stored item source identity persists across selection and quantity updates
  const a=s.storage.sources('knife')[0];assert.equal(s.storage.sources('knife')[0],a);assert.equal(s.storage.isSource(a),true);
  s.storage.deposit(box,'knife',1);assert.equal(a.quantity,3);a.quantity=0;assert.equal(s.storage.sources('knife').length,0);
  s.storage.deposit(box,'knife',1);s.walls.erase(box);assert.equal(a.quantity,0);
+});
+
+
+test('construction compares collected ground materials and stored supplies by reachable path distance',()=>{
+ for(const nearer of ['ground','stored']){
+  const ground={column:nearer==='ground'?3:9,row:2,type:'wood',quantity:20,collect:true};
+  const s=scene([ground]),box=s.box({column:nearer==='stored'?4:9,row:nearer==='stored'?2:9});s.storage.deposit(box,'wood',20);
+  s.walls.plan({column:6,row:5},'wood');s.construction.update(s.worker,0);
+  assert.equal(s.worker.job.phase,'gather');
+  assert.equal(s.worker.job.source===ground,nearer==='ground');
+ }
+});
+test('collected ground resources can build without any storage and are consumed once',()=>{
+ const stack={column:3,row:2,type:'wood',quantity:2,collect:true},s=scene([stack]);
+ const plan=s.walls.plan({column:5,row:3},'wood');
+ for(let i=0;i<100&&plan.state!=='completed';i++){
+  s.construction.update(s.worker,.1);advancePathMovement(s.worker.movement,.1,12,s.walls.isBlocked,s.walls.cannotStop);
+ }
+ assert.equal(plan.state,'completed');assert.equal(plan.delivered,2);assert.equal(stack.quantity,0);assert.equal(s.worker.inventory,null);
+});
+test('unreachable collected ground supplies do not prevent using reachable storage',()=>{
+ const ground={column:1,row:1,type:'wood',quantity:20,collect:true},s=scene([ground]);
+ for(const tile of [{column:0,row:1},{column:1,row:0},{column:2,row:1},{column:1,row:2}])s.walls.complete(s.walls.plan(tile,'wood'));
+ const box=s.box({column:8,row:8});s.storage.deposit(box,'wood',20);s.walls.plan({column:5,row:5},'wood');
+ s.construction.update(s.worker,0);assert.equal(s.worker.job.phase,'gather');assert.notEqual(s.worker.job.source,ground);
+});
+test('unmarking ground resources releases an in-flight construction pickup without consuming them',()=>{
+ const ground={column:5,row:2,type:'wood',quantity:20,collect:true},s=scene([ground]);
+ const plan=s.walls.plan({column:6,row:5},'wood');s.construction.update(s.worker,0);assert.equal(s.worker.job.source,ground);
+ ground.collect=false;s.construction.update(s.worker,.1);assert.equal(s.worker.job,null);assert.equal(s.construction.claims.has(plan),false);assert.equal(ground.quantity,20);assert.equal(s.worker.inventory,null);
 });

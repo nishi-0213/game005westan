@@ -49,7 +49,7 @@ export class Construction {
 
   sources(target: Wall): MapItem[] {
     if (!this.storage) return this.items;
-    return this.storage.sources(target.material);
+    return [...this.storage.sources(target.material), ...this.items.filter(item => item.collect && item.type === target.material)];
   }
 
   sourceApproach(from: Tile, source: MapItem, paths: Map<number, Path>): { goal: Tile; path: Path } | null {
@@ -163,7 +163,7 @@ export class Construction {
     const recipe = BUILD_RECIPES[target.kind];
     if (!recipe || target.delivered >= recipe.materialCount) return false;
     const held = builder.inventory?.type === target.material && builder.inventory.quantity > 0;
-    const unavailable = job?.phase === 'gather' ? !job.source?.quantity
+    const unavailable = job?.phase === 'gather' ? !job.source?.quantity || Boolean(this.storage && job.source && !this.storage.isSource(job.source) && !job.source.collect)
       : job?.phase === 'deliver' ? !held
       : !held && !this.sources(target).some(source => source.type === target.material && source.quantity > 0);
     if (!unavailable) return false;
