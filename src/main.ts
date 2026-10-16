@@ -142,6 +142,15 @@ const storage = new Storage(walls);
 const mapItems = initialItems();
 let selectedItems = new Set<(typeof mapItems)[number]>();
 let selectedItem: (typeof mapItems)[number] | null = null;
+// Quantity labels stay above every map object, including later-created views.
+map.sortableChildren = true;
+const itemQuantityLayer = new Container();
+itemQuantityLayer.zIndex = 1;
+map.addChild(itemQuantityLayer);
+function positionItemQuantity(quantity: Text, tile: Tile, scale = map.scale.x): void {
+  quantity.scale.set(1 / scale);
+  quantity.position.set((tile.column + .5) * TILE_SIZE, tile.row * TILE_SIZE + 13 + 2 / scale);
+}
 const itemLayer = new Container();
 const itemViews = new Map<(typeof mapItems)[number], { view: Container; quantity: Text; collectIcon: Graphics }>();
 map.addChild(itemLayer);
@@ -177,10 +186,10 @@ function createItemView(item: (typeof mapItems)[number]): void {
     style: { fontFamily: 'sans-serif', fontSize: 10, lineHeight: 12, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } },
   });
   quantity.anchor.set(0.5, 0);
-  quantity.scale.set(1 / map.scale.x);
-  quantity.position.set(0, 13 + 2 / map.scale.y);
+  positionItemQuantity(quantity, item);
   const collectIcon = new Graphics().moveTo(-3, -6).lineTo(3, -6).moveTo(0, -9).lineTo(0, -3).stroke({ color: 0xf2c66d, width: 2 });
-  view.addChild(icon, quantity, collectIcon);
+  view.addChild(icon, collectIcon);
+  itemQuantityLayer.addChild(quantity);
   itemLayer.addChild(view);
   itemViews.set(item, { view, quantity, collectIcon });
 }
@@ -212,6 +221,7 @@ function updateItemSummary(): void {
   for (const [item, { view, quantity, collectIcon }] of itemViews) {
     if (item.quantity <= 0) {
       view.destroy({ children: true });
+      quantity.destroy();
       itemViews.delete(item);
       continue;
     }
@@ -279,15 +289,16 @@ function updateStoredItemViews(): void {
       const icon = new Graphics().rect(-6, 1, 12, 12).fill(0xffffff);
       const quantity = new Text({ text: '', resolution: RENDER_RESOLUTION * 2, roundPixels: true, style: { fontFamily: 'sans-serif', fontSize: 10, fill: 0xffffff, stroke: { color: 0x152019, width: 2 } } });
       quantity.anchor.set(0.5, 0);
-      quantity.scale.set(1 / map.scale.x);
-      quantity.position.set(0, 13 + 2 / map.scale.y);
-      view.addChild(icon, quantity);
+      positionItemQuantity(quantity, area);
+      view.addChild(icon);
+      itemQuantityLayer.addChild(quantity);
       storedItemLayer.addChild(view);
       entry = { view, icon, quantity };
       storedItemViews.set(area, entry);
     }
     const type = ITEM_TYPES.find(type => (area.stored?.[type] ?? 0) > 0);
     entry.view.visible = Boolean(type);
+    entry.quantity.visible = entry.view.visible;
     if (type) {
       drawItem(entry.icon,type);
       const quantity = String(area.stored![type]);
@@ -1370,11 +1381,8 @@ const MAX_ZOOM = 4;
 function applyCamera(): void {
   const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS * camera.zoom;
   map.scale.set(scale);
-  for (const { quantity } of itemViews.values()) {
-    quantity.scale.set(1 / scale);
-    quantity.y = 13 + 2 / scale;
-  }
-  for (const { quantity } of storedItemViews.values()) { quantity.scale.set(1 / scale); quantity.y = 13 + 2 / scale; }
+  for (const [item, { quantity }] of itemViews) positionItemQuantity(quantity, item, scale);
+  for (const [area, { quantity }] of storedItemViews) positionItemQuantity(quantity, area, scale);
   map.position.set(
     app.screen.width / 2 - camera.x * scale,
     app.screen.height / 2 - camera.y * scale,
