@@ -226,3 +226,12 @@ test('a clothing swap with no empty drop cell preserves both the equipped clothi
  const source={column:3,row:3,type:'jacket',quantity:1};s.items.push(source);
  assert.equal(s.combat.requestEquip(p,source),true);s.combat.update(p,0);assert.equal(source.quantity,1);assert.equal(p.clothing.torso,'jacket');assert.equal(countItems(s.items).jacket,1);assert.equal(p.equipJob,null);
 });
+
+test('a hit applies stacked injuries to its selected body part; misses apply none and bleeding can kill through needs updates',()=>{
+ const s=scene(()=>0),a=s.pawn(3,3),b=s.pawn(4,3);b.kind='human';b.bodyHp={head:100,torso:100,arms:100,legs:100};
+ s.combat.requestAttack(a,b);s.combat.update(a,.2);
+ assert.equal(b.bodyHp.head,90);assert.deepEqual(b.conditions.map(c=>[c.kind,c.part]),[['bleeding','head'],['bruise','head']]);
+ s.combat.update(a,.2);assert.equal(b.conditions.length,4);
+ b.bodyHp.head=1;updateNeeds(b,s.construction,s.harvesting,s.hauling,1,false);assert.equal(b.dead,true);assert.equal(b.hp,0);
+ const t=scene(()=>.9),c=t.pawn(3,3),d=t.pawn(4,3);d.bodyHp={head:100,torso:100,arms:100,legs:100};t.combat.requestAttack(c,d);t.combat.update(c,.2);assert.equal(d.conditions,undefined);
+});

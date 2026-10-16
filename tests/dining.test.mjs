@@ -72,3 +72,12 @@ for(const type of ['meat','humanCorpse','deerCorpse','wolfCorpse','ration','stra
  assert.equal(memories.some(m=>m.kind==='rawFood'),!['ration','strawberry'].includes(type));
  assert.equal(memories.some(m=>m.kind==='standingMeal'),!seated||type.endsWith('Corpse'));
 });
+
+test('stomachache rolls on completed meals, not on starting or interrupting them',()=>{
+ const original=Math.random;Math.random=()=>0;
+ try{
+  const s=scene();s.worker.kind='human';s.worker.bodyHp={head:100,torso:100,arms:100,legs:100};
+  s.tick();s.tick(.5);assert.equal(s.worker.conditions,undefined);s.finish();assert.equal(s.worker.conditions.length,1);assert.equal(s.worker.conditions[0].kind,'stomachache');assert.equal(s.worker.conditions[0].part,'torso');
+  const t=scene();t.worker.kind='human';t.worker.bodyHp={head:100,torso:100,arms:100,legs:100};t.tick();t.tick(.5);t.worker.mode='drafted';t.tick();assert.equal(t.worker.eatJob,null);assert.equal(t.worker.conditions,undefined);
+ }finally{Math.random=original;}
+});

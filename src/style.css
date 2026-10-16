@@ -378,3 +378,15 @@ canvas { touch-action: none; }
 #pawn-specs > :is(.pawn-overview, .pawn-needs, .pawn-health) { grid-area: 2 / 1; align-self: start; }
 #pawn-specs > :is(.pawn-overview, .pawn-health)[hidden] { display: block; visibility: hidden; pointer-events: none; }
 #pawn-specs > .pawn-needs[hidden] { display: grid; visibility: hidden; pointer-events: none; }
+
+.body-health-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; align-items:center; }
+.pawn-health .body-health-row label { grid-template-columns:20px minmax(0,1fr) 36px; min-width:0; }
+.body-conditions { font-size:12px; color:#e6b6a6; overflow-wrap:anywhere; }
+
+#animal-tabs[hidden] { display:none; }
+.animal-panes.show-animal { display:grid; }
+.animal-panes.show-animal > * { grid-area:1 / 1; align-self:start; }
+.animal-panes.show-animal > [hidden] { display:block; visibility:hidden; pointer-events:none; }
+#item-properties:has(.show-animal) { width:min(480px,calc(100vw - 56px)); max-height:calc(100vh - 100px); overflow-y:auto; }
+
+#item-properties .animal-panes.show-animal > dl[hidden] { display:grid; }

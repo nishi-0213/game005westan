@@ -1,3 +1,4 @@
+import { mealConditions, updateConditions, type BodyCondition } from './body-conditions.ts';
 import { damageAllBodyParts, healthHp, type BodyHp } from './health.ts';
 import { FOOD_THRESHOLD } from './needs-threshold.ts';
 import { canPlan } from './path-schedule.ts';
@@ -24,6 +25,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   sleepRetrySeconds?:number;
   hp?: number;
   bodyHp?: BodyHp;
+  conditions?:BodyCondition[];
   armor?: number;
   consumed?: boolean;
   collectCorpse?: boolean;
@@ -129,6 +131,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const previousSatiety = worker.needs.satiety;
   worker.needs.satiety = Math.max(0, previousSatiety - elapsed * SATIETY_LOSS_PER_SECOND);
   const starvingSeconds = Math.max(0, elapsed - previousSatiety / SATIETY_LOSS_PER_SECOND);
+  updateConditions(worker,elapsed);
   damageAllBodyParts(worker,starvingSeconds * STARVATION_HP_LOSS_PER_SECOND);
   if (healthHp(worker) <= 0) {
     killPawn(worker, construction, harvesting, hauling);
@@ -198,6 +201,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));
   job.source.quantity -= quantity;
   worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * foodNutrition(job.source.type));
+  mealConditions(worker,job.source.type);
   if(job.source.type==='meat'||job.source.type==='humanCorpse'||job.source.type==='deerCorpse'||job.source.type==='wolfCorpse')rememberMood(worker,'rawFood');
   if(!job.seat)rememberMood(worker,'standingMeal');
   worker.eatJob = null;

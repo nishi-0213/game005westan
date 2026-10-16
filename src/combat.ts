@@ -1,3 +1,4 @@
+import { attackConditions } from './body-conditions.ts';
 import { unequipClothing } from './clothing-drop.ts';
 import { BODY_PARTS, damageBodyPart, healthHp, type BodyPart } from './health.ts';
 import {isFloor} from './walls.ts';
@@ -338,6 +339,7 @@ export class Combat {
       }
       if (hit) {
         damageBodyPart(job.target,bodyPart??'torso',event.damage);
+        if(bodyPart&&event.damage>0)attackConditions(job.target,bodyPart,this.random);
         if (healthHp(job.target) <= 0) {
           if(job.hunting){job.target.collectCorpse=true;job.target.hunt=false;}
           if(job.target.structure)this.onDestroyStructure?.(job.target.structure);

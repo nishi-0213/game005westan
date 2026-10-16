@@ -77,7 +77,7 @@ for(const create of [createDeer,createWolf]){
  test(`${create.name}: starvation continues during sleep and death stops recovery`,()=>{
   const s=scene(),animal=create({column:2,row:2},1),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>.5);wildlife.sleeping=s.sleeping;
   const update=dt=>animal.kind==='deer'?wildlife.updateDeer(animal,dt):wildlife.updateWolf(animal,dt);
-  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.hp=.3125;update(0);update(1);
+  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.hp=.3125;animal.bodyHp.torso=.3125;update(0);update(1);
   assert.equal(animal.dead,true);assert.equal(animal.sleep,undefined);const last=animal.needs.wakefulness;update(10);assert.equal(animal.needs.wakefulness,last);assert.equal(deerAction(animal),'死亡');
  });
 }

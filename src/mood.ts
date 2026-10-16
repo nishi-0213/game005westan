@@ -1,3 +1,4 @@
+import type { BodyCondition } from './body-conditions';
 import { FOOD_THRESHOLD } from './needs-threshold.ts';
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 export type MemoryKind = 'standingMeal' | 'rawFood' | 'killedHuman';
@@ -6,6 +7,7 @@ export interface MoodPawn {
   kind?:string; dead?:boolean;
   needs:{satiety:number;wakefulness?:number;happiness?:number};
   moodMemories?:MoodMemory[];
+  conditions?:BodyCondition[];
 }
 export interface MoodEffect {label:string;amount:number;count:number}
 const MEMORIES={
@@ -22,6 +24,10 @@ export function moodEffects(pawn:MoodPawn):MoodEffect[]{
     const count=pawn.moodMemories?.filter(memory=>memory.kind===kind&&memory.seconds>0).length??0;
     if(count)effects.push({label:MEMORIES[kind].label,amount:MEMORIES[kind].amount*count,count});
   }
+  const active=pawn.conditions?.filter(condition=>condition.seconds>0)??[];
+  const injuries=active.filter(condition=>condition.kind==='bleeding'||condition.kind==='bruise').length;
+  if(injuries)effects.push({label:'怪我をした',amount:-10*injuries,count:injuries});
+  if(active.some(condition=>condition.kind==='stomachache'))effects.push({label:'病気になった',amount:-15,count:1});
   return effects;
 }
 export function updateMood(pawn:MoodPawn,seconds:number):void {

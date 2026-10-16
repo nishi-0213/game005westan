@@ -7,7 +7,7 @@ const human=(column=2,row=3)=>{const p={kind:'human',faction:'player',movement:c
 const move=p=>advancePathMovement(p.movement,.1,16,walls.isBlocked,walls.cannotStop);const feed=p=>{eating.updateClaims();updateNeeds(p,construction,harvesting,hauling,.1,true,eating.automatic);move(p)};
 return{walls,items,storage,construction,harvesting,hauling,combat,wildlife,players,eating,human,move,feed};}
 test('hungry wolves hunt deer and consume the defeated body for100nutrition in1second',()=>{
-const s=scene(),wolf=createWolf(tile(3,3),1),deer=createDeer(tile(4,3),2);s.wildlife.wolves.push(wolf);s.wildlife.deer.push(deer);deer.hp=20;s.wildlife.updateWolf(wolf,.1);assert.equal(wolf.attackJob,undefined);wolf.needs.satiety=20;
+const s=scene(),wolf=createWolf(tile(3,3),1),deer=createDeer(tile(4,3),2);s.wildlife.wolves.push(wolf);s.wildlife.deer.push(deer);deer.hp=20;deer.bodyHp.torso=20;s.wildlife.updateWolf(wolf,.1);assert.equal(wolf.attackJob,undefined);wolf.needs.satiety=20;
 for(let i=0;i<100&&!deer.consumed;i++){s.eating.updateClaims();s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(deer.dead,true);assert.equal(deer.consumed,true);assert.equal(wolf.needs.satiety,100);assert.equal(countItems(s.items).meat,0);assert.equal(wolf.faction,'wild');
 });
 test('wolves prefer deer over a closer player and fall back to players when no reachable deer exists',()=>{
@@ -30,16 +30,16 @@ test('stored wolf corpses are consumed once and return inventory and equipment i
 const s=scene(),p=s.human(),body=createWolf(tile(3,3),2);s.wildlife.wolves.push(body);killPawn(body,s.construction,s.harvesting,s.hauling);body.inventory={type:'wood',quantity:7};body.weapon='rifle';const box=s.walls.plan(tile(5,3),'wood','storage');s.walls.complete(box);s.storage.depositCorpse(box,body,'wolfCorpse');assert.equal(corpseItemType(body),'wolfCorpse');assert.equal(s.eating.request(p,body),true);
 for(let i=0;i<60&&!body.consumed;i++)s.feed(p);assert.equal(body.consumed,true);assert.equal(box.stored.wolfCorpse,0);assert.equal(box.storedCorpses.length,0);const counts=countItems(s.items);assert.equal(counts.wood,7);assert.equal(counts.rifle,1);assert.equal(counts.meat,0);
 });
-test('wolf waves use1to2animals every4minutes independently from deer2to3twice per minute',()=>{
+test('wolf waves use1to2animals every160seconds independently from deer2to3once per minute',()=>{
 const s=scene(),wolfIds=new Set(),deerIds=new Set(),exiting=new Set();s.wildlife.update(.01);assert.equal(s.wildlife.wolves.length,2);assert.equal(s.wildlife.deer.length,3);
 for(let i=0;i<1201;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves){wolfIds.add(wolf.id);if(wolf.leaving)exiting.add(wolf.id);}for(const deer of s.wildlife.deer)deerIds.add(deer.id);}
-assert.equal(wolfIds.size,2);assert.equal(deerIds.size,15);assert.equal(exiting.size,2);
-for(let i=0;i<1200;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves)wolfIds.add(wolf.id);}
+assert.equal(wolfIds.size,2);assert.equal(deerIds.size,9);assert.equal(exiting.size,2);
+for(let i=0;i<400;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves)wolfIds.add(wolf.id);}
 assert.equal(wolfIds.size,4);const newWolves=s.wildlife.wolves.filter(wolf=>wolf.id>Math.max(...exiting));assert.equal(newWolves.length,2);assert.ok(newWolves.every(wolf=>!wolf.leaving));
 });
 test('wolves share starvation/death behavior and stop attacking when told to leave',()=>{
 const s=scene(),wolf=createWolf(tile(2,3),1),target=s.human(3,3);s.wildlife.wolves.push(wolf);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,target);s.wildlife.markForExit(wolf);assert.equal(wolf.attackJob,null);for(let i=0;i<60&&!wolf.departed;i++){s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(wolf.departed,true);
-const dying=createWolf(tile(4,4),3);dying.needs.satiety=0;dying.hp=.3125;s.wildlife.updateWolf(dying,1);assert.equal(dying.dead,true);assert.equal(dying.hp,0);
+const dying=createWolf(tile(4,4),3);dying.needs.satiety=0;dying.hp=.3125;dying.bodyHp.torso=.3125;s.wildlife.updateWolf(dying,1);assert.equal(dying.dead,true);assert.equal(dying.hp,0);
 });
 test('wolves abandon a prey after its route is sealed and select another reachable target',()=>{
 const s=scene(),wolf=createWolf(tile(1,3),1),deer=createDeer(tile(6,3),2),human=s.human(2,3);s.wildlife.wolves.push(wolf);s.wildlife.deer.push(deer);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,deer);

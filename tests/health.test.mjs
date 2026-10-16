@@ -19,3 +19,13 @@ test('body armor adds only clothing covering the hit part, including layered tor
  p.clothing.outerwear='ballisticVest';p.clothing.arms='gloves';
  assert.deepEqual(['head','torso','arms','legs'].map(part=>armorForPart(p,part)),[1,5,1,1]);
 });
+
+test('deer and wolves have independent four-part HP and die only when a vital part reaches zero',async()=>{
+ const {createDeer,createWolf}=await import('../src/wildlife.ts');
+ for(const create of [createDeer,createWolf]){
+  const p=create({column:2,row:2},1),other=create({column:3,row:3},2);
+  assert.deepEqual(p.bodyHp,initialBodyHp());damageBodyPart(p,'arms',100);damageBodyPart(p,'legs',100);assert.equal(healthHp(p),100);
+  damageBodyPart(p,'torso',40);assert.equal(healthHp(p),60);damageBodyPart(p,'head',100);assert.equal(healthHp(p),0);
+  assert.deepEqual(other.bodyHp,initialBodyHp());
+ }
+});

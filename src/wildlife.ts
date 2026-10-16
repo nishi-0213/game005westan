@@ -1,3 +1,4 @@
+import { initialBodyHp } from './health.ts';
 import { canPlan } from './path-schedule.ts';
 import type { Combat, CombatTarget, AttackOrder } from './combat';
 import type { CorpseEating } from './corpse-eating';
@@ -41,7 +42,7 @@ const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row =
 const deerForage = (object: EnvironmentObject): boolean => object.type === 'grass' || object.type === 'wildStrawberry' && harvestYield(object) > 0;
 export function createDeer(tile: Tile, id: number): Deer {
   return { armor: 0, kind: 'deer', id, faction: 'wild', movement: createMovement(tile), mode: 'automatic', inventory: null,
-    job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0, needs: initialNeeds(false), hp: 100, eatJob: null,
+    job: null, retrySeconds: 0, harvestJob: null, harvestRetrySeconds: 0, needs: initialNeeds(false), hp: 100, bodyHp:initialBodyHp(), conditions:[], eatJob: null,
     freeSeconds: 0, leaving: false, departed: false, decisionSeconds: 0 };
 }
 
@@ -96,7 +97,7 @@ export class Wildlife {
       for (let i = 0; i < count && candidates.length; i++) this.markForExit(candidates.splice(Math.floor(this.random() * candidates.length), 1)[0]);
       this.exitSeconds += this.interval();
     }
-    if (this.spawnSeconds <= 0) { this.spawn(occupied); this.spawnSeconds += this.interval() / 2; }
+    if (this.spawnSeconds <= 0) { this.spawn(occupied); this.spawnSeconds += this.interval(); }
     if(this.combat&&this.corpseEating){
       this.wolfSpawnSeconds-=seconds;this.wolfExitSeconds-=seconds;
       if(this.wolfExitSeconds<=0){
@@ -105,7 +106,7 @@ export class Wildlife {
         this.wolfExitSeconds+=this.wolfInterval();
       }
       // Process departures first so a new wave is not sent away immediately.
-      if(this.wolfSpawnSeconds<=0){this.spawn(occupied,'wolf');this.wolfSpawnSeconds+=this.wolfInterval()*2;}
+      if(this.wolfSpawnSeconds<=0){this.spawn(occupied,'wolf');this.wolfSpawnSeconds+=this.wolfInterval()*2/1.5;}
       for(let index=this.wolves.length-1;index>=0;index--){const wolf=this.wolves[index];this.updateWolf(wolf,seconds);if(wolf.departed){this.onDepart?.(wolf);this.wolves.splice(index,1);}}
     }
     for (let index = this.deer.length - 1; index >= 0; index--) {
