@@ -2,6 +2,8 @@ import { Assets, Graphics, Sprite, Texture } from 'pixi.js';
 import type { ItemType } from './items';
 
 export const SPRITE_URLS = {
+  gloves: new URL('./assets/gloves.png', import.meta.url).href,
+  ration: new URL('./assets/ration.png', import.meta.url).href,
   hat: new URL('./assets/hat.png', import.meta.url).href,
   jacket: new URL('./assets/jacket.png', import.meta.url).href,
   trousers: new URL('./assets/trousers.png', import.meta.url).href,
@@ -57,7 +59,7 @@ export function drawArtwork(view: Graphics, name: SpriteName, size = 24): Graphi
 }
 
 export function itemSprite(type: ItemType): SpriteName | undefined {
-  if (type === 'knife' || type === 'rifle' || type==='hat' || type==='jacket' || type==='trousers' || type==='ballisticVest') return type;
+  if (type === 'knife' || type === 'rifle' || type==='hat' || type==='jacket' || type==='trousers' || type==='ballisticVest' || type==='gloves' || type==='ration') return type;
   if(type==='wood')return 'itemWood';
   if(type==='stone')return 'itemStone';
   if(type==='strawberry')return 'itemStrawberry';

@@ -25,13 +25,13 @@ test('clothing stacks participate in storage and item counts',()=>{
  assert.equal(storage.totals().ballisticVest,1);assert.equal(storage.sources('gloves')[0].quantity,1);
 });
 
-test('clothing layers use uploaded PNGs in consistent back-to-front order and gloves alone use fallback shapes',async()=>{
+test('clothing layers use uploaded PNGs in consistent back-to-front order including gloves',async()=>{
  const {clothingShapes}=await import('../src/clothing-shapes.ts');
  const {clothingLayers}=await import('../src/clothing-layers.ts');
  assert.equal(clothingShapes(initialClothing()).length,0);
  const full={...initialClothing(),outerwear:'ballisticVest',arms:'gloves'},layers=clothingLayers(full);
  assert.deepEqual(layers.map(layer=>layer.slot),['legs','torso','arms','outerwear','head']);
- assert.deepEqual(layers.map(layer=>layer.sprite),['trousers','jacket',undefined,'ballisticVest','hat']);
+ assert.deepEqual(layers.map(layer=>layer.sprite),['trousers','jacket','gloves','ballisticVest','hat']);
  assert.equal(clothingShapes(full).length,2);assert.equal(clothingShapes({}).length,0);
  assert.deepEqual(clothingLayers({}),[]);
 });
