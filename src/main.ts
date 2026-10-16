@@ -1,3 +1,4 @@
+import { clothingLayers } from './clothing-layers';
 import { unequipClothing } from './clothing-drop';
 import { randomPawnAppearance, randomHairStyle } from './pawn-appearance';
 import { loadPawnArtwork, pawnBody, pawnArtwork } from './pawn-artwork';
@@ -528,11 +529,19 @@ const prioritiesRows = document.querySelector<HTMLTableSectionElement>('#priorit
 const pawnPortraits=new Map<typeof pawns[number],HTMLDivElement[]>();
 function updatePawnPortrait(portrait:HTMLDivElement,pawn:typeof pawns[number]):void {
   const svg=portrait.querySelector('svg')!;
-  svg.replaceChildren(...clothingShapes(pawn.clothing).map(shape=>{
-    const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-    for(const name of ['x','y','width','height'] as const)rect.setAttribute(name,String(shape[name]));
-    rect.setAttribute('fill',`#${shape.color.toString(16).padStart(6,'0')}`);return rect;
-  }));
+  const elements:SVGElement[]=[];
+  for(const layer of clothingLayers(pawn.clothing)){
+    if(layer.sprite){
+      const image=document.createElementNS('http://www.w3.org/2000/svg','image');
+      image.setAttribute('href',SPRITE_URLS[layer.sprite]);image.setAttribute('x','-12');image.setAttribute('y','-12');image.setAttribute('width','24');image.setAttribute('height','24');
+      image.setAttribute('data-clothing',layer.type);image.style.imageRendering='pixelated';elements.push(image);
+    }else for(const shape of clothingShapes({[layer.slot]:layer.type})){
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      for(const name of ['x','y','width','height'] as const)rect.setAttribute(name,String(shape[name]));
+      rect.setAttribute('fill',`#${shape.color.toString(16).padStart(6,'0')}`);elements.push(rect);
+    }
+  }
+  svg.replaceChildren(...elements);
 }
 function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
   const portrait = document.createElement('div');portrait.className='pawn-portrait';

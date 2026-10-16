@@ -25,10 +25,13 @@ test('clothing stacks participate in storage and item counts',()=>{
  assert.equal(storage.totals().ballisticVest,1);assert.equal(storage.sources('gloves')[0].quantity,1);
 });
 
-test('portrait geometry contains each equipped slot and layers outerwear above the torso',async()=>{
+test('clothing layers use uploaded PNGs in consistent back-to-front order and gloves alone use fallback shapes',async()=>{
  const {clothingShapes}=await import('../src/clothing-shapes.ts');
- const initial=initialClothing(),base=clothingShapes(initial);assert.equal(base.length,5);
- const full=clothingShapes({...initial,outerwear:'ballisticVest',arms:'gloves'});assert.equal(full.length,9);
- assert.ok(full.findIndex(shape=>shape.color===0x555e46)>full.findIndex(shape=>shape.color===0x6386a1));
- assert.equal(clothingShapes({}).length,0);assert.equal(clothingShapes({arms:'gloves'}).length,2);
+ const {clothingLayers}=await import('../src/clothing-layers.ts');
+ assert.equal(clothingShapes(initialClothing()).length,0);
+ const full={...initialClothing(),outerwear:'ballisticVest',arms:'gloves'},layers=clothingLayers(full);
+ assert.deepEqual(layers.map(layer=>layer.slot),['legs','torso','arms','outerwear','head']);
+ assert.deepEqual(layers.map(layer=>layer.sprite),['trousers','jacket',undefined,'ballisticVest','hat']);
+ assert.equal(clothingShapes(full).length,2);assert.equal(clothingShapes({}).length,0);
+ assert.deepEqual(clothingLayers({}),[]);
 });
