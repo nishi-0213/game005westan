@@ -21,3 +21,11 @@ test('hunger mood applies through40percent, stops above40and is replaced by star
   assert.equal(effects.some(effect=>effect.label==='飢餓'),starving);
  }
 });
+
+test('raw food costs30 mood, refreshes without stacking, and expires after5 game hours',()=>{
+ const p=pawn();rememberMood(p,'rawFood');assert.equal(p.needs.happiness,20);
+ assert.deepEqual(moodEffects(p),[{label:'生の食材を食べた',amount:-30,count:1}]);
+ updateMood(p,18);rememberMood(p,'rawFood');assert.equal(p.moodMemories.length,1);
+ updateMood(p,19.99);assert.equal(p.needs.happiness,20);updateMood(p,.01);assert.equal(p.needs.happiness,50);
+ const animal={kind:'wolf',needs:{satiety:100}};rememberMood(animal,'rawFood');assert.equal(animal.moodMemories,undefined);
+});

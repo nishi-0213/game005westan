@@ -198,6 +198,7 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));
   job.source.quantity -= quantity;
   worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * foodNutrition(job.source.type));
+  if(job.source.type==='meat'||job.source.type==='humanCorpse'||job.source.type==='deerCorpse'||job.source.type==='wolfCorpse')rememberMood(worker,'rawFood');
   if(!job.seat)rememberMood(worker,'standingMeal');
   worker.eatJob = null;
   return true;

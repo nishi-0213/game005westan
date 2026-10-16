@@ -61,3 +61,14 @@ for(const destroyed of ['chair','table'])test(`destroyed ${destroyed} during tra
  const s=scene(),table=s.build('table',5,4),chair=s.build('chair',5,5);s.build('table',9,4);const alternate=s.build('chair',9,5);
  s.tick();s.tick();assert.equal(s.worker.eatJob.seat.chair,chair);s.tick(.1);s.walls.erase(destroyed==='chair'?chair:table);s.tick();assert.equal(s.worker.eatJob.seat.chair,alternate);assert.deepEqual(s.worker.movement.destination,{column:9,row:5});s.finish();assert.equal(s.worker.needs.satiety,100);assert.deepEqual(s.worker.movement.tile,{column:9,row:5});
 });
+
+for(const type of ['meat','humanCorpse','deerCorpse','wolfCorpse','ration','strawberry'])for(const seated of [false,true])test(`${type} meal only remembers raw food after completion, seated=${seated}`,()=>{
+ const s=scene();s.worker.kind='human';s.worker.inventory=null;
+ if(seated){s.build('table',5,4);s.build('chair',5,5);}
+ const food={type,quantity:10,column:2,row:2,collect:false};s.items.push(food);
+ assert.equal(requestEat(s.worker,food,s.construction,s.harvesting,s.hauling),true);
+ s.tick();assert.equal(s.worker.moodMemories,undefined);s.finish();
+ const memories=s.worker.moodMemories??[];
+ assert.equal(memories.some(m=>m.kind==='rawFood'),!['ration','strawberry'].includes(type));
+ assert.equal(memories.some(m=>m.kind==='standingMeal'),!seated||type.endsWith('Corpse'));
+});
