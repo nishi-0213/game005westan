@@ -193,3 +193,37 @@ test('immediate construction releases a material-starved order instead of reserv
  assert.equal(engine.request(builder,target),true);engine.update(builder,0);
  assert.equal(builder.forcedConstruction,undefined);assert.equal(builder.job,null);assert.equal(engine.claims.has(target),false);assert.equal(target.state,'planned');
 });
+
+for(const kind of ['bed','table','butcher','cooker'])for(const orientation of [0,1]){
+ test(`${kind} orientation${orientation} can receive materials and finish from its accessible far end with its anchor sealed`,async()=>{
+  const {footprint,BUILD_RECIPES}=await import('../src/walls.ts');
+  const {walls,engine,tick}=scene([],12),target=walls.plan({column:5,row:5},'wood',kind,orientation),cells=footprint(target),end=cells.at(-1);
+  const dc=end.column-target.column,dr=end.row-target.row;
+  for(let row=4;row<=6;row++)for(let column=4;column<=6;column++){
+   if(cells.some(cell=>cell.column===column&&cell.row===row))continue;
+   walls.complete(walls.plan({column,row},'wood'));
+  }
+  const worker=pawn(end.column+dc*2,end.row+dr*2);worker.inventory={type:'wood',quantity:BUILD_RECIPES[kind].materialCount};
+  assert.equal(engine.canRequest(worker,target),true);assert.equal(engine.request(worker,target),true);
+  for(let i=0;i<160&&target.state!=='completed';i++)tick([worker],.1);
+  assert.equal(target.state,'completed');assert.equal(target.delivered,BUILD_RECIPES[kind].materialCount);assert.equal(worker.inventory,null);
+  assert.ok(cells.some(cell=>Math.max(Math.abs(worker.movement.tile.column-cell.column),Math.abs(worker.movement.tile.row-cell.row))===1));
+ });
+}
+test('construction ranks a multi-tile plan by its closest constituent cell rather than its anchor',()=>{
+ const {walls,engine}=scene([],12),large=walls.plan({column:4,row:2},'wood','butcher',1),small=walls.plan({column:6,row:0},'wood');
+ large.delivered=30;small.delivered=2;const worker=pawn(6,2);
+ assert.equal(engine.nearestPlan(worker,undefined,'build').target,large);assert.deepEqual(engine.approach(worker.movement.tile,large).goal,worker.movement.tile);
+});
+
+test('automatic building gathers ground supplies and completes a bed from the far end without a manual order',()=>{
+ const stack={column:4,row:8,type:'wood',quantity:5,collect:true},{walls,engine,tick}=scene([stack],12),target=walls.plan({column:5,row:5},'wood','bed');
+ for(let row=4;row<=6;row++)for(let column=4;column<=6;column++)if(!(column===5&&(row===5||row===6)))walls.complete(walls.plan({column,row},'wood'));
+ const worker=pawn(5,8);for(let i=0;i<160&&target.state!=='completed';i++)tick([worker],.1);
+ assert.equal(target.state,'completed');assert.equal(stack.quantity,0);assert.equal(worker.inventory,null);assert.equal(target.delivered,5);
+});
+test('a multi-tile plan with every outside approach blocked cannot be requested or consume materials',()=>{
+ const {walls,engine}=scene([],12),target=walls.plan({column:5,row:5},'wood','bed'),worker=pawn(2,2);worker.inventory={type:'wood',quantity:5};
+ for(let row=4;row<=7;row++)for(let column=4;column<=6;column++)if(!(column===5&&(row===5||row===6)))walls.complete(walls.plan({column,row},'wood'));
+ assert.equal(engine.canRequest(worker,target),false);engine.update(worker,.1);assert.equal(worker.job,null);assert.equal(worker.inventory.quantity,5);assert.equal(target.delivered,0);
+});

@@ -6,7 +6,7 @@ import { findPath, findPaths, rankedTargets } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import type { Movement, Tile } from './movement';
-import { BUILD_RECIPES } from './walls.ts';
+import { BUILD_RECIPES, footprint } from './walls.ts';
 import type { Wall, Walls } from './walls';
 import type { Storage } from './storage';
 
@@ -30,7 +30,10 @@ export interface Builder {
 export const isBuildingPhase = (phase: string): boolean => phase === 'build' || phase === 'demolish';
 export type ConstructionWork = 'all' | 'transport' | 'build';
 const sameTile = (a: Tile, b: Tile) => a.column === b.column && a.row === b.row;
-const adjacent = (a: Tile, b: Tile) => Math.max(Math.abs(a.column - b.column), Math.abs(a.row - b.row)) === 1;
+const adjacent = (a: Tile, b: Wall) => {
+  const cells=footprint(b);
+  return !cells.some(cell=>sameTile(a,cell))&&cells.some(cell=>Math.max(Math.abs(a.column-cell.column),Math.abs(a.row-cell.row))===1);
+};
 
 export class Construction {
   readonly walls: Walls;
@@ -98,15 +101,15 @@ export class Construction {
 
   approach(from: Tile, target: Tile, paths?: Map<number, Path>): { goal: Tile; path: Path } | null {
     let best: { goal: Tile; path: Path } | null = null;
-    for (let row = target.row - 1; row <= target.row + 1; row++) {
-      for (let column = target.column - 1; column <= target.column + 1; column++) {
-        if (column === target.column && row === target.row) continue;
-        if (column < 0 || row < 0 || column >= this.walls.mapSize || row >= this.walls.mapSize) continue;
-        const goal = { column, row };
-        if (this.walls.at(goal) === target) continue;
-        const path = paths ? (paths.get(row * this.walls.mapSize + column) ?? null) : this.path(from, goal);
-        if (path && (!best || path.distance < best.path.distance)) best = { goal, path };
-      }
+    const cells='kind' in target&&(target as Wall).state==='planned'?footprint(target as Wall):[target];
+    const occupied=new Set(cells.map(cell=>`${cell.column},${cell.row}`)),visited=new Set<string>();
+    for(const cell of cells)for(let row=cell.row-1;row<=cell.row+1;row++)for(let column=cell.column-1;column<=cell.column+1;column++){
+      const key=`${column},${row}`;
+      if(occupied.has(key)||visited.has(key)||column<0||row<0||column>=this.walls.mapSize||row>=this.walls.mapSize)continue;
+      visited.add(key);const goal={column,row};
+      if(this.walls.at(goal)===target)continue;
+      const path=paths?(paths.get(row*this.walls.mapSize+column)??null):this.path(from,goal);
+      if(path&&(!best||path.distance<best.path.distance))best={goal,path};
     }
     return best;
   }
@@ -116,7 +119,8 @@ export class Construction {
     let paths: Map<number, Path> | undefined;
     const sourcesByMaterial = new Map<ItemType, MapItem[]>();
     let bestOrder=Infinity;
-    for (const {target,order,lowerBound} of rankedTargets([...this.walls.items.values()],builder.movement.tile)) {
+    const ranked=[...this.walls.items.values()].map((target,order)=>({target,order,lowerBound:rankedTargets(footprint(target),builder.movement.tile)[0].lowerBound})).sort((a,b)=>a.lowerBound-b.lowerBound||a.order-b.order);
+    for (const {target,order,lowerBound} of ranked) {
       if(best&&lowerBound>best.path.distance+1e-10)break;
       if(builder.forcedConstruction&&target!==builder.forcedConstruction)continue;
       if (batch && (target === batch || target.kind !== batch.kind || target.material !== batch.material || Math.max(Math.abs(target.column-batch.column), Math.abs(target.row-batch.row)) > 5)) continue;
