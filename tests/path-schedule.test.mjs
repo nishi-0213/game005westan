@@ -29,7 +29,7 @@ test('failed food searches wait for the next slot while needs advance; manual fo
  let searches=0;const approach=construction.sourceApproach.bind(construction);construction.sourceApproach=(...args)=>{searches++;return approach(...args);};
  const schedule=new PathSearchSchedule();for(let id=0;id<5;id++)schedule.assign(createMovement({column:id,row:0}));
  for(let frame=0;frame<120;frame++){schedule.advance();schedule.assign(worker.movement);updateNeeds(worker,construction,harvesting,hauling,1/60);}
- assert.equal(searches,2);assert.ok(Math.abs(worker.needs.satiety-8)<1e-8);assert.equal(worker.eatJob,null);
+ assert.equal(searches,2);assert.ok(Math.abs(worker.needs.satiety-9)<1e-8);assert.equal(worker.eatJob,null);
  worker.movement.planningAllowed=false;const nearby={column:2,row:1,type:'strawberry',quantity:10,collect:false};items.push(nearby);
  assert.equal(requestEat(worker,nearby,construction,harvesting,hauling),true);assert.ok(worker.eatJob.manual);
 });

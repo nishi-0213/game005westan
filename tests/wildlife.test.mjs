@@ -54,7 +54,7 @@ test('below40satiety deer harvest unmarked berries and eat them in place for one
   s.tick(.1); assert.equal(berry.collected, true); assert.equal(s.deer.inventory.quantity, 5);
   const tile = { ...s.deer.movement.tile };
   s.tick(.9); assert.equal(deerAction(s.deer), '食事中'); assert.equal(s.deer.inventory.quantity, 5);
-  s.tick(.1); assert.equal(s.deer.needs.satiety, 87); assert.equal(s.deer.inventory, null);
+  s.tick(.1); assert.equal(s.deer.needs.satiety, 88); assert.equal(s.deer.inventory, null);
   assert.deepEqual(s.deer.movement.tile, tile);
   assert.equal(s.items.reduce((sum, item) => sum + item.quantity, 0), 0);
 });
@@ -66,7 +66,7 @@ test('deer consume only their proportional harvest and ignore plants with zero y
   s.tick(.25); s.tick(.75);
   assert.equal(s.deer.inventory.quantity, 2);
   s.tick(1); assert.equal(s.deer.inventory, null);
-  assert.equal(s.deer.needs.satiety, 37);
+  assert.equal(s.deer.needs.satiety, 38);
 });
 
 test('human and deer harvesting claims are exclusive; deer now eat reachable ground berries', () => {
@@ -77,7 +77,7 @@ test('human and deer harvesting claims are exclusive; deer now eat reachable gro
   assert.equal(s.deer.harvestJob, null);
   s.harvesting.cancel(human); berry.collected = true;
   s.items.push({ column: 2, row: 3, type: 'strawberry', quantity: 5, collect: true });
-  s.tick(0);assert.ok(s.deer.eatJob);s.tick(1);assert.equal(s.items[0].quantity,0);assert.equal(s.deer.eatJob,null);assert.equal(s.deer.needs.satiety,68);
+  s.tick(0);assert.ok(s.deer.eatJob);s.tick(1);assert.equal(s.items[0].quantity,0);assert.equal(s.deer.eatJob,null);assert.equal(s.deer.needs.satiety,68.5);
 });
 
 test('departure cancels work and follows the shortest path to the closest map edge then outside', () => {
@@ -107,7 +107,7 @@ test('deer cannot exit through an enclosure and retry once an edge becomes reach
 
 test('starvation and death release a deer harvest claim and prevent further actions', () => {
   const s = scene(); s.berry(); s.deer.needs.satiety = 19; s.tick(0);
-  s.deer.needs.satiety = 0; s.deer.hp = .625; s.tick(1);
+  s.deer.needs.satiety = 0; s.deer.hp = .3125; s.tick(1);
   assert.equal(s.deer.dead, true); assert.equal(deerAction(s.deer), '死亡');
   assert.equal(s.harvesting.claims.size, 0);
   const tile = { ...s.deer.movement.tile }; s.tick(100); assert.deepEqual(s.deer.movement.tile, tile);
@@ -138,6 +138,6 @@ test('deer graze grass at any growth stage for five nutrition without dropping i
   const s=scene(),grass={...createEnvironment('grass',{column:3,row:3}),hp};s.objects.push(grass);
   s.deer.needs.satiety=19;s.tick(0);assert.equal(s.deer.harvestJob.target,grass);
   s.tick(.9);assert.equal(grass.collected,false);s.tick(.1);
-  assert.equal(grass.collected,true);assert.equal(s.deer.needs.satiety,23);assert.equal(s.deer.inventory,null);assert.equal(s.items.length,0);
+  assert.equal(grass.collected,true);assert.equal(s.deer.needs.satiety,23.5);assert.equal(s.deer.inventory,null);assert.equal(s.items.length,0);
  }
 });

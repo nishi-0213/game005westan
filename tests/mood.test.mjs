@@ -9,8 +9,8 @@ test('happiness starts at50, combines need modifiers, and only values below25 pr
  for(const create of [createDeer,createWolf]){const animal=create({column:1,row:1},1);rememberMood(animal,'killedHuman');updateMood(animal,60);assert.equal(animal.needs.happiness,undefined);assert.equal(animal.moodMemories,undefined);}
 });
 test('standing meals refresh one5hour memory; human kills stack and each expires after72hours',()=>{
- const p=pawn();rememberMood(p,'standingMeal');assert.equal(p.needs.happiness,47);updateMood(p,9);rememberMood(p,'standingMeal');assert.equal(p.moodMemories.length,1);updateMood(p,9.99);assert.equal(p.needs.happiness,47);updateMood(p,.01);assert.equal(p.needs.happiness,50);
- rememberMood(p,'killedHuman');updateMood(p,1);rememberMood(p,'killedHuman');assert.equal(p.needs.happiness,0);assert.deepEqual(moodEffects(p),[{label:'人を無力化した',amount:-60,count:2}]);updateMood(p,143);assert.equal(p.needs.happiness,20);assert.equal(canGiveOrders(p),false);updateMood(p,1);assert.equal(p.needs.happiness,50);assert.equal(canGiveOrders(p),true);
+ const p=pawn();rememberMood(p,'standingMeal');assert.equal(p.needs.happiness,47);updateMood(p,18);rememberMood(p,'standingMeal');assert.equal(p.moodMemories.length,1);updateMood(p,19.99);assert.equal(p.needs.happiness,47);updateMood(p,.01);assert.equal(p.needs.happiness,50);
+ rememberMood(p,'killedHuman');updateMood(p,1);rememberMood(p,'killedHuman');assert.equal(p.needs.happiness,0);assert.deepEqual(moodEffects(p),[{label:'人を無力化した',amount:-60,count:2}]);updateMood(p,287);assert.equal(p.needs.happiness,20);assert.equal(canGiveOrders(p),false);updateMood(p,1);assert.equal(p.needs.happiness,50);assert.equal(canGiveOrders(p),true);
 });
 
 test('hunger mood applies through40percent, stops above40and is replaced by starvation at0',()=>{

@@ -117,7 +117,7 @@ test('plants stop growing at18and resume at6 while lifespan continues at night',
 });
 test('long updates split dawn, dusk and spawn boundaries without night growth',()=>{
  const a=createEnvironment('tree',{column:2,row:2}),b={...a},ga=new PlantGrowth([a],new Walls(8),()=>true),gb=new PlantGrowth([b],new Walls(8),()=>true);
- ga.update(100,17);for(let i=0;i<200;i++)gb.update(.5,(17+i*.25)%24);assert.ok(Math.abs(a.hp-b.hp)<1e-9);close(a.ageSeconds,100);close(b.ageSeconds,100);
+ ga.update(100,17);for(let i=0;i<200;i++)gb.update(.5,(17+i*.125)%24);assert.ok(Math.abs(a.hp-b.hp)<1e-9);close(a.ageSeconds,100);close(b.ageSeconds,100);
 });
 test('a plant with little remaining lifetime expires at night without growing',()=>{
  const tree={...createEnvironment('tree',{column:2,row:2}),hp:32,ageSeconds:179},growth=new PlantGrowth([tree],new Walls(8),()=>true);growth.update(1,0);assert.equal(tree.collected,true);assert.equal(tree.hp,32);assert.equal(growth.living.size,0);

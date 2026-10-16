@@ -26,18 +26,18 @@ test('beds occupy1x2 or2x1, cost5wood/3seconds and forbid normal stopping and pa
  assert.equal(findPath(s.worker.movement.tile,b,12,s.walls.isBlocked,s.walls.cannotStop),null);
  const rotated=s.bed(7,7,1);assert.deepEqual(footprint(rotated),[{column:7,row:7},{column:8,row:7}]);
 });
-test('wakefulness falls at1percent per second and a drafted pawn does not seek a bed below20',()=>{
- const s=scene();s.bed();s.worker.mode='drafted';s.tick(81);assert.equal(s.worker.needs.wakefulness,19);assert.equal(s.worker.sleep,undefined);assert.deepEqual(s.worker.movement.tile,{column:2,row:2});
+test('wakefulness falls at0.5percent per second and a drafted pawn does not seek a bed below20',()=>{
+ const s=scene();s.bed();s.worker.mode='drafted';s.tick(162);assert.equal(s.worker.needs.wakefulness,19);assert.equal(s.worker.sleep,undefined);assert.deepEqual(s.worker.movement.tile,{column:2,row:2});
 });
 test('at0 a drafted pawn falls asleep in place, recovers100 in8game hours and wakes at100',()=>{
- const s=scene();s.worker.mode='drafted';s.worker.needs.wakefulness=.1;s.tick(.1);assert.equal(s.worker.sleep.phase,'sleeping');assert.equal(s.worker.needs.wakefulness,0);assert.equal(GROUND_SLEEP_RECOVERY,6.25);
- s.tick(15.9);assert.equal(s.worker.sleep.phase,'sleeping');assert.ok(s.worker.needs.wakefulness<100);s.tick(.1);assert.equal(s.worker.needs.wakefulness,100);assert.equal(s.worker.sleep,undefined);
+ const s=scene();s.worker.mode='drafted';s.worker.needs.wakefulness=.1;s.tick(.2);assert.equal(s.worker.sleep.phase,'sleeping');assert.equal(s.worker.needs.wakefulness,0);assert.equal(GROUND_SLEEP_RECOVERY,3.125);
+ s.tick(31.9);assert.equal(s.worker.sleep.phase,'sleeping');assert.ok(s.worker.needs.wakefulness<100);s.tick(.1);assert.equal(s.worker.needs.wakefulness,100);assert.equal(s.worker.sleep,undefined);
 });
 test('automatic pawns use the nearest reachable bed below20, rest on it and exit after recovery',()=>{
  const s=scene(),far=s.bed(8,8),near=s.bed();s.worker.needs.wakefulness=20;s.tick(0);assert.equal(s.worker.sleep,undefined);s.tick(.01);assert.equal(s.worker.sleep.bed,near);assert.notEqual(s.worker.sleep.bed,far);
- for(let i=0;i<100&&s.worker.sleep.phase!=='sleeping';i++)s.tick();assert.equal(s.worker.sleep.phase,'sleeping');assert.ok(footprint(near).some(t=>t.column===s.worker.movement.tile.column&&t.row===s.worker.movement.tile.row));assert.equal(s.sleeping.claims.get(near),s.worker);assert.equal(BED_SLEEP_RECOVERY,100/12);
- const before=s.worker.needs.wakefulness;s.tick(1);assert.ok(Math.abs(s.worker.needs.wakefulness-before-100/12)<1e-8);
- for(let i=0;i<300&&s.worker.sleep;i++)s.tick();assert.equal(s.worker.sleep,undefined);assert.equal(s.sleeping.claims.size,0);assert.equal(s.walls.isBlocked(s.worker.movement.tile),false);
+ for(let i=0;i<100&&s.worker.sleep.phase!=='sleeping';i++)s.tick();assert.equal(s.worker.sleep.phase,'sleeping');assert.ok(footprint(near).some(t=>t.column===s.worker.movement.tile.column&&t.row===s.worker.movement.tile.row));assert.equal(s.sleeping.claims.get(near),s.worker);assert.equal(BED_SLEEP_RECOVERY,100/24);
+ const before=s.worker.needs.wakefulness;s.tick(1);assert.ok(Math.abs(s.worker.needs.wakefulness-before-100/24)<1e-8);
+ for(let i=0;i<600&&s.worker.sleep;i++)s.tick();assert.equal(s.worker.sleep,undefined);assert.equal(s.sleeping.claims.size,0);assert.equal(s.walls.isBlocked(s.worker.movement.tile),false);
 });
 test('one bed has one sleeper; drafting during approach releases its reservation',()=>{
  const s=scene(),b=s.bed();s.worker.needs.wakefulness=10;s.tick(0);const other={...s.worker,movement:createMovement({column:1,row:1}),sleep:undefined,needs:{...initialNeeds(),wakefulness:10}};
@@ -54,7 +54,7 @@ test('destroying a bed converts sleep to ground recovery; death releases the res
 });
 test('sleep preserves hunger and starvation damage, rejects manual meals, and interrupts work',()=>{
  const s=scene(),plan=s.walls.plan({column:3,row:2},'wood');plan.delivered=10;s.construction.update(s.worker,0);assert.ok(s.worker.job);s.worker.needs.wakefulness=0;s.worker.needs.satiety=0;s.tick(0);assert.equal(s.worker.job,null);assert.equal(s.construction.claims.size,0);
- const food={column:2,row:2,type:'strawberry',quantity:5,collect:true};s.items.push(food);assert.equal(requestEat(s.worker,food,s.construction,s.harvesting,s.hauling),false);s.tick(1);assert.equal(s.worker.hp,99.375);assert.equal(food.quantity,5);
+ const food={column:2,row:2,type:'strawberry',quantity:5,collect:true};s.items.push(food);assert.equal(requestEat(s.worker,food,s.construction,s.harvesting,s.hauling),false);s.tick(1);assert.equal(s.worker.hp,99.6875);assert.equal(food.quantity,5);
 });
 test('bed construction consumes exactly5wood and preserves its3second progress across interruption',()=>{
  const s=scene(),plan=s.walls.plan({column:3,row:2},'wood','bed');s.worker.inventory={type:'wood',quantity:5};
@@ -68,16 +68,16 @@ for(const create of [createDeer,createWolf]){
  test(`${create.name}: animal AI shares human sleep, stops eating/roaming, and wakes after8game hours`,()=>{
   const s=scene(),animal=create({column:2,row:2},1),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>.5);
   wildlife.sleeping=s.sleeping;const update=dt=>animal.kind==='deer'?wildlife.updateDeer(animal,dt):wildlife.updateWolf(animal,dt);
-  s.bed();assert.equal(animal.needs.wakefulness,100);update(1);assert.equal(animal.needs.wakefulness,99);
+  s.bed();assert.equal(animal.needs.wakefulness,100);update(1);assert.equal(animal.needs.wakefulness,99.5);
   animal.needs.wakefulness=0;animal.needs.satiety=10;s.items.push({column:2,row:2,type:'ration',quantity:10,collect:true});
   update(0);assert.equal(animal.sleep.phase,'sleeping');assert.equal(animal.sleep.bed,undefined);assert.equal(deerAction(animal),'就寝中');const position={...animal.movement.tile};
-  update(8);assert.equal(animal.needs.wakefulness,50);assert.equal(animal.needs.satiety,2);assert.equal(animal.eatJob,null);assert.equal(s.items[0].quantity,10);assert.deepEqual(animal.movement.destination,position);
-  update(7.9);assert.equal(animal.sleep.phase,'sleeping');update(.1);assert.equal(animal.needs.wakefulness,100);assert.equal(animal.sleep,undefined);assert.notEqual(deerAction(animal),'就寝中');
+  update(16);assert.equal(animal.needs.wakefulness,50);assert.equal(animal.needs.satiety,2);assert.equal(animal.eatJob,null);assert.equal(s.items[0].quantity,10);assert.deepEqual(animal.movement.destination,position);
+  update(15.9);assert.equal(animal.sleep.phase,'sleeping');update(.1);assert.equal(animal.needs.wakefulness,100);assert.equal(animal.sleep,undefined);assert.notEqual(deerAction(animal),'就寝中');
  });
  test(`${create.name}: starvation continues during sleep and death stops recovery`,()=>{
   const s=scene(),animal=create({column:2,row:2},1),wildlife=new Wildlife(s.construction,s.harvesting,s.hauling,()=>.5);wildlife.sleeping=s.sleeping;
   const update=dt=>animal.kind==='deer'?wildlife.updateDeer(animal,dt):wildlife.updateWolf(animal,dt);
-  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.hp=.625;update(0);update(1);
+  animal.needs.wakefulness=0;animal.needs.satiety=0;animal.hp=.3125;update(0);update(1);
   assert.equal(animal.dead,true);assert.equal(animal.sleep,undefined);const last=animal.needs.wakefulness;update(10);assert.equal(animal.needs.wakefulness,last);assert.equal(deerAction(animal),'死亡');
  });
 }

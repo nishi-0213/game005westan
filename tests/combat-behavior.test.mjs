@@ -78,8 +78,8 @@ test('fleeing avoids blocked/reserved endpoints and can move along a map edge in
 
 test('deer share direct starvation HP loss at30per game day with humans',()=>{
  const s=scene(),deer=createDeer(tile(15,15),1);deer.needs.satiety=0;
- s.wildlife.updateDeer(deer,48);assert.equal(deer.hp,70);assert.equal(deer.dead,undefined);
- deer.hp=.625;s.wildlife.updateDeer(deer,1);assert.equal(deer.hp,0);assert.equal(deer.dead,true);
+ s.wildlife.updateDeer(deer,96);assert.equal(deer.hp,70);assert.equal(deer.dead,undefined);
+ deer.hp=.3125;s.wildlife.updateDeer(deer,1);assert.equal(deer.hp,0);assert.equal(deer.dead,true);
 });
 
 test('unarmed range outlines exactly the3by3outer square and rifle outlines stay inside map bounds',()=>{

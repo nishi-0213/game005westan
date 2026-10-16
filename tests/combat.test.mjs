@@ -101,9 +101,9 @@ test('two equip orders never duplicate the last weapon and replacement returns t
 
 test('starvation HP drain counts only the time after satiety reaches zero and stops after feeding',()=>{
  const s=scene(),a=s.pawn(2,2);a.needs.satiety=.5;
- updateNeeds(a,s.construction,s.harvesting,s.hauling,1.5);assert.equal(a.hp,99.375);assert.equal(a.dead,undefined);
+ updateNeeds(a,s.construction,s.harvesting,s.hauling,3);assert.equal(a.hp,99.375);assert.equal(a.dead,undefined);
  a.needs.satiety=100;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,99.375);
- a.needs.satiety=0;a.hp=.625;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,0);assert.equal(a.dead,true);
+ a.needs.satiety=0;a.hp=.3125;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,0);assert.equal(a.dead,true);
 });
 
 test('equipped workers haul and build using real3stone batches without exceeding20kg including the weapon',()=>{
@@ -216,6 +216,6 @@ for(const [part,roll] of [['head',.125],['torso',.375],['arms',.625],['legs',.87
 test('real starvation updates all body parts together and death occurs when the weaker vital part reaches zero',()=>{
  const s=scene(),p=s.pawn(3,3);p.kind='human';p.needs.satiety=0;p.bodyHp={head:50,torso:10,arms:2,legs:80};p.hp=10;
  updateNeeds(p,s.construction,s.harvesting,s.hauling,1,false);
- const loss=30/(24*60/30);assert.deepEqual(p.bodyHp,{head:50-loss,torso:10-loss,arms:2-loss,legs:80-loss});assert.equal(p.hp,10-loss);
- updateNeeds(p,s.construction,s.harvesting,s.hauling,16,false);assert.equal(p.dead,true);assert.equal(p.bodyHp.torso,0);assert.equal(p.hp,0);assert.ok(p.bodyHp.head>0);assert.ok(p.bodyHp.legs>0);
+ const loss=30/(24*60/15);assert.deepEqual(p.bodyHp,{head:50-loss,torso:10-loss,arms:2-loss,legs:80-loss});assert.equal(p.hp,10-loss);
+ updateNeeds(p,s.construction,s.harvesting,s.hauling,32,false);assert.equal(p.dead,true);assert.equal(p.bodyHp.torso,0);assert.equal(p.hp,0);assert.ok(p.bodyHp.head>0);assert.ok(p.bodyHp.legs>0);
 });
