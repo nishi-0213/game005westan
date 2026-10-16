@@ -1,3 +1,4 @@
+import { BODY_PARTS, initialBodyHp, healthHp } from './health';
 import { clothingShapes } from './clothing-shapes';
 import { drawClothing } from './clothing-artwork';
 import { SPRITE_URLS, loadSprites, spriteArtwork, drawArtwork, clearArtwork, itemSprite } from './sprite-assets';
@@ -31,7 +32,7 @@ import { Butchery, BUTCHER_SECONDS, adjustButcherCount, corpsePosition, corpseIt
 import type { Tile } from './movement';
 import { isFloor, constructionKey, BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
-import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems, isWeaponItem, isClothingItem, CLOTHING, CLOTHING_SLOTS, initialClothing, totalArmor, carriedMassKg } from './items';
+import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems, isWeaponItem, isClothingItem, CLOTHING, CLOTHING_SLOTS, initialClothing, armorForPart, carriedMassKg } from './items';
 import { Storage } from './storage';
 import { Hauling } from './hauling';
 import type { HaulWorker } from './hauling';
@@ -418,7 +419,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || ((walls.at(tile)?.state === 'planned' || walls.floorAt(tile)?.state === 'planned') && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -670,7 +671,8 @@ const overviewTab = document.createElement('button');
 overviewTab.type = 'button'; overviewTab.textContent = '概要'; overviewTab.setAttribute('aria-pressed', 'true');
 const needsTab = document.createElement('button');
 needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute('aria-pressed', 'false');
-pawnSpecsTabs.append(overviewTab, needsTab);
+const healthTab=document.createElement('button');healthTab.type='button';healthTab.textContent='健康';healthTab.setAttribute('aria-pressed','false');
+pawnSpecsTabs.append(overviewTab, needsTab, healthTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
 pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory, pawnCarriedMass, pawnClothing);
@@ -687,14 +689,23 @@ const needsMeters = (['幸福感', '満腹感', '覚醒度'] as const).map(label
   needsBars.appendChild(row);
   return gauge;
 });
-function selectPawnInfoTab(needs: boolean): void {
-  pawnOverview.hidden = needs; pawnNeeds.hidden = !needs;pawnSpecs.classList.toggle('show-needs',needs);
-  overviewTab.setAttribute('aria-pressed', String(!needs)); needsTab.setAttribute('aria-pressed', String(needs));
+const pawnHealth=document.createElement('div');pawnHealth.className='pawn-health';pawnHealth.id='pawn-health';pawnHealth.hidden=true;
+const healthMeters=Object.entries(BODY_PARTS).map(([part,label])=>{
+  const row=document.createElement('label'),title=document.createElement('span'),armor=document.createElement('span');
+  title.textContent=label;const gauge=createNeedsMeter(`${label}のHP`);
+  armor.className='body-armor';row.append(title,gauge.track,gauge.value,armor);pawnHealth.append(row);
+  return {part:part as keyof typeof BODY_PARTS,gauge,armor};
+});
+function selectPawnInfoTab(tab:'overview'|'needs'|'health'):void {
+  pawnOverview.hidden=tab!=='overview';pawnNeeds.hidden=tab!=='needs';pawnHealth.hidden=tab!=='health';
+  pawnSpecs.classList.toggle('show-needs',tab==='needs');
+  for(const [button,name] of [[overviewTab,'overview'],[needsTab,'needs'],[healthTab,'health']] as const)button.setAttribute('aria-pressed',String(tab===name));
   updatePawnPanels();
 }
-overviewTab.addEventListener('click', () => selectPawnInfoTab(false));
-needsTab.addEventListener('click', () => selectPawnInfoTab(true));
-pawnSpecs.append(pawnSpecsTabs, pawnOverview, pawnNeeds);
+overviewTab.addEventListener('click',()=>selectPawnInfoTab('overview'));
+needsTab.addEventListener('click',()=>selectPawnInfoTab('needs'));
+healthTab.addEventListener('click',()=>selectPawnInfoTab('health'));
+pawnSpecs.append(pawnSpecsTabs,pawnOverview,pawnNeeds,pawnHealth);
 const pawnRoster = document.querySelector<HTMLElement>('#pawn-roster')!;
 const rosterButtons = pawns.map((pawn, index) => {
   const button = document.createElement('button');
@@ -772,9 +783,10 @@ function updatePawnPanels(): void {
   setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
   pawnCorpseMass.hidden=!selectedPawn.dead;
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
-  setText(pawnSpecsHp, `HP：${Math.round(selectedPawn.hp)}%　装甲：${totalArmor(selectedPawn)}`);
+  setText(pawnSpecsHp, `HP：${Math.round(healthHp(selectedPawn))}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
   const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
+  if(!pawnHealth.hidden)for(const entry of healthMeters){entry.gauge.update(selectedPawn.bodyHp[entry.part]);setText(entry.armor,`装甲：${armorForPart(selectedPawn,entry.part)}`);}
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.happiness??50, selectedPawn.needs.satiety, selectedPawn.needs.wakefulness??100].entries()) {
     needsMeters[index].update(value);
   }

@@ -1,3 +1,4 @@
+import type { BodyPart } from './health';
 import type { Tile } from './movement';
 
 export type ClothingItem = 'hat' | 'jacket' | 'trousers' | 'ballisticVest' | 'gloves';
@@ -19,10 +20,14 @@ export const CLOTHING = {
 } as const;
 export function isClothingItem(type: ItemType): type is ClothingItem { return Object.hasOwn(CLOTHING, type); }
 export function initialClothing(): Clothing { return { head:'hat', torso:'jacket', legs:'trousers' }; }
-export function clothingArmor(worker: {clothing?: Clothing}): number {
-  return Object.values(worker.clothing ?? {}).reduce((sum, type) => sum + CLOTHING[type].armor, 0);
+export function armorForPart(worker:{armor?:number;clothing?:Clothing},part:BodyPart):number {
+  let armor=worker.armor??0;
+  for(const [slot,type] of Object.entries(worker.clothing??{})){
+    const covered=slot==='outerwear'?'torso':slot;
+    if(covered===part)armor+=CLOTHING[type].armor;
+  }
+  return armor;
 }
-export function totalArmor(worker: {armor?:number; clothing?:Clothing}): number { return (worker.armor ?? 0) + clothingArmor(worker); }
 export const ITEM_APPEARANCE = {
   hat: { name:'帽子', color:0xb89961, massKg:.3 },
   jacket: { name:'ジャケット', color:0x6386a1, massKg:1 },

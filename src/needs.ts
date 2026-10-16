@@ -1,3 +1,4 @@
+import { damageAllBodyParts, healthHp, type BodyHp } from './health.ts';
 import { FOOD_THRESHOLD } from './needs-threshold.ts';
 import { canPlan } from './path-schedule.ts';
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
@@ -22,6 +23,7 @@ export type EatingWorker = HarvestWorker & HaulWorker & {
   sleep?:import('./sleep').SleepState;
   sleepRetrySeconds?:number;
   hp?: number;
+  bodyHp?: BodyHp;
   armor?: number;
   consumed?: boolean;
   collectCorpse?: boolean;
@@ -81,6 +83,7 @@ function seekDiningSeat(worker: EatingWorker, construction: Construction): boole
 export function killPawn(worker: EatingWorker, construction: Construction, harvesting: Harvesting, hauling: Hauling): void {
   if (worker.dead) return;
   worker.hp = 0;
+  if(worker.bodyHp&&healthHp(worker)>0)worker.bodyHp.torso=0;
   worker.deadPosition = renderedPosition(worker.movement);
   let restingTile = worker.movement.tile;
   if (worker.movement.stopBlocked?.(restingTile)
@@ -126,8 +129,8 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const previousSatiety = worker.needs.satiety;
   worker.needs.satiety = Math.max(0, previousSatiety - elapsed * SATIETY_LOSS_PER_SECOND);
   const starvingSeconds = Math.max(0, elapsed - previousSatiety / SATIETY_LOSS_PER_SECOND);
-  worker.hp = Math.max(0, (worker.hp ?? 100) - starvingSeconds * STARVATION_HP_LOSS_PER_SECOND);
-  if (worker.hp <= 0) {
+  damageAllBodyParts(worker,starvingSeconds * STARVATION_HP_LOSS_PER_SECOND);
+  if (healthHp(worker) <= 0) {
     killPawn(worker, construction, harvesting, hauling);
     return true;
   }

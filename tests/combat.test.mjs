@@ -184,8 +184,8 @@ test('equipping clothes consumes one, replaces its slot, preserves weapons and d
  assert.equal(p.clothing.outerwear,'ballisticVest');
 });
 
-test('clothes protect targets in real combat and removing clothes restores full damage',()=>{
- const s=scene(),a=s.pawn(3,3,'knife'),b=s.pawn(4,3);b.clothing={head:'hat',torso:'jacket',legs:'trousers'};
+test('torso clothing protects scalar targets only when penetration is lower than its armor',()=>{
+ const s=scene(),a=s.pawn(3,3,'knife'),b=s.pawn(4,3);b.clothing={head:'hat',torso:'jacket',legs:'trousers',outerwear:'ballisticVest'};
  assert.equal(s.combat.requestAttack(a,b),true);s.combat.update(a,.1);assert.equal(b.hp,75);
  b.clothing={};s.combat.update(a,.1);assert.equal(b.hp,25);
 });
@@ -199,4 +199,23 @@ test('death retains every clothing slot on the corpse and drops only the equippe
  const totals=countItems(s.items);assert.equal(totals.knife,1);
  for(const type of Object.values(clothes))assert.equal(totals[type],0);
  s.combat.update(attacker,1);assert.deepEqual(countItems(s.items),totals);assert.deepEqual(target.clothing,clothes);
+});
+
+for(const [part,roll] of [['head',.125],['torso',.375],['arms',.625],['legs',.875]]){
+ test(`attacks select ${part}, use only its armor and kill only on vital damage`,()=>{
+  let rollIndex=0;const s=scene(()=>rollIndex++%2===0?0:roll),a=s.pawn(3,3,'rifle'),b=s.pawn(4,3);
+  b.bodyHp={head:100,torso:100,arms:100,legs:100};b.clothing={head:'hat',torso:'jacket',outerwear:'ballisticVest',arms:'gloves',legs:'trousers'};
+  const events=[];s.combat.onAttack=event=>events.push(event);assert.equal(s.combat.requestAttack(a,b),true);s.combat.update(a,.4);
+  const damage=part==='torso'?15:30;assert.equal(events[0].bodyPart,part);assert.equal(events[0].damage,damage);
+  for(const key of ['head','torso','arms','legs'])assert.equal(b.bodyHp[key],key===part?100-damage:100);
+  assert.equal(b.hp,['head','torso'].includes(part)?100-damage:100);
+  b.bodyHp[part]=1;s.combat.update(a,.4);assert.equal(b.bodyHp[part],0);
+  assert.equal(Boolean(b.dead),['head','torso'].includes(part));assert.equal(b.hp,['head','torso'].includes(part)?0:100);
+ });
+}
+test('real starvation updates all body parts together and death occurs when the weaker vital part reaches zero',()=>{
+ const s=scene(),p=s.pawn(3,3);p.kind='human';p.needs.satiety=0;p.bodyHp={head:50,torso:10,arms:2,legs:80};p.hp=10;
+ updateNeeds(p,s.construction,s.harvesting,s.hauling,1,false);
+ const loss=30/(24*60/30);assert.deepEqual(p.bodyHp,{head:50-loss,torso:10-loss,arms:2-loss,legs:80-loss});assert.equal(p.hp,10-loss);
+ updateNeeds(p,s.construction,s.harvesting,s.hauling,16,false);assert.equal(p.dead,true);assert.equal(p.bodyHp.torso,0);assert.equal(p.hp,0);assert.ok(p.bodyHp.head>0);assert.ok(p.bodyHp.legs>0);
 });

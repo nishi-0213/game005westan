@@ -1,3 +1,4 @@
+import { BODY_PARTS, damageBodyPart, healthHp, type BodyPart } from './health.ts';
 import {isFloor} from './walls.ts';
 import { canPlan } from './path-schedule.ts';
 import { canGiveOrders, rememberMood } from './mood.ts';
@@ -12,7 +13,7 @@ import { killPawn } from './needs.ts';
 import type { FactionMember } from './factions';
 import { areHostile, isPlayerControlled } from './factions.ts';
 import type { MapItem } from './items';
-import { carryCapacity, returnItems, isWeaponItem, isClothingItem, CLOTHING, totalArmor } from './items.ts';
+import { carryCapacity, returnItems, isWeaponItem, isClothingItem, CLOTHING, armorForPart } from './items.ts';
 import { createMovement } from './movement.ts';
 import type {Wall} from './walls';
 import type { Construction } from './construction';
@@ -45,6 +46,7 @@ export function attackDamage(damage: number, penetration: number, armor = 0): nu
 }
 export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean; structure?:Wall };
 export interface AttackEvent {
+  bodyPart?:BodyPart;
   attacker: CombatPawn;
   target: CombatTarget;
   weapon: Weapon;
@@ -309,9 +311,11 @@ export class Combat {
       const distance=Math.hypot(aim.column-pawn.movement.tile.column,aim.row-pawn.movement.tile.row);
       const accuracy=Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-(covered?.4:0));
       const hit = this.random() < accuracy;
-      const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit,
+      const parts=Object.keys(BODY_PARTS) as BodyPart[];
+      const bodyPart=hit&&job.target.bodyHp?parts[Math.min(parts.length-1,Math.floor(this.random()*parts.length))]:undefined;
+      const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit, bodyPart,
         from: renderedPosition(pawn.movement), to: job.target.structure?aim:renderedPosition(job.target.movement),
-        damage: hit ? attackDamage(stats.damage, stats.penetration, totalArmor(job.target)) : 0 };
+        damage: hit ? attackDamage(stats.damage, stats.penetration, armorForPart(job.target,bodyPart??'torso')) : 0 };
       if(!hit&&weapon==='rifle'){
         const angle=this.random()*Math.PI*2,offset=.6+this.random()*.9;
         event.to={column:event.to.column+Math.cos(angle)*offset,row:event.to.row+Math.sin(angle)*offset};
@@ -332,8 +336,8 @@ export class Combat {
         }
       }
       if (hit) {
-        job.target.hp = Math.max(0, (job.target.hp ?? 100) - event.damage);
-        if (job.target.hp <= 0) {
+        damageBodyPart(job.target,bodyPart??'torso',event.damage);
+        if (healthHp(job.target) <= 0) {
           if(job.hunting){job.target.collectCorpse=true;job.target.hunt=false;}
           if(job.target.structure)this.onDestroyStructure?.(job.target.structure);
           else{if(job.target.kind==='human')rememberMood(pawn,'killedHuman');killPawn(job.target, this.construction, this.harvesting, this.hauling);this.cancel(job.target);}
