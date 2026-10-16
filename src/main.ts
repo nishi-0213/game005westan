@@ -56,7 +56,7 @@ import type { HarvestWorker } from './harvesting';
 import { formatPawnName, generatePawnNames } from './pawn-names';
 import { currentAction, INITIAL_PRIORITIES, nextPriority, updateWork } from './work-priorities';
 
-const MAP_SIZE = 32;
+const MAP_SIZE = 128;
 const TILE_SIZE = 24;
 const MAP_PIXELS = MAP_SIZE * TILE_SIZE;
 const RENDER_RESOLUTION = Math.max(2, window.devicePixelRatio || 1);
@@ -73,7 +73,7 @@ await app.init({
 await loadSprites();
 await loadPawnArtwork();
 document.body.appendChild(app.canvas);
-app.canvas.setAttribute('aria-label', 'れ・こんきすた。32×32マスのマップと中央の3人のポーン');
+app.canvas.setAttribute('aria-label', `れ・こんきすた。${MAP_SIZE}×${MAP_SIZE}マスのマップと中央の3人のポーン`);
 document.addEventListener('contextmenu', (event) => event.preventDefault());
 
 const gameTime=new GameTime();
@@ -147,7 +147,7 @@ const walls = new Walls(MAP_SIZE);
 const worldLighting=new WorldLighting(walls);
 const daylightFilter=worldLighting.filter;map.filters=[daylightFilter];
 const storage = new Storage(walls);
-const mapItems = initialItems();
+const mapItems = initialItems(MAP_SIZE);
 let selectedItems = new Set<(typeof mapItems)[number]>();
 let selectedItem: (typeof mapItems)[number] | null = null;
 // Quantity labels stay above every map object, including later-created views.
@@ -374,10 +374,11 @@ function updateDeerViews(): void {
 }
 
 const pathSearchSchedule = new PathSearchSchedule();
+const mapCenter = Math.floor(MAP_SIZE / 2);
 const spawnTiles = [
-  { column: 15, row: 15, color: 0xf2c66d },
-  { column: 16, row: 15, color: 0x82c6dc },
-  { column: 15, row: 16, color: 0xdb96b5 },
+  { column: mapCenter-1, row: mapCenter-1, color: 0xf2c66d },
+  { column: mapCenter, row: mapCenter-1, color: 0x82c6dc },
+  { column: mapCenter-1, row: mapCenter, color: 0xdb96b5 },
 ];
 // Start with three colonists; explicit query parameters retain load-test comparisons.
 const requestedPawnCount = Number(new URLSearchParams(location.search).get('pawns'));
@@ -392,7 +393,7 @@ if(stressPawnCount>3){
   const colors=spawnTiles.map(p=>p.color);
   for(const tile of available.slice(0,stressPawnCount-3))spawnTiles.push({...tile,color:colors[spawnTiles.length%colors.length]});
 }
-app.canvas.setAttribute('aria-label',`れ・こんきすた。32×32マスのマップと${spawnTiles.length}人のポーン`);
+app.canvas.setAttribute('aria-label',`れ・こんきすた。${MAP_SIZE}×${MAP_SIZE}マスのマップと${spawnTiles.length}人のポーン`);
 const pawnNames = generatePawnNames(spawnTiles.length);
 const attackRangeLayer = new Container();
 map.addChild(attackRangeLayer);
@@ -1482,11 +1483,11 @@ function showDestination(column: number, row: number): void {
   destinationMarkers.push({ view: marker, ageSeconds: 0 });
 }
 
-const camera = { x: MAP_PIXELS / 2, y: MAP_PIXELS / 2, zoom: 1 };
+const camera = { x: MAP_PIXELS / 2, y: MAP_PIXELS / 2, zoom: MAP_SIZE / 32 };
 const cameraKeys = new Set<string>();
 const CAMERA_SPEED = 400;
 const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 4;
+const MAX_ZOOM = 4 * MAP_SIZE / 32;
 
 function applyCamera(): void {
   const scale = Math.min(app.screen.width, app.screen.height) / MAP_PIXELS * camera.zoom;

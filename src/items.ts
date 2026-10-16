@@ -64,8 +64,9 @@ export function equippedMassKg(worker: {clothing?:Clothing; weapon?:'unarmed'|'r
 export function carriedMassKg(worker: {clothing?:Clothing; weapon?:'unarmed'|'rifle'|'knife'; inventory?:{type:ItemType;quantity:number}|null}): number {
   return equippedMassKg(worker) + (worker.inventory ? ITEM_APPEARANCE[worker.inventory.type].massKg * worker.inventory.quantity : 0);
 }
-export function initialItems(): MapItem[] {
-  return [
+export function initialItems(mapSize=32): MapItem[] {
+  const offset=Math.floor(mapSize/2)-16;
+  const items:MapItem[] = [
     { type:'ballisticVest',quantity:1,column:15,row:18 },
     { type:'gloves',quantity:1,column:16,row:18 },
     { type:'ration',quantity:40,column:15,row:17,collect:true },
@@ -74,6 +75,7 @@ export function initialItems(): MapItem[] {
     { type: 'rifle', quantity: 1, column: 16, row: 17 },
     { type: 'knife', quantity: 1, column: 17, row: 17 },
   ];
+  return items.map(item=>({...item,column:item.column+offset,row:item.row+offset}));
 }
 
 export function countItems(items: readonly MapItem[]): Record<ItemType, number> {

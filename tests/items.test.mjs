@@ -35,3 +35,8 @@ test('returned building materials merge with an existing stack without losing qu
   assert.equal(items.length,2);
   assert.deepEqual(countItems(items),{wood:100,stone:5,strawberry:0,ration:0,rifle:0,knife:0,meat:0,humanCorpse:0,deerCorpse:0,wolfCorpse:0,hat:0,jacket:0,trousers:0,ballisticVest:0,gloves:0});
 });
+
+test('128x128 initial supplies retain their relative layout at the new map center',()=>{
+ const original=initialItems(),expanded=initialItems(128);assert.deepEqual(countItems(expanded),countItems(original));
+ for(const [i,item] of expanded.entries()){assert.equal(item.column,original[i].column+48);assert.equal(item.row,original[i].row+48);}
+});
