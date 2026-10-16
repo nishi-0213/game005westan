@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomPawnAppearance, recolorPawnLayers, splitPawnLayers } from '../src/pawn-appearance.ts';
 
-test('appearance is sampled once from three independent random choices and remains bounded',()=>{
+test('appearance is sampled once from four independent random choices and remains bounded',()=>{
  let calls=0;const appearance=randomPawnAppearance(()=>{calls++;return .999});
- assert.equal(calls,3);assert.deepEqual(appearance,{skinRed:1,skinDark:.65,eyeSaturation:1});
- assert.deepEqual(randomPawnAppearance(()=>0),{skinRed:0,skinDark:0,eyeSaturation:.2});
+ assert.equal(calls,4);assert.deepEqual(appearance,{skinRed:1,skinDark:.65,eyeSaturation:1,eyeHue:330});
+ assert.deepEqual(randomPawnAppearance(()=>0),{skinRed:0,skinDark:0,eyeSaturation:.2,eyeHue:0});
  assert.equal(new Set(Array.from({length:6},(_,i)=>JSON.stringify(randomPawnAppearance(()=>i/6)))).size,6);
 });
 test('skin red and black adjustments preserve outlines, transparency, neutral details and source pixels',()=>{
@@ -40,4 +40,14 @@ test('hair selection does not affect the skin and eye pixel colors',()=>{
  const layers={width:1,height:1,body:new Uint8ClampedArray([255,217,209,255]),eyes:new Uint8ClampedArray([38,0,255,255])};
  const base={skinRed:.4,skinDark:.26,eyeSaturation:.68};
  for(const hair of ['none','hair1','hair2'])assert.deepEqual(recolorPawnLayers(layers,{...base,hair}),recolorPawnLayers(layers,base));
+});
+
+test('eye hue rotation spans the color wheel without changing skin, highlights or alpha',()=>{
+ const layers={width:2,height:1,body:new Uint8ClampedArray([255,217,209,255,0,0,0,0]),eyes:new Uint8ClampedArray([0,0,255,255,255,255,255,255])};
+ const expected=[[0,0,255],[255,0,255],[255,0,0],[255,255,0],[0,255,0],[0,255,255]];
+ for(let i=0;i<6;i++){
+  const colored=recolorPawnLayers(layers,{skinRed:0,skinDark:0,eyeSaturation:1,eyeHue:i*60});
+  assert.deepEqual([...colored.eyes.slice(0,3)],expected[i]);assert.equal(colored.eyes[3],255);assert.deepEqual([...colored.eyes.slice(4)],[255,255,255,255]);assert.deepEqual(colored.body,layers.body);
+ }
+ assert.deepEqual(Array.from({length:12},(_,i)=>randomPawnAppearance(()=>i/12).eyeHue),Array.from({length:12},(_,i)=>i*30));
 });

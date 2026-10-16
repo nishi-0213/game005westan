@@ -23,7 +23,7 @@ function layer(data:Uint8ClampedArray):{texture:Texture;url:string} {
   return {texture,url:canvas.toDataURL()};
 }
 export function pawnArtwork(appearance:PawnAppearance):PawnArtwork {
-  const key=JSON.stringify([appearance.skinRed,appearance.skinDark,appearance.eyeSaturation]);let artwork=variants.get(key);
+  const key=JSON.stringify([appearance.skinRed,appearance.skinDark,appearance.eyeSaturation,appearance.eyeHue??0]);let artwork=variants.get(key);
   if(!artwork){
     const colored=recolorPawnLayers(source,appearance),body=layer(colored.body),eyes=layer(colored.eyes);
     artwork={body:body.texture,eyes:eyes.texture,bodyUrl:body.url,eyesUrl:eyes.url};variants.set(key,artwork);

@@ -180,7 +180,7 @@ test('equipping clothes consumes one, replaces its slot, preserves weapons and d
  assert.equal(countItems(s.items).wood,10);
  const replacement={column:3,row:3,type:'jacket',quantity:1};s.items.push(replacement);
  assert.equal(s.combat.requestEquip(p,replacement),true);s.combat.update(p,0);
- assert.equal(replacement.quantity,1);assert.equal(p.clothing.torso,'jacket');
+ assert.equal(replacement.quantity,0);assert.equal(countItems(s.items).jacket,1);assert.ok(s.items.some(item=>item.type==='jacket'&&item.quantity===1&&(item.column!==3||item.row!==3)));assert.equal(p.clothing.torso,'jacket');
  assert.equal(p.clothing.outerwear,'ballisticVest');
 });
 
@@ -218,4 +218,11 @@ test('real starvation updates all body parts together and death occurs when the 
  updateNeeds(p,s.construction,s.harvesting,s.hauling,1,false);
  const loss=30/(24*60/15);assert.deepEqual(p.bodyHp,{head:50-loss,torso:10-loss,arms:2-loss,legs:80-loss});assert.equal(p.hp,10-loss);
  updateNeeds(p,s.construction,s.harvesting,s.hauling,32,false);assert.equal(p.dead,true);assert.equal(p.bodyHp.torso,0);assert.equal(p.hp,0);assert.ok(p.bodyHp.head>0);assert.ok(p.bodyHp.legs>0);
+});
+
+test('a clothing swap with no empty drop cell preserves both the equipped clothing and source stack',()=>{
+ const s=scene(),p=s.pawn(3,3);p.clothing={torso:'jacket'};
+ for(let row=0;row<32;row++)for(let column=0;column<32;column++)s.items.push({column,row,type:'wood',quantity:1});
+ const source={column:3,row:3,type:'jacket',quantity:1};s.items.push(source);
+ assert.equal(s.combat.requestEquip(p,source),true);s.combat.update(p,0);assert.equal(source.quantity,1);assert.equal(p.clothing.torso,'jacket');assert.equal(countItems(s.items).jacket,1);assert.equal(p.equipJob,null);
 });

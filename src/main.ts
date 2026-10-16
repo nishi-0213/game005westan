@@ -1,3 +1,4 @@
+import { unequipClothing } from './clothing-drop';
 import { randomPawnAppearance, randomHairStyle } from './pawn-appearance';
 import { loadPawnArtwork, pawnBody, pawnArtwork } from './pawn-artwork';
 import { BODY_PARTS, initialBodyHp, healthHp } from './health';
@@ -657,7 +658,8 @@ const clothingRows=Object.entries(CLOTHING_SLOTS).map(([slot,label])=>{
   button.addEventListener('click',()=>{
     const pawn=selectedPawn;if(!pawn||pawn.dead||pawn.sleep||!canGiveOrders(pawn))return;
     const type=pawn.clothing[slot as keyof typeof CLOTHING_SLOTS];if(!type)return;
-    returnItems(mapItems,pawn.movement.tile,type,1);delete pawn.clothing[slot as keyof typeof CLOTHING_SLOTS];updatePawnPanels();
+    if(!unequipClothing(pawn,slot as keyof typeof CLOTHING_SLOTS,mapItems,walls)){button.title='近くに衣服を置ける空きマスがありません';return;}
+    button.title='';updatePawnPanels();
   });
   row.append(value,button);pawnClothing.append(row);return {slot:slot as keyof typeof CLOTHING_SLOTS,label,value,button};
 });

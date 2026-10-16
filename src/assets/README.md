@@ -5,7 +5,7 @@
 | 元ファイル | 使用ファイル | 主な表示 |
 |---|---|---|
 | ポーン_体.png | pawn-body.png | 肌色を調整する身体レイヤー |
-| ポーン_眼.png | pawn-eyes.png | 彩度を調整する青い目レイヤー |
+| ポーン_眼.png | pawn-eyes.png | 色相・彩度を調整する青い目の素体 |
 | 髪1.png | hair-1.png | 髪型1 |
 | 髪2.png | hair-2.png | 髪型2 |
 | 岩.png | rock.png | 採掘対象の岩 |

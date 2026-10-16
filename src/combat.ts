@@ -1,3 +1,4 @@
+import { unequipClothing } from './clothing-drop.ts';
 import { BODY_PARTS, damageBodyPart, healthHp, type BodyPart } from './health.ts';
 import {isFloor} from './walls.ts';
 import { canPlan } from './path-schedule.ts';
@@ -233,17 +234,17 @@ export class Combat {
       if (equip.source.quantity <= 0) { this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false; }
       if (!stationary(pawn)) return true;
       if (positionKey(pawn.movement.tile) !== positionKey(equip.goal)) { this.cancel(pawn); return false; }
-      equip.source.quantity -= 1;
       if(isClothingItem(equip.source.type)){
         const slot=CLOTHING[equip.source.type].slot;
         pawn.clothing ??= {};
         const previous=pawn.clothing[slot];
-        if(previous)returnItems(this.construction.items,pawn.movement.tile,previous,1);
+        if(previous&&!unequipClothing(pawn,slot,this.construction.items,this.construction.walls)){this.cancel(pawn);return false;}
         pawn.clothing[slot]=equip.source.type;
       }else{
         if (pawn.weapon && pawn.weapon !== 'unarmed') returnItems(this.construction.items, pawn.movement.tile, pawn.weapon, 1);
         pawn.weapon = equip.source.type as Exclude<Weapon, 'unarmed'>;
       }
+      equip.source.quantity -= 1;
       pawn.equipJob = null;
       if (pawn.inventory) {
         const excess = Math.max(0, pawn.inventory.quantity - carryCapacity(pawn, pawn.inventory.type));

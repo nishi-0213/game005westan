@@ -1,5 +1,5 @@
 export type HairStyle = 'none' | 'hair1' | 'hair2';
-export interface PawnAppearance { skinRed:number; skinDark:number; eyeSaturation:number; hair?:HairStyle }
+export interface PawnAppearance { skinRed:number; skinDark:number; eyeSaturation:number; eyeHue?:number; hair?:HairStyle }
 export function randomHairStyle(random:()=>number=Math.random):HairStyle {
   return (['none','hair1','hair2'] as const)[Math.max(0,Math.min(2,Math.floor(random()*3)))];
 }
@@ -7,7 +7,7 @@ export interface PawnLayers { width:number; height:number; body:Uint8ClampedArra
 const clamp=(value:number)=>Math.max(0,Math.min(1,value));
 export function randomPawnAppearance(random:()=>number=Math.random):PawnAppearance {
   const pick=()=>Math.min(5,Math.floor(clamp(random())*6))/5;
-  return {skinRed:pick(),skinDark:pick()*.65,eyeSaturation:.2+pick()*.8};
+  return {skinRed:pick(),skinDark:pick()*.65,eyeSaturation:.2+pick()*.8,eyeHue:Math.min(11,Math.floor(clamp(random())*12))*30};
 }
 /** Legacy helper for the original 32px pawn; the app now loads the supplied separate PNGs. */
 export function splitPawnLayers(pixels:Uint8ClampedArray,width:number,height:number):PawnLayers {
@@ -34,8 +34,16 @@ export function recolorPawnLayers(layers:PawnLayers,appearance:PawnAppearance):P
       body[offset+2]=Math.round(b*(1-red*.28)*dark);
     }
     if(eyes[offset+3]){
-      const midpoint=(Math.max(eyes[offset],eyes[offset+1],eyes[offset+2])+Math.min(eyes[offset],eyes[offset+1],eyes[offset+2]))/2;
-      for(let channel=0;channel<3;channel++)eyes[offset+channel]=Math.round(midpoint+(eyes[offset+channel]-midpoint)*saturation);
+      const channels=[eyes[offset]/255,eyes[offset+1]/255,eyes[offset+2]/255];
+      const max=Math.max(...channels),min=Math.min(...channels),delta=max-min,midpoint=(max+min)/2;
+      if(delta){
+        const [r,g,b]=channels;
+        let hue=max===r?((g-b)/delta)%6:max===g?(b-r)/delta+2:(r-g)/delta+4;
+        hue=((hue+(appearance.eyeHue??0)/60)%6+6)%6;
+        const chroma=delta*saturation,x=chroma*(1-Math.abs(hue%2-1)),m=midpoint-chroma/2;
+        const rgb=hue<1?[chroma,x,0]:hue<2?[x,chroma,0]:hue<3?[0,chroma,x]:hue<4?[0,x,chroma]:hue<5?[x,0,chroma]:[chroma,0,x];
+        for(let channel=0;channel<3;channel++)eyes[offset+channel]=Math.round((rgb[channel]+m)*255);
+      }
     }
   }
   return {...layers,body,eyes};
