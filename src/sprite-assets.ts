@@ -2,6 +2,18 @@ import { Assets, Graphics, Sprite, Texture } from 'pixi.js';
 import type { ItemType } from './items';
 
 export const SPRITE_URLS = {
+  pawnBody: new URL('./assets/pawn-body.png', import.meta.url).href,
+  pawnEyes: new URL('./assets/pawn-eyes.png', import.meta.url).href,
+  hair1: new URL('./assets/hair-1.png', import.meta.url).href,
+  hair2: new URL('./assets/hair-2.png', import.meta.url).href,
+  rock: new URL('./assets/rock.png', import.meta.url).href,
+  floorStone: new URL('./assets/floor-stone.png', import.meta.url).href,
+  floorWood: new URL('./assets/floor-wood.png', import.meta.url).href,
+  wallStone: new URL('./assets/wall-stone.png', import.meta.url).href,
+  wallWood: new URL('./assets/wall-wood.png', import.meta.url).href,
+  itemStone: new URL('./assets/item-stone.png', import.meta.url).href,
+  itemWood: new URL('./assets/item-wood.png', import.meta.url).href,
+  itemStrawberry: new URL('./assets/item-strawberry.png', import.meta.url).href,
   knife: new URL('./assets/knife.png', import.meta.url).href,
   pawn: new URL('./assets/pawn.png', import.meta.url).href,
   rifle: new URL('./assets/rifle.png', import.meta.url).href,
@@ -41,7 +53,10 @@ export function drawArtwork(view: Graphics, name: SpriteName, size = 24): Graphi
 }
 
 export function itemSprite(type: ItemType): SpriteName | undefined {
-  if (type === 'knife' || type === 'rifle' || type === 'strawberry') return type;
+  if (type === 'knife' || type === 'rifle') return type;
+  if(type==='wood')return 'itemWood';
+  if(type==='stone')return 'itemStone';
+  if(type==='strawberry')return 'itemStrawberry';
   if (type === 'humanCorpse') return 'pawn';
   if (type === 'deerCorpse') return 'deer';
   if (type === 'wolfCorpse') return 'wolf';

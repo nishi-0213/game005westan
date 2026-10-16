@@ -1,4 +1,4 @@
-import { randomPawnAppearance } from './pawn-appearance';
+import { randomPawnAppearance, randomHairStyle } from './pawn-appearance';
 import { loadPawnArtwork, pawnBody, pawnArtwork } from './pawn-artwork';
 import { BODY_PARTS, initialBodyHp, healthHp } from './health';
 import { clothingShapes } from './clothing-shapes';
@@ -124,8 +124,7 @@ function createEnvironmentView(object: EnvironmentObject) {
   const outline = new Graphics().rect(-11, -11, 22, 22).stroke({ color: 0xfff2a3, width: 1.5 });
   outline.visible = false;
   const shape = new Graphics();
-  if (object.type === 'rock') shape.ellipse(0, 1, 9, 7).fill(0xb6b6b6);
-  else drawArtwork(shape, object.type === 'wildStrawberry' ? 'strawberry' : object.type);
+  drawArtwork(shape, object.type === 'wildStrawberry' ? 'strawberry' : object.type);
   if (object.type !== 'rock') shape.scale.set(object.type === 'grass' ? .6 + .4 * object.hp / 100 : .35 + .65 * object.hp / 100);
   const collectIcon = new Graphics()
     .moveTo(-4, -2).lineTo(0, -4).lineTo(4, -2).stroke({ color: 0xf2c66d, width: 2 })
@@ -403,7 +402,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
     .stroke({ color: 0xfff2a3, width: 2 });
   selection.visible = false;
   view.addChild(selection);
-  const appearance=randomPawnAppearance();
+  const appearance={...randomPawnAppearance(),hair:randomHairStyle()};
   const body = pawnBody(appearance);
   view.addChild(body);
   const clothing=initialClothing();
@@ -538,10 +537,12 @@ function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
   const portrait = document.createElement('div');portrait.className='pawn-portrait';
   portrait.setAttribute('aria-hidden','true');
   const artwork=pawnArtwork(pawn.appearance);
-  const body=document.createElement('img');body.src=artwork.bodyUrl;body.alt='';
+  const body=document.createElement('img');body.className='pawn-body';body.src=artwork.bodyUrl;body.alt='';
   const eyes=document.createElement('img');eyes.className='pawn-eyes';eyes.src=artwork.eyesUrl;eyes.alt='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','-16 -16 32 32');
-  portrait.append(body,eyes,svg);updatePawnPortrait(portrait,pawn);
+  portrait.append(body,eyes);
+  if(pawn.appearance.hair!=='none'){const hair=document.createElement('img');hair.className='pawn-hair';hair.src=SPRITE_URLS[pawn.appearance.hair];hair.alt='';portrait.append(hair);}
+  portrait.append(svg);updatePawnPortrait(portrait,pawn);
   const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
 }
@@ -1304,7 +1305,7 @@ function completeDemolition(tile: Tile, attacked=false): boolean {
   const target = attacked?destroyStructure(walls,mapItems,tile):demolishStructure(walls, mapItems, tile);
   if (!target) return false;
   const key = `${tile.column},${tile.row}`;
-  wallViews.get(key)?.destroy();
+  wallViews.get(key)?.destroy({children:true});
   wallViews.delete(key);
   constructionProgressViews.get(key)?.view.destroy({ children: true });
   constructionProgressViews.delete(key);
@@ -1341,7 +1342,10 @@ function placeConstruction(tile: Tile): void {
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
     .fill(WALL_COLORS[wall.material]);
-  if(isFloor(wall.kind)){view.clear().rect(0,0,TILE_SIZE,TILE_SIZE).fill(wall.kind==='stoneFloor'?0x858a8d:0x9a7047);if(wall.kind==='woodFloor')for(const offset of [0,TILE_SIZE/3,2*TILE_SIZE/3])view.moveTo(0,offset).lineTo(TILE_SIZE,offset);else view.rect(1,1,TILE_SIZE-2,TILE_SIZE-2);view.stroke({color:wall.kind==='stoneFloor'?0x555e63:0x715035,width:1});}
+  if(isFloor(wall.kind)||wall.kind==='wall'){
+    const asset=isFloor(wall.kind)?(wall.kind==='stoneFloor'?'floorStone':'floorWood'):(wall.material==='stone'?'wallStone':'wallWood');
+    view.clear();const sprite=spriteArtwork(asset);sprite.position.set(TILE_SIZE/2,TILE_SIZE/2);view.addChild(sprite);
+  }
   if(wall.kind==='door')drawDoor(view,0);
   if(wall.kind==='torch')view.clear().rect(10,8,4,14).fill(0x916039).poly([7,10,8,4,11,6,13,1,17,8,16,11]).fill(0xff9b36).poly([10,10,12,5,14,10]).fill(0xffed9a);
   if (isWorkshop(wall.kind)) {
@@ -1409,7 +1413,7 @@ function removeConstructionPlan(tile: Tile): boolean {
   }
   returnItems(mapItems, removed, removed.material, removed.delivered);
   const key = constructionKey(removed);
-  wallViews.get(key)?.destroy();
+  wallViews.get(key)?.destroy({children:true});
   wallViews.delete(key);
   constructionProgressViews.get(key)?.view.destroy({ children: true });
   constructionProgressViews.delete(key);

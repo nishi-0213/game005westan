@@ -30,3 +30,14 @@ test('compatibility split extracts only the original eye positions and replaces 
  assert.deepEqual([...layers.eyes.slice(highlight,highlight+4)],[255,255,255,255]);assert.deepEqual([...layers.body.slice(eye,eye+4)],[255,217,209,255]);
  assert.equal(layers.eyes[3],0);assert.deepEqual(pixels,original);assert.throws(()=>splitPawnLayers(pixels,16,16));
 });
+
+test('hair includes bald and both supplied styles with equal thirds and safe endpoints',async()=>{
+ const {randomHairStyle}=await import('../src/pawn-appearance.ts');
+ for(const [roll,style] of [[0,'none'],[.333,'none'],[1/3,'hair1'],[.666,'hair1'],[2/3,'hair2'],[.999,'hair2'],[1,'hair2']])assert.equal(randomHairStyle(()=>roll),style);
+ assert.equal(randomHairStyle(()=>-1),'none');
+});
+test('hair selection does not affect the skin and eye pixel colors',()=>{
+ const layers={width:1,height:1,body:new Uint8ClampedArray([255,217,209,255]),eyes:new Uint8ClampedArray([38,0,255,255])};
+ const base={skinRed:.4,skinDark:.26,eyeSaturation:.68};
+ for(const hair of ['none','hair1','hair2'])assert.deepEqual(recolorPawnLayers(layers,{...base,hair}),recolorPawnLayers(layers,base));
+});

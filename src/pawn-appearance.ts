@@ -1,11 +1,15 @@
-export interface PawnAppearance { skinRed:number; skinDark:number; eyeSaturation:number }
+export type HairStyle = 'none' | 'hair1' | 'hair2';
+export interface PawnAppearance { skinRed:number; skinDark:number; eyeSaturation:number; hair?:HairStyle }
+export function randomHairStyle(random:()=>number=Math.random):HairStyle {
+  return (['none','hair1','hair2'] as const)[Math.max(0,Math.min(2,Math.floor(random()*3)))];
+}
 export interface PawnLayers { width:number; height:number; body:Uint8ClampedArray; eyes:Uint8ClampedArray }
 const clamp=(value:number)=>Math.max(0,Math.min(1,value));
 export function randomPawnAppearance(random:()=>number=Math.random):PawnAppearance {
   const pick=()=>Math.min(5,Math.floor(clamp(random())*6))/5;
   return {skinRed:pick(),skinDark:pick()*.65,eyeSaturation:.2+pick()*.8};
 }
-/** Compatibility source for the original 32px pawn until separate PNG files are available. */
+/** Legacy helper for the original 32px pawn; the app now loads the supplied separate PNGs. */
 export function splitPawnLayers(pixels:Uint8ClampedArray,width:number,height:number):PawnLayers {
   if(width!==32||height!==32||pixels.length!==width*height*4)throw new Error('The original pawn must be a 32×32 RGBA image');
   const body=new Uint8ClampedArray(pixels),eyes=new Uint8ClampedArray(pixels.length);
