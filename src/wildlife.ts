@@ -164,18 +164,22 @@ export class Wildlife {
     const paths = findPaths(start, walls.mapSize, walls.isBlocked, walls.cannotStop, deer.movement);
     let best: { goal: Tile; path: Path; error: number } | null = null;
     let lateral: { goal: Tile; path: Path; error: number; radialError: number } | null = null;
-    for (const [index, path] of paths) {
-      const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
-      const projection = (goal.column - start.column) * dc + (goal.row - start.row) * dr;
-      const distance = Math.hypot(goal.column - start.column, goal.row - start.row);
-      if (projection < 0 || !distance || distance > DEER_FLEE_DISTANCE + 1e-9) continue;
-      const error = Math.hypot(goal.column - desired.column, goal.row - desired.row);
-      if (projection === 0) {
-        const radialError = Math.abs(DEER_FLEE_DISTANCE - distance);
-        if (!lateral || radialError < lateral.radialError || radialError === lateral.radialError && error < lateral.error) lateral = { goal, path, error, radialError };
-        continue;
+    const candidates=[];
+    for(let row=Math.max(0,start.row-DEER_FLEE_DISTANCE);row<=Math.min(walls.mapSize-1,start.row+DEER_FLEE_DISTANCE);row++)
+      for(let column=Math.max(0,start.column-DEER_FLEE_DISTANCE);column<=Math.min(walls.mapSize-1,start.column+DEER_FLEE_DISTANCE);column++){
+        const goal={column,row},projection=(column-start.column)*dc+(row-start.row)*dr;
+        const distance=Math.hypot(column-start.column,row-start.row);
+        if(projection<0||!distance||distance>DEER_FLEE_DISTANCE+1e-9)continue;
+        candidates.push({goal,projection,error:Math.hypot(column-desired.column,row-desired.row),radialError:Math.abs(DEER_FLEE_DISTANCE-distance)});
       }
-      if (!best || error < best.error || error === best.error && path.distance < best.path.distance) best = { goal, path, error };
+    candidates.sort((a,b)=>Number(a.projection===0)-Number(b.projection===0)||(a.projection===0?a.radialError-b.radialError:0)||a.error-b.error);
+    for(const candidate of candidates){
+      const {goal,projection,error,radialError}=candidate;
+      if(best&&(projection===0||error>best.error+1e-10))break;
+      if(lateral&&(radialError>lateral.radialError+1e-10||radialError===lateral.radialError&&error>lateral.error+1e-10))break;
+      const path=paths.get(goal.row*walls.mapSize+goal.column);if(!path)continue;
+      if(projection===0){if(!lateral||path.distance<lateral.path.distance)lateral={goal,path,error,radialError};}
+      else if(!best||path.distance<best.path.distance)best={goal,path,error};
     }
     best ??= lateral;
     if (!best) return false;

@@ -78,13 +78,23 @@ export class PlantGrowth {
 
   private spawn(type: Exclude<EnvironmentType, 'rock'>): void {
     const occupied = new Set(this.objects.filter(object => !object.collected).map(object => `${object.column},${object.row}`));
-    const available: Tile[] = [];
-    for (let row = 0; row < this.walls.mapSize; row++) for (let column = 0; column < this.walls.mapSize; column++) {
-      const tile = { column, row }, key = `${column},${row}`;
-      if (!occupied.has(key) && !this.walls.at(tile) && !this.walls.floorAt(tile) && !this.occupied(tile)) available.push(tile);
+    const size=this.walls.mapSize;
+    const available=(tile:Tile)=>!occupied.has(`${tile.column},${tile.row}`)&&!this.walls.at(tile)&&!this.walls.floorAt(tile)&&!this.occupied(tile);
+    let tile:Tile|undefined;
+    // Rejection sampling is uniform over free cells without scanning the whole map.
+    for(let attempt=0;attempt<32;attempt++){
+      const index=Math.floor(this.random()*size*size),candidate={column:index%size,row:Math.floor(index/size)};
+      if(available(candidate)){tile=candidate;break;}
     }
-    if (!available.length) return;
-    const tile = available[Math.floor(this.random() * available.length)];
+    if(!tile){
+      // Dense/full maps still terminate and can use any remaining free cell.
+      const candidates:Tile[]=[];
+      for(let row=0;row<size;row++)for(let column=0;column<size;column++){
+        const candidate={column,row};if(available(candidate))candidates.push(candidate);
+      }
+      if(!candidates.length)return;
+      tile=candidates[Math.floor(this.random()*candidates.length)];
+    }
     const object = createEnvironment(type, tile);
     this.objects.push(object);
     this.growing.add(object);

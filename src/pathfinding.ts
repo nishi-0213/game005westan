@@ -107,6 +107,9 @@ function* search(start: Tile, size: number, blocked: TileRule, cannotStop: TileR
 
 class IncrementalPaths extends Map<number, Path> {
   private readonly iterator: Generator<[number, Path|undefined]>;
+  private readonly pointPaths=new Map<number,Path|null>();
+  private readonly pointSearch:(index:number)=>Path|null;
+  private readonly usePointSearch:(index:number)=>boolean;
   private readonly ordered: [number, Path][] = [];
   private readonly valid: (index: number) => boolean;
   private finished = false;
@@ -115,6 +118,14 @@ class IncrementalPaths extends Map<number, Path> {
   constructor(start: Tile, size: number, blocked: TileRule, cannotStop: TileRule, onLarge: () => void, failures?:Set<string>) {
     super();
     this.iterator = search(start, size, blocked, cannotStop,()=>0,onLarge);
+    this.pointSearch=index=>{
+      const goal={column:index%size,row:Math.floor(index/size)};
+      const heuristic=(tile:Tile)=>octileDistance(tile,goal);
+      for(const [key,path]of search(start,size,blocked,cannotStop,heuristic,undefined,index))if(key===index&&path)return path;
+      return null;
+    };
+    this.usePointSearch=index=>size>=64&&Math.max(Math.abs(index%size-start.column),Math.abs(Math.floor(index/size)-start.row))>16;
+
     this.failures=failures;
     this.failureKey=index=>`${size}:${start.column},${start.row}:${index%size},${Math.floor(index/size)}`;
     const connected=reachability.get(blocked);
@@ -136,6 +147,13 @@ class IncrementalPaths extends Map<number, Path> {
     if(!this.valid(index))return undefined;
     const key=this.failureKey(index);
     if(this.failures?.has(key))return undefined;
+    if(this.usePointSearch(index)){
+      if(!this.pointPaths.has(index))this.pointPaths.set(index,this.pointSearch(index));
+      const path=this.pointPaths.get(index);
+      if(!path&&this.failures){this.failures.add(key);if(this.failures.size>256)this.failures.delete(this.failures.values().next().value!);}
+      return path??undefined;
+    }
+
     while(!super.has(index)&&this.advance()){}
     if(!super.has(index)&&this.failures){this.failures.add(key);if(this.failures.size>256)this.failures.delete(this.failures.values().next().value!);}
     return super.get(index);
@@ -197,6 +215,10 @@ export function findPath(start:Tile,goal:Tile,size:number,blocked:TileRule,canno
   const job=pathSearch(start,goal,size,blocked,cannotStop,movement);while(true){const next=job.next();if(next.done)return next.value;}
 }
 
+function octileDistance(a:Tile,b:Tile):number {
+  const dx=Math.abs(a.column-b.column),dy=Math.abs(a.row-b.row);
+  return Math.max(dx,dy)+(Math.SQRT2-1)*Math.min(dx,dy);
+}
 export interface PathCandidate<T>{target:T;goal:Tile}
 /** Stop after the closest eligible target is settled, retaining candidate-order ties. */
 export function findNearest<T>(start:Tile,size:number,blocked:TileRule,cannotStop:TileRule,candidates:readonly PathCandidate<T>[],movement?:Movement,maxDistance=Infinity,accept?:(target:T)=>boolean):{target:T;goal:Tile;path:Path}|null{
@@ -211,6 +233,24 @@ export function findNearest<T>(start:Tile,size:number,blocked:TileRule,cannotSto
     const key=g.row*size+g.column,list=goals.get(key)??[];list.push({candidate,order});goals.set(key,list);
   }
   if(!goals.size)return null;
+  // Direct large-map searches toward the eligible goals without changing shortest distances.
+  if(size>=64){
+    const endpoints=[...goals.keys()].map(index=>({column:index%size,row:Math.floor(index/size)}));
+    const left=Math.min(...endpoints.map(t=>t.column)),right=Math.max(...endpoints.map(t=>t.column));
+    const top=Math.min(...endpoints.map(t=>t.row)),bottom=Math.max(...endpoints.map(t=>t.row));
+    const heuristic=endpoints.length<=64
+      ?(tile:Tile)=>{let distance=Infinity;for(const goal of endpoints)distance=Math.min(distance,octileDistance(tile,goal));return distance;}
+      :(tile:Tile)=>octileDistance(tile,{column:Math.max(left,Math.min(right,tile.column)),row:Math.max(top,Math.min(bottom,tile.row))});
+    let best:{target:T;goal:Tile;path:Path}|null=null,bestOrder=Infinity;
+    for(const [index,path]of search(start,size,blocked,cannotStop,heuristic)){
+      if(!path)continue;
+      const goal={column:index%size,row:Math.floor(index/size)};
+      if(path.distance+heuristic(goal)>Math.min(maxDistance,best?.path.distance??Infinity)+1e-10)break;
+      if(path.distance>maxDistance)continue;
+      for(const {candidate,order}of goals.get(index)??[])if(order<bestOrder&&(!accept||accept(candidate.target))){best={...candidate,path};bestOrder=order;}
+    }
+    return best;
+  }
   let best:{target:T;goal:Tile;path:Path}|null=null,bestOrder=Infinity;
   const paths=findPaths(start,size,blocked,cannotStop,movement);
   let exhausted=true;

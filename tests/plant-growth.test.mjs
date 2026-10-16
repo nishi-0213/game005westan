@@ -180,3 +180,10 @@ test('randomized individual births are independent across species and large upda
   assert.ok(plants.some(object=>object.ageSeconds<20));assert.ok(plants.some(object=>object.ageSeconds>40));
  }
 });
+
+test('sparse128x128 maps spawn plants without checking every tile',()=>{
+ const walls=new Walls(128),objects=[];let checks=0;
+ const growth=new PlantGrowth(objects,walls,()=>{checks++;return false;},()=>{},()=>.999);
+ growth.update(.3);assert.equal(objects.length,1);assert.ok(checks<32,`${checks} occupancy checks for one birth`);
+ assert.equal(objects[0].column,111);assert.equal(objects[0].row,127);
+});

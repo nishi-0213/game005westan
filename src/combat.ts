@@ -8,7 +8,7 @@ import { footprint } from './walls.ts';
 import { rayTiles, shootingObstacles } from './shooting.ts';
 import type { Tile } from './movement';
 import { renderedPosition, setRoute, stopAtNextSafeTile } from './movement.ts';
-import { findPaths } from './pathfinding.ts';
+import { findPaths, findNearest } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import type { EatingWorker } from './needs';
 import { killPawn } from './needs.ts';
@@ -199,6 +199,17 @@ export class Combat {
 
   private attackApproach(pawn: CombatPawn, target: CombatTarget): { goal: Tile; path: Path } | null {
     const walls = this.construction.walls;
+    if(walls.mapSize>=64){
+      const weapon=pawn.weapon??'unarmed',range=WEAPONS[weapon].range,cells=target.structure?footprint(target.structure):[target.movement.tile];
+      const left=Math.max(0,Math.min(...cells.map(t=>t.column))-range),right=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.column))+range);
+      const top=Math.max(0,Math.min(...cells.map(t=>t.row))-range),bottom=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.row))+range);
+      const candidates=[];
+      for(let row=top;row<=bottom;row++)for(let column=left;column<=right;column++){
+        const goal={column,row};if(cells.some(cell=>inWeaponRange(weapon,goal,cell)))candidates.push({target:goal,goal});
+      }
+      return findNearest(pawn.movement.nextTile??pawn.movement.tile,walls.mapSize,walls.isBlocked,walls.cannotStop,candidates,pawn.movement,Infinity,
+        goal=>this.canFireFrom(weapon,goal,target.movement.tile,target.structure)&&(pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn,target)));
+    }
     const paths = findPaths(pawn.movement.nextTile ?? pawn.movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     // Dijkstra's endpoint order is nearest first. Only stopping cells are filtered.
     for (const [index, path] of paths) {
