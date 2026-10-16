@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Walls } from '../src/walls.ts';
+import { Walls, requiresItemClearance } from '../src/walls.ts';
 import { Storage } from '../src/storage.ts';
 import { Construction } from '../src/construction.ts';
 import { Harvesting } from '../src/harvesting.ts';
@@ -13,7 +13,7 @@ import { countItems } from '../src/items.ts';
 function scene(items,type='wall'){
  const walls=new Walls(10),storage=new Storage(walls),hauling=new Hauling(items,storage),clearing=new Clearing(items,hauling);hauling.clearing=clearing;
  const plan=walls.plan({column:3,row:3},'wood',type);plan.delivered=type==='wall'?10:0;
- const needsClearing=t=>items.some(i=>i.quantity>0&&i.column===t.column&&i.row===t.row)||clearing.isClearing(t);
+ const needsClearing=t=>requiresItemClearance(t.kind)&&(items.some(i=>i.quantity>0&&i.column===t.column&&i.row===t.row)||clearing.isClearing(t));
  const construction=new Construction(walls,items,t=>walls.complete(t),needsClearing);construction.storage=storage;const harvesting=new Harvesting([],items,walls);
  const worker={movement:createMovement({column:2,row:3}),mode:'automatic',inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,priorities:{construction:1,harvesting:3,hauling:3,free:4}};
  const tick=(n=1,w=worker)=>{for(let i=0;i<n;i++){updateWork(w,construction,harvesting,.1,()=>0,.1,hauling,clearing);advancePathMovement(w.movement,.1,10,walls.isBlocked,walls.cannotStop);}};
@@ -43,12 +43,13 @@ test('a changed placement destination is reselected while retaining cargo',()=>{
  const s=scene([{column:3,row:3,type:'wood',quantity:20}]);for(let i=0;i<20&&s.worker.clearJob?.phase!=='drop';i++)s.tick();const old=s.worker.clearJob.goal;s.walls.plan(old,'wood');s.tick(100);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items).wood+(s.worker.inventory?.quantity??0),20);assert.ok(!s.items.some(i=>i.quantity>0&&i.column===old.column&&i.row===old.row));
 });
 
-test('floor sites relocate loose harvested materials before construction',()=>{
+test('floors build over ignored items without relocating or consuming them',()=>{
  for(const kind of ['woodFloor','stoneFloor']){
-  const s=scene([{column:3,row:3,type:'stone',quantity:8,collect:true}],kind);
-  const box=s.walls.plan({column:6,row:6},'wood','storage');s.walls.complete(box);s.hauling.storage.deposit(box,kind==='stoneFloor'?'stone':'wood',1);s.tick(150);
-  assert.equal(s.plan.state,'completed');assert.ok(s.items.filter(i=>i.quantity>0).every(i=>i.column!==3||i.row!==3));
-  assert.equal(countItems(s.items).stone+s.hauling.storage.totals().stone,8);
+  const stack={column:3,row:3,type:'stone',quantity:8,collect:false},s=scene([stack],kind);
+  s.worker.inventory={type:kind==='stoneFloor'?'stone':'wood',quantity:1};
+  assert.equal(s.clearing.findWork(s.worker),null);
+  for(let i=0;i<100&&s.plan.state!=='completed';i++)s.tick();
+  assert.equal(s.plan.state,'completed');assert.equal(stack.quantity,8);assert.equal(stack.column,3);assert.equal(stack.row,3);assert.equal(stack.collect,false);assert.equal(s.worker.clearJob??null,null);
  }
 });
 
@@ -61,7 +62,7 @@ test('automatic workers finish batch deliveries even when building has higher pr
  s.tick(150);assert.equal(s.plan.state,'completed');assert.equal(second.state,'completed');
 });
 
-test('floor construction waits for tree or rock harvesting and removal of the resulting resources',()=>{
+test('floor construction harvests trees and rocks but leaves their resulting resources on the floor',()=>{
  for(const [type,material,quantity] of [['tree','wood',12],['rock','stone',8]]){
   const s=scene([],'woodFloor'),object={type,column:3,row:3,hp:100,collected:false,collect:true,workSeconds:0};
   s.plan.delivered=1;
@@ -71,8 +72,8 @@ test('floor construction waits for tree or rock harvesting and removal of the re
   for(let i=0;i<300&&s.plan.state!=='completed';i++){
    updateWork(s.worker,construction,harvesting,.1,()=>0,.1,s.hauling,s.clearing);
    advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);
-   if(!object.collected||s.items.some(item=>item.quantity>0&&item.column===3&&item.row===3))assert.equal(s.plan.workSeconds,0);
+   if(!object.collected)assert.equal(s.plan.workSeconds,0);
   }
-  assert.equal(object.collected,true);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items)[material],quantity);
+  assert.equal(object.collected,true);assert.equal(s.plan.state,'completed');assert.equal(countItems(s.items)[material],quantity);assert.ok(s.items.some(item=>item.quantity===quantity&&item.column===3&&item.row===3));
  }
 });

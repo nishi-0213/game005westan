@@ -7,6 +7,7 @@ export type DoorMode='automatic'|'closed'|'open';
 export type WallMaterial = 'wood' | 'stone';
 export type ConstructionKind = 'wall' | 'door' | 'barricade' | 'storage' | 'storageArea' | 'butcher' | 'cooker' | 'torch' | 'bed' | 'table' | 'chair' | 'stoneFloor' | 'woodFloor';
 export const isFloor=(kind:ConstructionKind):boolean=>kind==='stoneFloor'||kind==='woodFloor';
+export const requiresItemClearance=(kind:ConstructionKind):boolean=>!isFloor(kind)&&kind!=='storageArea';
 export const constructionKey=(tile:Tile&{kind?:ConstructionKind}):string=>`${tile.kind&&isFloor(tile.kind)?'floor:':''}${tile.column},${tile.row}`;
 export interface Wall extends Tile {
   kind: ConstructionKind;
@@ -92,6 +93,7 @@ export class Walls {
     this.revision++;
     this.items.set(key, wall);
     if(!floor)for (const cell of cells) this.occupied.set(`${cell.column},${cell.row}`, wall);
+    if(kind==='storageArea')this.complete(wall);
     return wall;
   }
 

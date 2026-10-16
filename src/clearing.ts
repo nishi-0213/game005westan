@@ -8,7 +8,7 @@ import { setRoute, stopAtNextSafeTile } from './movement.ts';
 import { findPaths } from './pathfinding.ts';
 import type { Path } from './pathfinding';
 import type { Wall } from './walls';
-import { footprint } from './walls.ts';
+import { footprint, requiresItemClearance } from './walls.ts';
 
 export interface ClearanceJob {
   target: Wall;
@@ -31,7 +31,7 @@ export class Clearing {
   plannedAt(tile: Tile): Wall | undefined {
     const walls = this.hauling.storage.walls;
     const structure = walls.at(tile);
-    return structure?.state === 'planned' ? structure : walls.floorAt(tile)?.state === 'planned' ? walls.floorAt(tile) : undefined;
+    return structure?.state === 'planned' && requiresItemClearance(structure.kind) ? structure : undefined;
   }
 
   isClearing(tile: Tile): boolean {

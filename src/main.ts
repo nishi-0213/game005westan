@@ -32,7 +32,7 @@ import type { Corpse } from './butchery';
 import type { MapItem } from './items';
 import { Butchery, BUTCHER_SECONDS, adjustButcherCount, corpsePosition, corpseItemType } from './butchery';
 import type { Tile } from './movement';
-import { isFloor, constructionKey, BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
+import { isFloor, requiresItemClearance, constructionKey, BUILD_RECIPES, dragTiles, footprint, Walls, WALL_COLORS, WALL_PLAN_ALPHA } from './walls';
 import type { ConstructionKind, WallMaterial, Wall } from './walls';
 import { nearbyItems, initialItems, foodNutrition, ITEM_APPEARANCE, ITEM_TYPES, returnItems, isWeaponItem, isClothingItem, CLOTHING, CLOTHING_SLOTS, initialClothing, armorForPart, carriedMassKg } from './items';
 import { Storage } from './storage';
@@ -424,12 +424,12 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   movementPathLayer.addChild(movementPath);
   return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
-const needsClearingCell = (tile: Tile) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
-  || ((walls.at(tile)?.state === 'planned' || walls.floorAt(tile)?.state === 'planned') && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
-  || clearing.isClearing(tile);
+const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
+  || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
 const needsClearing = (tile: Tile): boolean => {
-  const building = 'kind' in tile && isFloor((tile as Wall).kind) ? walls.floorAt(tile) : walls.at(tile);
-  return (building ? footprint(building) : [tile]).some(needsClearingCell);
+  const building = 'kind' in tile && isFloor((tile as Wall).kind) ? walls.floorAt(tile) : walls.at(tile)??walls.floorAt(tile);
+  if(building?.kind==='storageArea')return false;
+  return (building ? footprint(building) : [tile]).some(cell=>needsClearingCell(cell,!building||requiresItemClearance(building.kind)));
 };
 const construction = new Construction(walls, mapItems, completeConstruction, needsClearing);
 construction.storage = storage;
@@ -743,7 +743,7 @@ function clearSelection(): void {
 }
 
 function refreshSelection(): void {
-  for(const structure of selectedStructures)if(walls.at(structure)!==structure)selectedStructures.delete(structure);
+  for(const structure of selectedStructures)if(walls.at(structure)!==structure||(isFloor(structure.kind)&&structure.state==='completed'))selectedStructures.delete(structure);
   if(!selectedStation||!selectedStructures.has(selectedStation))selectedStation=selectedStructures.values().next().value??null;
   if(!selectedStation)buildingInfoActive=false;
   structureSelection.clear();
@@ -1334,7 +1334,7 @@ function placeConstruction(tile: Tile): void {
   if (!selectedConstruction) return;
   const wall = walls.plan(tile, constructionMaterials[selectedConstruction], selectedConstruction, stationOrientation);
   if (!wall) return;
-  for (const cell of footprint(wall)) {
+  for (const cell of wall.kind==='storageArea'?[]:footprint(wall)) {
     const environment = environmentByTile.get(`${cell.column},${cell.row}`);
     if (environment && !environment.collected && environment.type !== 'grass') environment.collect = true;
   }
@@ -1359,15 +1359,15 @@ function placeConstruction(tile: Tile): void {
   if (wall.kind === 'storageArea') view.clear().rect(1, 1, TILE_SIZE - 2, TILE_SIZE - 2).fill({ color: 0xd7b97d, alpha: 0.15 }).stroke({ color: 0xd7b97d, width: 1 });
   if (wall.kind === 'storage') view.rect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4).stroke({ color: 0xd7b97d, width: 2 }).moveTo(2, 8).lineTo(TILE_SIZE - 2, 8).stroke({ color: 0xd7b97d, width: 1 }).rect(10, 7, 4, 5).fill(0xd7b97d);
   view.position.set(tile.column * TILE_SIZE, tile.row * TILE_SIZE);
-  view.alpha = WALL_PLAN_ALPHA;
+  view.alpha = wall.state==='completed'?1:WALL_PLAN_ALPHA;
   (isFloor(wall.kind)?floorLayer:wallLayer).addChild(view);
   wallViews.set(constructionKey(wall), view);
+  if(wall.state==='completed')return;
   const { view: progressView, fill } = createProgressBar();
   progressView.position.set(tile.column * TILE_SIZE, (wall.kind==='bed'||wall.kind==='table'?Math.max(...footprint(wall).map(cell=>cell.row))+1:tile.row+1) * TILE_SIZE + 1);
   progressView.visible = false;
   constructionProgressLayer.addChild(progressView);
   constructionProgressViews.set(constructionKey(wall), { view: progressView, fill, progress: -1 });
-  if (wall.kind === 'storageArea' && !needsClearing(tile)) { walls.complete(tile); view.alpha = 1; }
 }
 
 // Finalize only when no pawn or active route would be trapped by the new structure.
@@ -1377,7 +1377,7 @@ export function completeConstruction(tile: Tile): boolean {
   if(isFloor(item.kind)){
     if(!walls.complete(item))return false;
     const key=constructionKey(item);wallViews.get(key)!.alpha=1;
-    constructionProgressViews.get(key)?.view.destroy({children:true});constructionProgressViews.delete(key);return true;
+    constructionProgressViews.get(key)?.view.destroy({children:true});constructionProgressViews.delete(key);refreshSelection();return true;
   }
   if (needsClearing(tile)) return false;
   const sameTile = (entry: Tile): boolean => footprint(item).some(cell => entry.column === cell.column && entry.row === cell.row);
@@ -1532,7 +1532,7 @@ function hitSelection(event: MouseEvent) {
   if(building?.state==='completed')return {kind:'structure' as const,value:building};
   const environment = environmentByTile.get(`${tile.column},${tile.row}`);
   if(environment&&!environment.collected&&environment.type!=='grass')return {kind:'environment' as const,value:environment};
-  const floor=walls.floorAt(tile);return floor?{kind:'structure' as const,value:floor}:null;
+  const floor=walls.floorAt(tile);return floor?.state==='planned'?{kind:'structure' as const,value:floor}:null;
 }
 
 function selectHit(event: MouseEvent, additive: boolean, nearby = false): void {

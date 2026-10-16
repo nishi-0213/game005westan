@@ -92,3 +92,14 @@ test('unmarking ground resources releases an in-flight construction pickup witho
  const plan=s.walls.plan({column:6,row:5},'wood');s.construction.update(s.worker,0);assert.equal(s.worker.job.source,ground);
  ground.collect=false;s.construction.update(s.worker,.1);assert.equal(s.worker.job,null);assert.equal(s.construction.claims.has(plan),false);assert.equal(ground.quantity,20);assert.equal(s.worker.inventory,null);
 });
+
+
+test('storage areas activate at placement without any construction or clearing work',()=>{
+ const stack={column:3,row:2,type:'stone',quantity:8,collect:false},s=scene([stack]);
+ s.walls.environmentCannotStop=tile=>tile.column===3&&tile.row===2;
+ const area=s.walls.plan({column:3,row:2},'wood','storageArea');
+ assert.equal(area.state,'completed');assert.equal(area.workSeconds,0);assert.equal(area.delivered,0);
+ assert.equal(s.storage.boxes().includes(area),true);assert.equal(s.storage.accepts(area,'wood'),true);
+ assert.equal(s.construction.nearestPlan(s.worker),null);assert.equal(stack.quantity,8);assert.equal(stack.collect,false);assert.equal(s.worker.job,null);
+ assert.equal(s.storage.deposit(area,'wood',2),2);assert.equal(s.storage.totals().wood,2);
+});
