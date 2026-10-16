@@ -14,3 +14,5 @@
 | 苺.png | strawberry.png | 野苺・苺アイテム表示 |
 
 全画像は32×32の透過PNGです。`src/sprite-assets.ts` で読み込み、ニアレストネイバーで表示します。拡大縮小や回転、植物の成長表示は描画側で適用します。
+
+ポーンの身体・目の色変更は `src/pawn-appearance.ts` と `src/pawn-artwork.ts` が担当します。現在は既存の `pawn.png` の目の位置を分離して青い目の素体を作り、身体と別々に着色しています。チャット内に表示された分離画像のPNG元ファイルはまだ保存されていません。分離済み透過PNGが取得できたら、`loadPawnArtwork({bodyUrl, eyesUrl})` で読み込めます。両画像は同じ寸法・同じ原点に揃えてください。

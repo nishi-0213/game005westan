@@ -1,3 +1,5 @@
+import { randomPawnAppearance } from './pawn-appearance';
+import { loadPawnArtwork, pawnBody, pawnArtwork } from './pawn-artwork';
 import { BODY_PARTS, initialBodyHp, healthHp } from './health';
 import { clothingShapes } from './clothing-shapes';
 import { drawClothing } from './clothing-artwork';
@@ -66,6 +68,7 @@ await app.init({
   autoDensity: true,
 });
 await loadSprites();
+await loadPawnArtwork();
 document.body.appendChild(app.canvas);
 app.canvas.setAttribute('aria-label', 'れ・こんきすた。32×32マスのマップと中央の3人のポーン');
 document.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -400,7 +403,8 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
     .stroke({ color: 0xfff2a3, width: 2 });
   selection.visible = false;
   view.addChild(selection);
-  const body = spriteArtwork('pawn');
+  const appearance=randomPawnAppearance();
+  const body = pawnBody(appearance);
   view.addChild(body);
   const clothing=initialClothing();
   const clothingView=new Graphics();drawClothing(clothingView,clothing);view.addChild(clothingView);
@@ -419,7 +423,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || ((walls.at(tile)?.state === 'planned' || walls.floorAt(tile)?.state === 'planned') && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row))
@@ -533,9 +537,11 @@ function updatePawnPortrait(portrait:HTMLDivElement,pawn:typeof pawns[number]):v
 function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
   const portrait = document.createElement('div');portrait.className='pawn-portrait';
   portrait.setAttribute('aria-hidden','true');
-  const body=document.createElement('img');body.src=SPRITE_URLS.pawn;body.alt='';
+  const artwork=pawnArtwork(pawn.appearance);
+  const body=document.createElement('img');body.src=artwork.bodyUrl;body.alt='';
+  const eyes=document.createElement('img');eyes.className='pawn-eyes';eyes.src=artwork.eyesUrl;eyes.alt='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','-16 -16 32 32');
-  portrait.append(body,svg);updatePawnPortrait(portrait,pawn);
+  portrait.append(body,eyes,svg);updatePawnPortrait(portrait,pawn);
   const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
 }
