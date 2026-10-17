@@ -1,4 +1,6 @@
-import { CONDITION_LABELS, type BodyCondition } from './body-conditions';
+import { Nursing, type NursingJob } from './nursing';
+import { BleedingEffects } from './bleeding-effects';
+import { conditionRemaining, CONDITION_LABELS, type BodyCondition } from './body-conditions';
 import { clothingLayers } from './clothing-layers';
 import { unequipClothing } from './clothing-drop';
 import { randomPawnAppearance, randomHairStyle } from './pawn-appearance';
@@ -426,7 +428,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
@@ -458,12 +460,14 @@ const pawnOccupies = (tile: Tile): boolean => pawnOccupancy.occupied(tile);
 const butchery = new Butchery(construction, hauling, () => [...pawns, ...wildlife.animals], () => pawns);
 const cooking=new Cooking(construction,hauling,()=>pawns);
 const sleeping=new Sleeping(construction);
+const nursing=new Nursing(construction,harvesting,hauling,()=>pawns);
+nursing.onInterrupt=worker=>{combat.cancel(worker as CombatPawn);sleeping.cancel(worker as EatingWorker);const pawn=pawns.find(p=>p===worker);if(pawn){pawn.eatJob=null;pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;pawn.decisionSeconds=0;}};
 wildlife.sleeping=sleeping;
-sleeping.onInterrupt=worker=>{combat.cancel(worker as CombatPawn);hauling.cancel(worker);harvesting.cancel(worker);construction.cancel(worker); const pawn=pawns.find(p=>p===worker);if(pawn){pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;pawn.decisionSeconds=0;}else if('fleeGoal' in worker)worker.fleeGoal=undefined;};
+sleeping.onInterrupt=worker=>{nursing.cancel(worker);combat.cancel(worker as CombatPawn);hauling.cancel(worker);harvesting.cancel(worker);construction.cancel(worker); const pawn=pawns.find(p=>p===worker);if(pawn){pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;pawn.decisionSeconds=0;}else if('fleeGoal' in worker)worker.fleeGoal=undefined;};
 const corpseEating=new CorpseEating(construction,harvesting,hauling,()=>[...pawns,...wildlife.animals]);
 corpseEating.isReserved=corpse=>butchery.corpseClaims.has(corpse);
 wildlife.combat=combat;wildlife.corpseEating=corpseEating;wildlife.players=()=>pawns;
-construction.onCancel = worker => { if(worker.cookJob)cooking.cancel(worker); if (!worker.dead && (worker.butcherJob || worker.carryingCorpse)) butchery.cancel(worker); };
+construction.onCancel = worker => { nursing.cancel(worker); if(worker.cookJob)cooking.cancel(worker); if (!worker.dead && (worker.butcherJob || worker.carryingCorpse)) butchery.cancel(worker); };
 butchery.onPickup = corpse => {
   pawnOccupancy.untrack(corpse.movement);
   const human = pawns.find(pawn => pawn === corpse);
@@ -488,8 +492,9 @@ corpseEating.onConsume=butchery.onConsume;
 function removeConsumedHumans():void {
   if(!consumedHumans.size)return;
   for(const pawn of consumedHumans){
-    sleeping.cancel(pawn);combat.cancel(pawn);hauling.cancel(pawn);harvesting.cancel(pawn);construction.cancel(pawn);butchery.cancel(pawn);cooking.cancel(pawn);
+    nursing.cancel(pawn);sleeping.cancel(pawn);combat.cancel(pawn);hauling.cancel(pawn);harvesting.cancel(pawn);construction.cancel(pawn);butchery.cancel(pawn);cooking.cancel(pawn);
     for(const worker of [...pawns,...wildlife.animals]){
+      if(worker.nurseJob?.patient===pawn)nursing.cancel(worker);
       if(worker.attackJob?.target===pawn){combat.cancel(worker);stopAtNextSafeTile(worker.movement,walls.cannotStop);}
       if('prey' in worker&&worker.prey===pawn)worker.prey=undefined;
       if(worker.carryingCorpse===pawn)worker.carryingCorpse=null;
@@ -503,6 +508,7 @@ function removeConsumedHumans():void {
     storage.withdrawCorpse(pawn,'humanCorpse');
     for(const structure of walls.items.values())if(structure.butcher?.corpse===pawn)structure.butcher.corpse=undefined;
     if(constructionCommand?.pawn===pawn){constructionCommandWindow.close();constructionCommand=null;}
+    if(nursingCommand&&(nursingCommand.worker===pawn||nursingCommand.patient===pawn)){nursingCommandWindow.close();nursingCommand=null;}
     if(foodCommand?.pawn===pawn){foodCommandWindow.close();foodCommand=null;}
     if(equipmentCommand?.pawn===pawn){equipmentCommandWindow.close();equipmentCommand=null;}
     if(haulCommand&&(haulCommand.pawn===pawn||haulCommand.source===pawn)){haulCommandWindow.close();haulCommand=null;}
@@ -569,7 +575,7 @@ for (const [index, pawn] of pawns.entries()) {
   identity.append(createPawnPortrait(pawn), nameLabel);
   name.appendChild(identity);
   row.appendChild(name);
-  for (const [task, label] of [['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['cooking','調理'], ['hunting','狩猟'], ['free', '自由']] as const) {
+  for (const [task, label] of [['nursing','看護'], ['construction', '建設'], ['harvesting', '収集'], ['hauling', '運搬'], ['butchery', '解体'], ['cooking','調理'], ['hunting','狩猟'], ['free', '自由']] as const) {
     const cell = document.createElement('td');
     const button = document.createElement('button');
     button.type = 'button';
@@ -726,7 +732,7 @@ function updateHealthMeters(meters:ReturnType<typeof createHealthMeters>,actor:E
     entry.gauge.update(actor.bodyHp?.[entry.part]??actor.hp??100);
     setText(entry.armor,`装甲：${armorForPart(actor,entry.part)}`);
     const conditions=actor.conditions?.filter(condition=>condition.part===entry.part&&condition.seconds>0)??[];
-    const text=conditions.map(condition=>`${CONDITION_LABELS[condition.kind]}（${Math.ceil(condition.seconds*GAME_MINUTES_PER_SECOND/60)}時間）`).join('、')||'なし';
+    const text=conditions.map(condition=>`${CONDITION_LABELS[condition.kind]}（${Math.ceil(conditionRemaining(actor,condition)*GAME_MINUTES_PER_SECOND/60)}時間）`).join('、')||'なし';
     setText(entry.effects,text);
   }
 }
@@ -919,6 +925,7 @@ function updateObjectProperties(): void {
 const constructionCommandWindow=document.querySelector<HTMLDialogElement>('#construction-command')!;
 let constructionCommand:{pawn:typeof pawns[number];target:Wall}|null=null;
 function openConstructionCommand(pawn:typeof pawns[number],target:Wall,event:MouseEvent):void {
+  nursingCommandWindow.close();
   constructionCommand={pawn,target};
   const button=document.querySelector<HTMLButtonElement>('#immediate-construction')!;
   button.disabled=pawn.mode!=='automatic'||!construction.canRequest(pawn,target);
@@ -942,6 +949,19 @@ document.querySelector<HTMLButtonElement>('#close-construction-command')!.addEve
 constructionCommandWindow.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();constructionCommandWindow.close();}});
 
 const devourButton=document.querySelector<HTMLButtonElement>('#devour-button')!;
+const nursingCommandWindow=document.querySelector<HTMLDialogElement>('#nursing-command')!;
+const nurseNowButton=document.querySelector<HTMLButtonElement>('#nurse-now-button')!;
+let nursingCommand:{worker:typeof pawns[number];patient:typeof pawns[number]}|null=null;
+function openNursingCommand(worker:typeof pawns[number],patient:typeof pawns[number],event:MouseEvent):void {
+  nursingCommand={worker,patient};nurseNowButton.disabled=!nursing.canRequest(worker,patient);
+  foodCommandWindow.close();equipmentCommandWindow.close();haulCommandWindow.close();constructionCommandWindow.close();
+  nursingCommandWindow.style.left=`${Math.max(0,Math.min(event.clientX,window.innerWidth-190))}px`;
+  nursingCommandWindow.style.top=`${Math.max(0,Math.min(event.clientY,window.innerHeight-80))}px`;
+  if(!nursingCommandWindow.open)nursingCommandWindow.show();
+}
+nurseNowButton.addEventListener('click',()=>{if(nursingCommand&&nursingCommand.worker===selectedPawn)nursing.request(nursingCommand.worker,nursingCommand.patient);nursingCommandWindow.close();updatePawnPanels();});
+document.querySelector<HTMLButtonElement>('#close-nursing-command')!.addEventListener('click',()=>nursingCommandWindow.close());
+nursingCommandWindow.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();nursingCommandWindow.close();}});
 const haulCommandWindow = document.querySelector<HTMLDialogElement>('#haul-command')!;
 let haulCommand: { pawn: (typeof pawns)[number]; source: MapItem | Corpse } | null = null;
 const immediateHaulButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-immediate-haul]')];
@@ -956,6 +976,7 @@ function prepareHaulCommand(pawn: (typeof pawns)[number], source: MapItem | Corp
   }
 }
 function openHaulCommand(pawn: (typeof pawns)[number], source: MapItem | Corpse, event: MouseEvent): void {
+  nursingCommandWindow.close();
   prepareHaulCommand(pawn, source);
   equipmentCommandWindow.close(); foodCommandWindow.close();
   haulCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
@@ -976,6 +997,7 @@ haulCommandWindow.addEventListener('keydown', event => { if (event.key === 'Esca
 const equipmentCommandWindow = document.querySelector<HTMLDialogElement>('#equipment-command')!;
 let equipmentCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
 function openEquipmentCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  nursingCommandWindow.close();
   prepareHaulCommand(pawn, source); haulCommandWindow.close(); foodCommandWindow.close();
   equipmentCommand = { pawn, source };
   equipmentCommandWindow.style.left = `${Math.max(0, Math.min(event.clientX, window.innerWidth - 190))}px`;
@@ -992,6 +1014,7 @@ equipmentCommandWindow.addEventListener('keydown', event => { if (event.key === 
 const foodCommandWindow = document.querySelector<HTMLDialogElement>('#food-command')!;
 let foodCommand: { pawn: (typeof pawns)[number]; source: (typeof mapItems)[number] } | null = null;
 function openFoodCommand(pawn: (typeof pawns)[number], source: (typeof mapItems)[number], event: MouseEvent): void {
+  nursingCommandWindow.close();
   prepareHaulCommand(pawn, source); haulCommandWindow.close(); equipmentCommandWindow.close();
   foodCommand = { pawn, source };
   document.querySelector<HTMLButtonElement>('#eat-now-button')!.disabled=pawn.mode!=='automatic';
@@ -1075,6 +1098,7 @@ acquisitionButton.addEventListener('click', () => {
 });
 
 function updateItemSelection(): void {
+  nursingCommandWindow.close();
   foodCommandWindow.close();
   equipmentCommandWindow.close();
   haulCommandWindow.close();
@@ -1173,6 +1197,7 @@ function updatePawnModeButton(): void {
 }
 
 function setPawnMode(pawn:typeof pawns[number],mode:'drafted'|'automatic'):void {
+  nursing.cancel(pawn);nursingCommandWindow.close();
   const changed=pawn.mode!==mode;
   pawn.mode=mode;
   if(changed){
@@ -1661,6 +1686,7 @@ app.canvas.addEventListener('pointerdown', (event) => {
     const hit = hitSelection(event);
     const storedBody=hit?.kind==='item'&&walls.at(hit.value)?.kind==='storageArea'?walls.at(hit.value)?.storedCorpses?.find(body=>corpseItemType(body)===hit.value.type):undefined;
     const target = hit?.kind === 'pawn' || hit?.kind === 'deer' ? hit.value : hit?.kind==='structure'?combat.structureTarget(hit.value):null;
+    if(hit?.kind==='pawn'&&selectedPawn?.mode==='automatic'&&isPlayerControlled(selectedPawn)&&canGiveOrders(selectedPawn)&&!selectedPawn.dead&&!hit.value.dead&&hit.value.faction===selectedPawn.faction&&hit.value.conditions.some(c=>c.kind==='bleeding'&&c.seconds>0)){openNursingCommand(selectedPawn,hit.value,event);return;}
     if (target) {
       let commanded = false;
       for (const pawn of controlledSelection()) if (combat.requestAttack(pawn, target)) { pawn.manualMove = false; commanded = true; }
@@ -1763,6 +1789,8 @@ function updateMovementPaths(): void {
 function attackWobble(actor:{attackMotionSeconds?:number}):number {
   return Math.sin((1-(actor.attackMotionSeconds??0)/.25)*Math.PI*4)*.16*((actor.attackMotionSeconds??0)/.25);
 }
+const bleedingEffects=new BleedingEffects(TILE_SIZE);
+map.addChild(bleedingEffects.view);
 const attackEffects = new AttackEffects(TILE_SIZE);
 map.addChild(attackEffects.view);
 map.addChild(sleepLabelLayer);
@@ -1776,7 +1804,7 @@ combat.onAttack = event => {
     player.attackedSeconds=3;
     if(!player.dead){
       // Cancel work before choosing the escape route; cancellation can stop movement.
-      butchery.cancel(player);
+      nursing.cancel(player);butchery.cancel(player);
       player.manualMove=false;player.workTask=undefined;player.decisionSeconds=0;
     }
   }
@@ -1902,7 +1930,7 @@ const stressTest=new URLSearchParams(location.search).has('benchmark')?{
   recording:false,updates:[] as number[],
   simulate(seconds:number){app.stop();app.ticker.remove(app.render,app);app.ticker.lastTime=stressTickerTime;for(let index=0;index<Math.round(seconds*60);index++){stressTickerTime+=1000/60;app.ticker.update(stressTickerTime);}},
   configure(scenario:string,speed:1|3){
-    for(const pawn of pawns){pawn.mode='automatic';pawn.priorities={construction:4,harvesting:scenario==='harvesting'?1:4,hauling:4,butchery:4,cooking:4,hunting:4,free:scenario==='harvesting'?4:1};}
+    for(const pawn of pawns){pawn.mode='automatic';pawn.priorities={nursing:4,construction:4,harvesting:scenario==='harvesting'?1:4,hauling:4,butchery:4,cooking:4,hunting:4,free:scenario==='harvesting'?4:1};}
     for(const object of environmentObjects)object.collect=scenario==='harvesting';
     simulationClock.speed=speed;
   },
@@ -1955,25 +1983,28 @@ app.ticker.add((ticker) => {
       pawn.attackMotionSeconds=Math.max(0,pawn.attackMotionSeconds-seconds);
       pawn.shotSeconds=Math.max(0,pawn.shotSeconds-seconds);
       pawn.swingSeconds=Math.max(0,pawn.swingSeconds-seconds);
-      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !resting && !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse && !pawn.forcedConstruction,corpseEating.automatic,undefined,!resting);
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !resting && !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse && !pawn.forcedConstruction && !pawn.nurseJob?.manual,corpseEating.automatic,undefined,!resting);
       updateMood(pawn,0);
       const blocked=!canGiveOrders(pawn)&&!pawn.dead;
-      if(blocked&&!pawn.controlBlocked&&(pawn.mode==='drafted'||pawn.manualMove||pawn.equipJob||pawn.forcedHaulSource||pawn.forcedCorpse||pawn.forcedConstruction||pawn.eatJob?.manual||pawn.dropRequested||pawn.attackJob?.manual)){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
+      if(blocked&&!pawn.controlBlocked&&(pawn.mode==='drafted'||pawn.manualMove||pawn.equipJob||pawn.forcedHaulSource||pawn.forcedCorpse||pawn.forcedConstruction||pawn.eatJob?.manual||pawn.dropRequested||pawn.attackJob?.manual||pawn.nurseJob?.manual)){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
       if(blocked!==pawn.controlBlocked){const row=priorityRowsByPawn.get(pawn);for(const button of row?.querySelectorAll('button')??[])button.disabled=blocked;}
       pawn.controlBlocked=blocked;
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
       if(pawn.dead)sleeping.cancel(pawn);
+      if(pawn.dead||resting||fleeing||eating||pawn.mode!=='automatic'||pawn.dropRequested||pawn.forcedConstruction||pawn.forcedCorpse||pawn.forcedHaulSource||pawn.equipJob||pawn.attackJob)nursing.cancel(pawn);
       const commanding = resting||fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, combatTargets);
-      if (!eating && !commanding && pawn.forcedConstruction) construction.update(pawn,seconds);
+      if(!eating&&!commanding&&pawn.nurseJob?.manual)nursing.update(pawn,seconds);
+      else if (!eating && !commanding && pawn.forcedConstruction) construction.update(pawn,seconds);
       else if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');
       else if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
-      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting,cooking);
+      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting,cooking,nursing);
       if (!pawn.dead && pawn.sleep?.phase!=='sleeping') advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     for(const animal of wildlife.animals)animal.attackMotionSeconds=Math.max(0,(animal.attackMotionSeconds??0)-seconds);
     wildlife.update(seconds, pawnOccupies);
     removeConsumedHumans();
     attackEffects.update(seconds);
+    bleedingEffects.update([...pawns,...wildlife.animals],seconds);
     for (const deer of wildlife.animals) if (!deer.dead && deer.sleep?.phase!=='sleeping') advancePathMovement(deer.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     updateDoors(seconds);
   });

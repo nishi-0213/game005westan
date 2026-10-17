@@ -309,8 +309,8 @@ canvas { touch-action: none; }
 #close-equipment-command { position: absolute; top: 2px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
 #equip-button { padding: 8px 14px; border: 1px solid #708268; background: #354936; color: #f4e9cc; cursor: pointer; }
 
-#construction-command, #haul-command { position: fixed; inset: auto; margin: 0; padding: 24px 12px 12px; border: 1px solid #708268; background: #263529; color: #f4e9cc; z-index: 4; }
-#close-construction-command, #close-haul-command { position: absolute; top: 2px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
+#nursing-command, #construction-command, #haul-command { position: fixed; inset: auto; margin: 0; padding: 24px 12px 12px; border: 1px solid #708268; background: #263529; color: #f4e9cc; z-index: 4; }
+#close-nursing-command, #close-construction-command, #close-haul-command { position: absolute; top: 2px; right: 4px; border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
 [data-immediate-haul] { padding: 8px 14px; border: 1px solid #708268; background: #354936; color: #f4e9cc; cursor: pointer; }
 [data-immediate-haul]:disabled { opacity: .5; cursor: default; }
 [data-immediate-haul][hidden] { display: none; }
@@ -347,7 +347,7 @@ canvas { touch-action: none; }
 .item-icon { background-position: center; background-size: contain; background-repeat: no-repeat; image-rendering: pixelated; }
 
 /* Use the same dark action-button style in every command menu. */
-:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]) {
+:is(#nursing-command, #construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]) {
   padding: 8px 14px;
   border: 1px solid #708268;
   border-radius: 0;
@@ -356,9 +356,9 @@ canvas { touch-action: none; }
   font: 12px system-ui, sans-serif;
   cursor: pointer;
 }
-:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]):hover:not(:disabled) { background: #354936; }
-:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:disabled { opacity: .5; cursor: default; }
-:is(#construction-command, #food-command, #equipment-command, #haul-command) > button:focus-visible { outline: 2px solid #f2c66d; outline-offset: 2px; }
+:is(#nursing-command, #construction-command, #food-command, #equipment-command, #haul-command) > button:not([id^="close-"]):hover:not(:disabled) { background: #354936; }
+:is(#nursing-command, #construction-command, #food-command, #equipment-command, #haul-command) > button:disabled { opacity: .5; cursor: default; }
+:is(#nursing-command, #construction-command, #food-command, #equipment-command, #haul-command) > button:focus-visible { outline: 2px solid #f2c66d; outline-offset: 2px; }
 #pawn-clothing { margin-top: 6px; }
 #pawn-clothing > div { display: flex; justify-content: space-between; gap: 8px; align-items: center; min-height: 24px; }
 #pawn-clothing button { border: 1px solid #708268; background: #263529; color: #f4e9cc; cursor: pointer; }
