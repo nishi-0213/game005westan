@@ -114,7 +114,7 @@ const grassLayer = new Container();
 map.addChild(grassLayer);
 const floorLayer=new Container();map.addChild(floorLayer);
 const shadowLayer=new Container();map.addChild(shadowLayer);
-const environmentObjects = initialEnvironment(MAP_SIZE);
+const environmentObjects = initialEnvironment(MAP_SIZE,Math.random,{trees:1200,berries:48});
 const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
 let selectedEnvironment = new Set<EnvironmentObject>();
 let selectedDeer: Animal | null = null;
@@ -447,7 +447,7 @@ const hauling = new Hauling(mapItems, storage);
 const clearing = new Clearing(mapItems, hauling);
 hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
-const wildlife = new Wildlife(construction, harvesting, hauling);
+const wildlife = new Wildlife(construction, harvesting, hauling,Math.random,4);
 const combat = new Combat(construction, harvesting, hauling);
 const hunting=new Hunting(combat,()=>wildlife.deer);
 hauling.onCommand = worker => {

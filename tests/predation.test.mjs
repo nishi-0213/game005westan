@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Wildlife,createDeer,createWolf} from '../src/wildlife.ts';import {Combat} from '../src/combat.ts';import {CorpseEating} from '../src/corpse-eating.ts';import {Butchery,corpseItemType} from '../src/butchery.ts';import {Walls} from '../src/walls.ts';import {Construction} from '../src/construction.ts';import {Harvesting} from '../src/harvesting.ts';import {Hauling} from '../src/hauling.ts';import {Storage} from '../src/storage.ts';import {createMovement} from '../src/movement.ts';import {advancePathMovement} from '../src/pathfinding.ts';import {initialNeeds,updateNeeds,killPawn} from '../src/needs.ts';import {countItems,foodNutrition} from '../src/items.ts';
 const tile=(column,row)=>({column,row});
-function scene(){const walls=new Walls(16),items=[],storage=new Storage(walls),construction=new Construction(walls,items,t=>walls.complete(t)),harvesting=new Harvesting([],items,walls),hauling=new Hauling(items,storage),combat=new Combat(construction,harvesting,hauling,()=>0),wildlife=new Wildlife(construction,harvesting,hauling,()=>.5),players=[];
+function scene(initialPopulationMultiplier=1){const walls=new Walls(16),items=[],storage=new Storage(walls),construction=new Construction(walls,items,t=>walls.complete(t)),harvesting=new Harvesting([],items,walls),hauling=new Hauling(items,storage),combat=new Combat(construction,harvesting,hauling,()=>0),wildlife=new Wildlife(construction,harvesting,hauling,()=>.5,initialPopulationMultiplier),players=[];
 construction.storage=storage;const eating=new CorpseEating(construction,harvesting,hauling,()=>[...players,...wildlife.animals]);wildlife.combat=combat;wildlife.corpseEating=eating;wildlife.players=()=>players;
 const human=(column=2,row=3)=>{const p={kind:'human',faction:'player',movement:createMovement(tile(column,row)),mode:'automatic',weapon:'unarmed',inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,needs:initialNeeds(),hp:100,eatJob:null};players.push(p);return p};
 const move=p=>advancePathMovement(p.movement,.1,16,walls.isBlocked,walls.cannotStop);const feed=p=>{eating.updateClaims();updateNeeds(p,construction,harvesting,hauling,.1,true,eating.automatic);move(p)};
@@ -149,4 +149,13 @@ test('a drafted defender also targets an animal eating a player corpse, and stop
  killPawn(victim,s.construction,s.harvesting,s.hauling);assert.ok(s.eating.request(wolf,victim));assert.equal(wolf.eatJob.corpse,victim);
  s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob.target,wolf);assert.equal(defender.attackJob.manual,false);
  wolf.eatJob=null;s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob,null);
+});
+
+test('fourfold starting deer and wolf populations do not multiply later spawn waves',()=>{
+ const s=scene(4),spawned=[];s.wildlife.onSpawn=animal=>spawned.push(animal.kind);
+ s.wildlife.updateDeer=()=>{};s.wildlife.updateWolf=()=>{};
+ s.wildlife.update(.01);assert.equal(spawned.filter(k=>k==='deer').length,12);assert.equal(spawned.filter(k=>k==='wolf').length,8);
+ assert.equal(new Set(s.wildlife.animals.map(a=>`${a.movement.tile.column},${a.movement.tile.row}`)).size,20);
+ spawned.length=0;s.wildlife.update(60);assert.equal(spawned.filter(k=>k==='deer').length,3);assert.equal(spawned.filter(k=>k==='wolf').length,0);
+ spawned.length=0;s.wildlife.update(100);assert.equal(spawned.filter(k=>k==='wolf').length,2);
 });

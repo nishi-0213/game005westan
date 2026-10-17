@@ -77,3 +77,9 @@ test('collection preempts construction and construction resumes its saved progre
  tick(2);assert.equal(build.workSeconds,.25);assert.equal(target.collected,false);
  tick(2);assert.equal(target.collected,true);tick(0);assert.ok(worker.job);tick(.75);assert.equal(build.state,'completed');
 });
+
+test('expanded-map initial plants have1200trees and48berry bushes without overlapping the central supplies',()=>{
+ let seed=42;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+ const objects=initialEnvironment(128,random,{trees:1200,berries:48});assert.equal(objects.filter(o=>o.type==='tree').length,1200);assert.equal(objects.filter(o=>o.type==='wildStrawberry').length,48);assert.equal(objects.filter(o=>o.type==='grass').length,160);
+ assert.equal(new Set(objects.map(o=>`${o.column},${o.row}`)).size,objects.length);assert.ok(objects.every(o=>Math.abs(o.column-64)>2||Math.abs(o.row-64)>2));
+});

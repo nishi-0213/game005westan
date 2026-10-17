@@ -76,8 +76,12 @@ export class Wildlife {
   onDepart?: (deer: Animal) => void;
   private nextId = 1;
   private spawnSeconds = 0;
+  private firstDeerWave=true;
+  private firstWolfWave=true;
+  private readonly initialPopulationMultiplier:number;
   private exitSeconds: number;
-  constructor(construction: Construction, harvesting: Harvesting, hauling: Hauling, random: () => number = Math.random) {
+  constructor(construction: Construction, harvesting: Harvesting, hauling: Hauling, random: () => number = Math.random, initialPopulationMultiplier=1) {
+    this.initialPopulationMultiplier=initialPopulationMultiplier;
     this.construction = construction; this.harvesting = harvesting; this.hauling = hauling; this.random = random;
     this.exitSeconds = this.interval();
     this.wolfExitSeconds=this.wolfInterval();
@@ -97,7 +101,7 @@ export class Wildlife {
       for (let i = 0; i < count && candidates.length; i++) this.markForExit(candidates.splice(Math.floor(this.random() * candidates.length), 1)[0]);
       this.exitSeconds += this.interval();
     }
-    if (this.spawnSeconds <= 0) { this.spawn(occupied); this.spawnSeconds += this.interval(); }
+    if (this.spawnSeconds <= 0) { this.spawn(occupied,'deer',this.firstDeerWave?this.initialPopulationMultiplier:1);this.firstDeerWave=false; this.spawnSeconds += this.interval(); }
     if(this.combat&&this.corpseEating){
       this.wolfSpawnSeconds-=seconds;this.wolfExitSeconds-=seconds;
       if(this.wolfExitSeconds<=0){
@@ -106,7 +110,7 @@ export class Wildlife {
         this.wolfExitSeconds+=this.wolfInterval();
       }
       // Process departures first so a new wave is not sent away immediately.
-      if(this.wolfSpawnSeconds<=0){this.spawn(occupied,'wolf');this.wolfSpawnSeconds+=this.wolfInterval()*2/1.5;}
+      if(this.wolfSpawnSeconds<=0){this.spawn(occupied,'wolf',this.firstWolfWave?this.initialPopulationMultiplier:1);this.firstWolfWave=false;this.wolfSpawnSeconds+=this.wolfInterval()*2/1.5;}
       for(let index=this.wolves.length-1;index>=0;index--){const wolf=this.wolves[index];this.updateWolf(wolf,seconds);if(wolf.departed){this.onDepart?.(wolf);this.wolves.splice(index,1);}}
     }
     for (let index = this.deer.length - 1; index >= 0; index--) {
@@ -116,7 +120,7 @@ export class Wildlife {
     }
   }
 
-  private spawn(occupied: (tile: Tile) => boolean,kind:'deer'|'wolf'='deer'): void {
+  private spawn(occupied: (tile: Tile) => boolean,kind:'deer'|'wolf'='deer',multiplier=1): void {
     const walls = this.construction.walls, candidates: Tile[] = [];
     for (let row = 0; row < walls.mapSize; row++) for (let column = 0; column < walls.mapSize; column++) {
       if (column !== 0 && row !== 0 && column !== walls.mapSize - 1 && row !== walls.mapSize - 1) continue;
@@ -124,7 +128,7 @@ export class Wildlife {
       if (!walls.at(tile) && !walls.isBlocked(tile) && !walls.cannotStop(tile) && !occupied(tile)
         && !this.animals.some(deer => sameTile(deer.movement.tile, tile) || sameTile(deer.movement.destination, tile))) candidates.push(tile);
     }
-    const count = kind==='wolf'?this.wolfCount():this.count();
+    const count = (kind==='wolf'?this.wolfCount():this.count())*multiplier;
     for (let i = 0; i < count && candidates.length; i++) {
       const tile = candidates.splice(Math.floor(this.random() * candidates.length), 1)[0];
       const animal=kind==='wolf'?createWolf(tile,this.nextId++):createDeer(tile,this.nextId++);

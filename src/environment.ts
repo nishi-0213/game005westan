@@ -27,7 +27,7 @@ export function harvestYield(object: EnvironmentObject): number {
   return Math.floor(ENVIRONMENT_PROPERTIES[object.type].quantity * hp / 100 + 1e-9);
 }
 
-export function initialEnvironment(size: number, random: () => number = Math.random): EnvironmentObject[] {
+export function initialEnvironment(size: number, random: () => number = Math.random, counts:{trees?:number;berries?:number}={}): EnvironmentObject[] {
   const available: Tile[] = [];
   const allowed = (tile: Tile) => tile.column >= 0 && tile.row >= 0 && tile.column < size && tile.row < size
     && !(Math.abs(tile.column - size / 2) <= 2 && Math.abs(tile.row - size / 2) <= 2);
@@ -76,11 +76,11 @@ export function initialEnvironment(size: number, random: () => number = Math.ran
   };
   const trees = available.filter(tile => !rockTiles.has(key(tile))).map(tile => ({
     tile, score: -Math.log(Math.max(0.000001, random())) / (0.001 + density(tile) ** 6),
-  })).sort((a, b) => a.score - b.score).slice(0, 120);
+  })).sort((a, b) => a.score - b.score).slice(0, counts.trees??120);
   for (const { tile } of trees) result.push({ ...createEnvironment('tree', tile), hp:1,ageSeconds:random()*180 });
   const occupied = new Set(result.map(key));
   const berries = available.filter(tile => !occupied.has(key(tile)));
-  for (let i = 0; i < 16 && berries.length; i++) {
+  for (let i = 0; i < (counts.berries??16) && berries.length; i++) {
     const index = Math.floor(random() * berries.length);
     const tile = berries.splice(index, 1)[0];
     result.push({ ...createEnvironment('wildStrawberry', tile), hp:1,ageSeconds:random()*180 });
