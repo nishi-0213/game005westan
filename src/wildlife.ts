@@ -86,6 +86,8 @@ export class Wildlife {
     this.exitSeconds = this.interval();
     this.wolfExitSeconds=this.wolfInterval();
   }
+  saveState(){return {nextId:this.nextId,spawnSeconds:this.spawnSeconds,exitSeconds:this.exitSeconds,wolfSpawnSeconds:this.wolfSpawnSeconds,wolfExitSeconds:this.wolfExitSeconds,firstDeerWave:this.firstDeerWave,firstWolfWave:this.firstWolfWave};}
+  restoreState(state:ReturnType<Wildlife['saveState']>):void {this.nextId=state.nextId;this.spawnSeconds=state.spawnSeconds;this.exitSeconds=state.exitSeconds;this.wolfSpawnSeconds=state.wolfSpawnSeconds;this.wolfExitSeconds=state.wolfExitSeconds;this.firstDeerWave=state.firstDeerWave;this.firstWolfWave=state.firstWolfWave;}
   private interval(): number { return 50 + this.random() * 20; }
   private wolfInterval():number{return 110+this.random()*20;}
   private wolfCount():number{return 1+Math.floor(this.random()*2);}

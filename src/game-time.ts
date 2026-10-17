@@ -2,6 +2,7 @@ export const GAME_MINUTES_PER_SECOND=15;
 export class GameTime {
   private milliseconds:number;
   constructor(){const start=new Date(0);start.setUTCFullYear(1,0,1);start.setUTCHours(8,0,0,0);this.milliseconds=start.getTime();}
+  restore(milliseconds:number):void {if(!Number.isFinite(milliseconds)||!Number.isFinite(new Date(milliseconds).getTime()))throw new Error('Invalid saved time');this.milliseconds=milliseconds;}
   advance(seconds:number):void {this.milliseconds+=Math.max(0,seconds)*GAME_MINUTES_PER_SECOND*60000;}
   get date():Date{return new Date(this.milliseconds);}
   get hour():number {const d=this.date;return d.getUTCHours()+d.getUTCMinutes()/60+d.getUTCSeconds()/3600+d.getUTCMilliseconds()/3600000;}

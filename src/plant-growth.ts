@@ -25,6 +25,8 @@ export class PlantGrowth {
     for (const object of objects) if (object.type !== 'rock' && !object.collected) { this.living.add(object); if (object.hp < 100) this.growing.add(object); }
   }
 
+  saveState(){return {elapsed:this.elapsed,births:this.births.map(b=>({...b})),birthIndex:this.birthIndex};}
+  restoreState(state:ReturnType<PlantGrowth['saveState']>):void {this.elapsed=state.elapsed;this.births=state.births;this.birthIndex=state.birthIndex;}
   update(seconds: number, startHour?:number): void {
     let remaining = Math.max(0, seconds);
     let hour=startHour===undefined?undefined:((startHour%24)+24)%24;

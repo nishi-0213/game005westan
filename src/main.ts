@@ -1,3 +1,5 @@
+import { createSave, readSave, writeSave, pickFields, ACTOR_FIELDS, type SaveGame } from './save-game';
+import type { PawnAppearance } from './pawn-appearance';
 import { Nursing, isNursing, type NursingJob } from './nursing';
 import { BleedingEffects } from './bleeding-effects';
 import { conditionRemaining, CONDITION_LABELS, type BodyCondition } from './body-conditions';
@@ -21,7 +23,7 @@ import { CorpseEating } from './corpse-eating';
 import { Cooking,COOK_SECONDS,stagedNutrition } from './cooking';
 import { Hunting } from './hunting';
 import { Combat, WEAPONS, WOLF_BITE } from './combat';
-import type { CombatPawn, Weapon } from './combat';
+import type { CombatPawn, CombatTarget, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
 import { attackRangeEdges } from './attack-range';
 import { WorldLighting } from './world-lighting';
@@ -49,7 +51,7 @@ import { demolishStructure, destroyStructure } from './demolition';
 import { ENVIRONMENT_PROPERTIES, harvestYield, initialEnvironment, nearbySameType } from './environment';
 import type { EnvironmentObject } from './environment';
 import { PlantGrowth } from './plant-growth';
-import { Wildlife, deerAction,WOLF_RETALIATION_PROBABILITY } from './wildlife';
+import { Wildlife, createDeer, createWolf, deerAction,WOLF_RETALIATION_PROBABILITY } from './wildlife';
 import type { Deer, Animal, Wolf } from './wildlife';
 import { FACTIONS, isPlayerControlled } from './factions';
 import type { Faction } from './factions';
@@ -59,6 +61,10 @@ import { formatPawnName, generatePawnNames } from './pawn-names';
 import { currentAction, INITIAL_PRIORITIES, nextPriority, updateWork } from './work-priorities';
 
 const MAP_SIZE = 128;
+let startupSave:SaveGame|null=null;
+let saveStartupError='';
+try{startupSave=readSave(localStorage);}catch(error){saveStartupError=`保存データを読み込めませんでした：${error instanceof Error?error.message:String(error)}`;}
+const savedHumans=startupSave?.actors.filter(actor=>actor.kind==='human');
 const TILE_SIZE = 24;
 const MAP_PIXELS = MAP_SIZE * TILE_SIZE;
 const RENDER_RESOLUTION = Math.max(2, window.devicePixelRatio || 1);
@@ -114,7 +120,7 @@ const grassLayer = new Container();
 map.addChild(grassLayer);
 const floorLayer=new Container();map.addChild(floorLayer);
 const shadowLayer=new Container();map.addChild(shadowLayer);
-const environmentObjects = initialEnvironment(MAP_SIZE,Math.random,{trees:1200,berries:48});
+const environmentObjects = startupSave?.environment??initialEnvironment(MAP_SIZE,Math.random,{trees:1200,berries:48});
 const environmentByTile = new Map(environmentObjects.map(object => [`${object.column},${object.row}`, object]));
 let selectedEnvironment = new Set<EnvironmentObject>();
 let selectedDeer: Animal | null = null;
@@ -149,7 +155,7 @@ const walls = new Walls(MAP_SIZE);
 const worldLighting=new WorldLighting(walls);
 const daylightFilter=worldLighting.filter;map.filters=[daylightFilter];
 const storage = new Storage(walls);
-const mapItems = initialItems(MAP_SIZE);
+const mapItems = startupSave?.items??initialItems(MAP_SIZE);
 let selectedItems = new Set<(typeof mapItems)[number]>();
 let selectedItem: (typeof mapItems)[number] | null = null;
 // Quantity labels stay above every map object, including later-created views.
@@ -380,7 +386,7 @@ function updateDeerViews(): void {
 
 const pathSearchSchedule = new PathSearchSchedule();
 const mapCenter = Math.floor(MAP_SIZE / 2);
-const spawnTiles = [
+const spawnTiles = savedHumans?savedHumans.map(actor=>({...actor.movement.tile,color:0xf2c66d})): [
   { column: mapCenter-1, row: mapCenter-1, color: 0xf2c66d },
   { column: mapCenter, row: mapCenter-1, color: 0x82c6dc },
   { column: mapCenter-1, row: mapCenter, color: 0xdb96b5 },
@@ -388,7 +394,7 @@ const spawnTiles = [
 // Start with three colonists; explicit query parameters retain load-test comparisons.
 const requestedPawnCount = Number(new URLSearchParams(location.search).get('pawns'));
 const stressPawnCount = requestedPawnCount === 50 || requestedPawnCount === 100 ? requestedPawnCount : 3;
-if(stressPawnCount>3){
+if(stressPawnCount>3&&!startupSave){
   const available: {column:number;row:number}[]=[];
   for(let row=0;row<MAP_SIZE;row++)for(let column=0;column<MAP_SIZE;column++){
     const tile={column,row};
@@ -399,7 +405,7 @@ if(stressPawnCount>3){
   for(const tile of available.slice(0,stressPawnCount-3))spawnTiles.push({...tile,color:colors[spawnTiles.length%colors.length]});
 }
 app.canvas.setAttribute('aria-label',`れ・こんきすた。${MAP_SIZE}×${MAP_SIZE}マスのマップと${spawnTiles.length}人のポーン`);
-const pawnNames = generatePawnNames(spawnTiles.length);
+const pawnNames = savedHumans?savedHumans.map(actor=>actor.data.name as import('./pawn-names').PawnName):generatePawnNames(spawnTiles.length);
 const attackRangeLayer = new Container();
 map.addChild(attackRangeLayer);
 const movementPathLayer = new Container();
@@ -411,10 +417,10 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
     .stroke({ color: 0xfff2a3, width: 2 });
   selection.visible = false;
   view.addChild(selection);
-  const appearance={...randomPawnAppearance(),hair:randomHairStyle()};
+  const appearance:PawnAppearance=savedHumans?savedHumans[index].data.appearance:{...randomPawnAppearance(),hair:randomHairStyle()};
   const body = pawnBody(appearance);
   view.addChild(body);
-  const clothing=initialClothing();
+  const clothing:ReturnType<typeof initialClothing>=savedHumans?savedHumans[index].data.clothing:initialClothing();
   const clothingView=new Graphics();drawClothing(clothingView,clothing);view.addChild(clothingView);
   const heldItem = new Graphics();
   heldItem.scale.set(.45);
@@ -567,7 +573,7 @@ function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
   const eyes=document.createElement('img');eyes.className='pawn-eyes';eyes.src=artwork.eyesUrl;eyes.alt='';
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','-16 -16 32 32');
   portrait.append(body,eyes);
-  if(pawn.appearance.hair!=='none'){const hair=document.createElement('img');hair.className='pawn-hair';hair.src=SPRITE_URLS[pawn.appearance.hair];hair.alt='';portrait.append(hair);}
+  if(pawn.appearance.hair&&pawn.appearance.hair!=='none'){const hair=document.createElement('img');hair.className='pawn-hair';hair.src=SPRITE_URLS[pawn.appearance.hair];hair.alt='';portrait.append(hair);}
   portrait.append(svg);updatePawnPortrait(portrait,pawn);
   const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
@@ -1422,6 +1428,10 @@ function placeConstruction(tile: Tile): void {
     const environment = environmentByTile.get(`${cell.column},${cell.row}`);
     if (environment && !environment.collected && environment.type !== 'grass') environment.collect = true;
   }
+  createConstructionView(wall);
+}
+function createConstructionView(wall:Wall):void {
+  const tile=wall;
   const lowerHalf = wall.kind === 'barricade';
   const view = new Graphics()
     .rect(0, lowerHalf ? TILE_SIZE / 2 : 0, TILE_SIZE, lowerHalf ? TILE_SIZE / 2 : TILE_SIZE)
@@ -2079,3 +2089,74 @@ app.ticker.add((ticker) => {
 
 app.renderer.on('resize', applyCamera);
 applyCamera();
+
+
+function restoreSavedWorld(save:SaveGame):void {
+  const structures:Wall[]=[];
+  for(const [index,record] of [...save.walls.entries()].sort((a,b)=>Number(!isFloor(a[1].data.kind))-Number(!isFloor(b[1].data.kind)))){
+    const data=record.data;
+    const wall=walls.plan(data as Tile,data.material,data.kind,data.orientation??0);
+    if(!wall)throw new Error('保存した建築物を配置できません');
+    const {state,...properties}=data;Object.assign(wall,properties);
+    if(state==='completed')walls.complete(wall);
+    if(record.butcher)wall.butcher={...record.butcher} as NonNullable<Wall['butcher']>;
+    structures[index]=wall;createConstructionView(wall);
+  }
+  const actors: EatingWorker[]=[];let humanIndex=0;
+  for(const record of save.actors){
+    const actor=record.kind==='human'?pawns[humanIndex++]:record.kind==='wolf'?createWolf(record.movement.tile,record.data.id):createDeer(record.movement.tile,record.data.id);
+    Object.assign(actor,pickFields(record.data,ACTOR_FIELDS));
+    Object.assign(actor.movement,record.movement);
+    if(record.kind!=='human'){
+      if(record.kind==='wolf')wildlife.wolves.push(actor as Wolf);else wildlife.deer.push(actor as Deer);
+      wildlife.onSpawn?.(actor as Animal);
+    }
+    walls.bindMovement(actor.movement,(actor as CombatPawn).faction);
+    if(actor.dead&&actor.corpseStation===undefined&&record.station!==undefined)actor.corpseStation=structures[record.station];
+    if(record.storage!==undefined)actor.corpseStorage=structures[record.storage];
+    if(record.sleep){const bed=record.sleep.bed===undefined?undefined:structures[record.sleep.bed];actor.sleep={phase:record.sleep.phase as SleepState['phase'],goal:record.sleep.goal,bed};if(bed)sleeping.claims.set(bed,actor);}
+    actor.movement.changed?.();actors.push(actor);
+  }
+  for(const [index,record]of save.walls.entries()){
+    structures[index].storedCorpses=record.corpses.map(id=>actors[id]);
+    if(record.processingCorpse!==undefined&&structures[index].butcher)structures[index].butcher!.corpse=actors[record.processingCorpse];
+  }
+  for(const [index,record]of save.actors.entries()){
+    const actor=actors[index];
+    if(record.attack!==undefined)combat.requestAttack(actor as CombatPawn,actors[record.attack] as CombatTarget);
+    if(record.nursing&&nursing.request(actor,actors[record.nursing.patient])&&actor.nurseJob)actor.nurseJob.seconds=record.nursing.seconds;
+  }
+  if(save.growth)plantGrowth.restoreState(save.growth as ReturnType<PlantGrowth['saveState']>);
+  if(save.wildlife)wildlife.restoreState(save.wildlife as ReturnType<Wildlife['saveState']>);
+  gameTime.restore(save.time);Object.assign(camera,save.camera);setGameSpeed(0);applyCamera();updateItemSummary();updateDeerViews();
+}
+if(startupSave)restoreSavedWorld(startupSave);
+
+const saveMenu=document.querySelector<HTMLDialogElement>('#save-menu')!;
+const saveStatus=document.querySelector<HTMLElement>('#save-status')!;
+const loadGameButton=document.querySelector<HTMLButtonElement>('#load-game-button')!;
+let menuResumeSpeed:GameSpeed=0;
+function refreshSaveStatus():void {
+  try{const saved=readSave(localStorage);loadGameButton.disabled=!saved;saveStatus.textContent=saveStartupError||(saved?`保存日時：${new Date(saved.savedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}`:'保存データはありません');}
+  catch(error){loadGameButton.disabled=true;saveStatus.textContent=`読み込めません：${error instanceof Error?error.message:String(error)}`;}
+}
+function openSaveMenu():void {
+  menuResumeSpeed=simulationClock.speed;setGameSpeed(0);cameraKeys.clear();stopDrawing();cancelSelectionDrag();
+  for(const dialog of document.querySelectorAll<HTMLDialogElement>('dialog[open]'))dialog.close();
+  refreshSaveStatus();saveMenu.showModal();
+}
+saveMenu.addEventListener('close',()=>setGameSpeed(menuResumeSpeed));
+saveMenu.addEventListener('keydown',event=>event.stopPropagation());
+document.querySelector<HTMLButtonElement>('#resume-game-button')!.addEventListener('click',()=>saveMenu.close());
+document.querySelector<HTMLButtonElement>('#save-game-button')!.addEventListener('click',()=>{
+  try{
+    const save=createSave({mapSize:MAP_SIZE,time:gameTime.date.getTime(),camera:{...camera},environment:environmentObjects,items:mapItems,actors:[...pawns,...wildlife.animals],walls:[...walls.items.values()],growth:plantGrowth.saveState(),wildlife:wildlife.saveState()});
+    writeSave(localStorage,save);saveStartupError='';refreshSaveStatus();saveStatus.textContent=`セーブしました。${saveStatus.textContent}`;
+  }catch(error){saveStatus.textContent=`セーブできませんでした：${error instanceof Error?error.message:String(error)}`;}
+});
+loadGameButton.addEventListener('click',()=>{try{if(!readSave(localStorage))throw new Error('保存データがありません');location.reload();}catch(error){saveStatus.textContent=`ロードできませんでした：${error instanceof Error?error.message:String(error)}`;}});
+window.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||event.isComposing)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(saveMenu.open)saveMenu.close();else openSaveMenu();
+},true);

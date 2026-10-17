@@ -28,6 +28,14 @@
     <button id="collection-button" type="button" aria-pressed="false" hidden>無視</button>
     <button id="hunting-button" type="button" aria-pressed="false" hidden>無視</button>
     </nav>
+    <dialog id="save-menu" aria-labelledby="save-menu-title">
+      <h2 id="save-menu-title">ゲームメニュー</h2>
+      <button id="save-game-button" type="button">セーブ</button>
+      <button id="load-game-button" type="button">ロード</button>
+      <button id="resume-game-button" type="button">ゲームに戻る</button>
+      <p id="save-status" role="status"></p>
+      <p>このブラウザに1件保存します。保存したゲームは次回起動時にも読み込まれます。ロード後は一時停止します。</p>
+    </dialog>
     <section id="pawn-specs" aria-label="ポーンのスペック" hidden></section>
     <dialog id="item-properties" aria-labelledby="item-properties-name">
       <button id="close-item-properties" type="button" aria-label="プロパティウィンドウを閉じる">×</button>

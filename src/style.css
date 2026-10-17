@@ -390,3 +390,12 @@ canvas { touch-action: none; }
 #item-properties:has(.show-animal) { width:min(480px,calc(100vw - 56px)); max-height:calc(100vh - 100px); overflow-y:auto; }
 
 #item-properties .animal-panes.show-animal > dl[hidden] { display:grid; }
+
+#save-menu { width:min(360px,calc(100vw - 64px)); padding:20px; border:1px solid #708268; border-radius:6px; background:#263529; color:#f4e9cc; font:14px system-ui,sans-serif; }
+#save-menu::backdrop { background:#101813b3; }
+#save-menu h2 { margin:0 0 16px; font-size:18px; }
+#save-menu button { display:block; width:100%; margin:8px 0; padding:10px; border:1px solid #708268; background:#263529; color:#f4e9cc; cursor:pointer; }
+#save-menu button:hover:not(:disabled) { background:#354936; }
+#save-menu button:disabled { opacity:.5; cursor:default; }
+#save-menu button:focus-visible { outline:2px solid #f2c66d; }
+#save-menu p { font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
