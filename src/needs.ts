@@ -131,9 +131,10 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const previousSatiety = worker.needs.satiety;
   worker.needs.satiety = Math.max(0, previousSatiety - elapsed * SATIETY_LOSS_PER_SECOND);
   const starvingSeconds = Math.max(0, elapsed - previousSatiety / SATIETY_LOSS_PER_SECOND);
-  const recoveryBlockedSeconds=worker.conditions?.reduce((longest,condition)=>Math.max(longest,conditionRemaining(worker,condition)),0)??0;
+  const recoveryBlockedSeconds:Partial<Record<keyof BodyHp,number>>={};
+  for(const condition of worker.conditions??[])recoveryBlockedSeconds[condition.part]=Math.max(recoveryBlockedSeconds[condition.part]??0,conditionRemaining(worker,condition));
   updateConditions(worker,elapsed);
-  recoverHealth(worker,Math.max(0,elapsed-starvingSeconds-recoveryBlockedSeconds));
+  recoverHealth(worker,Math.max(0,elapsed-starvingSeconds),recoveryBlockedSeconds);
   damageAllBodyParts(worker,starvingSeconds * STARVATION_HP_LOSS_PER_SECOND);
   if (healthHp(worker) <= 0) {
     killPawn(worker, construction, harvesting, hauling);

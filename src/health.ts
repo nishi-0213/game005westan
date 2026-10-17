@@ -18,11 +18,11 @@ export function damageAllBodyParts(actor:Health,damage:number):void {
   }else actor.hp=Math.max(0,(actor.hp??100)-Math.max(0,damage));
 }
 
-export function recoverHealth(actor:Health & {dead?:boolean},seconds:number):void {
+export function recoverHealth(actor:Health & {dead?:boolean},seconds:number,blockedSeconds:Partial<Record<BodyPart,number>>={}):void {
   if(actor.dead||healthHp(actor)<=0||seconds<=0)return;
-  const amount=seconds*GAME_MINUTES_PER_SECOND/60;
+  const amount=(blocked:number)=>Math.max(0,seconds-blocked)*GAME_MINUTES_PER_SECOND/60;
   if(actor.bodyHp){
-    for(const part of Object.keys(BODY_PARTS) as BodyPart[])actor.bodyHp[part]=Math.min(100,actor.bodyHp[part]+amount);
+    for(const part of Object.keys(BODY_PARTS) as BodyPart[])actor.bodyHp[part]=Math.min(100,actor.bodyHp[part]+amount(blockedSeconds[part]??0));
     actor.hp=healthHp(actor);
-  }else actor.hp=Math.min(100,(actor.hp??100)+amount);
+  }else actor.hp=Math.min(100,(actor.hp??100)+amount(Math.max(0,...Object.values(blockedSeconds))));
 }

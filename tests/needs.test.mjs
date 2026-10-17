@@ -57,18 +57,23 @@ for(const kind of ['human','deer','wolf'])test(`${kind} recovers every body part
  updateNeeds(s.worker,s.construction,s.harvesting,s.hauling,4,false,undefined,undefined,false);
  assert.deepEqual(s.worker.bodyHp,{head:71,torso:81,arms:1,legs:100});assert.equal(s.worker.hp,71);
 });
-for(const kind of ['bleeding','bruise','stomachache'])test(`${kind} on one part blocks natural recovery for all parts`,()=>{
+for(const kind of ['bleeding','bruise','stomachache'])test(`${kind} on one part blocks only that part from recovering`,()=>{
  const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.conditions=[{kind,part:'arms',seconds:100}];s.tick(4);
- assert.equal(s.worker.bodyHp.head,70);assert.equal(s.worker.bodyHp.torso,80);assert.equal(s.worker.bodyHp.legs,90);assert.equal(s.worker.bodyHp.arms,kind==='bleeding'?25:30);
+ assert.equal(s.worker.bodyHp.head,71);assert.equal(s.worker.bodyHp.torso,81);assert.equal(s.worker.bodyHp.legs,91);assert.equal(s.worker.bodyHp.arms,kind==='bleeding'?25:30);
 });
-test('recovery starts only after the last debuff expires, using its effective bed duration',()=>{
+test('each part resumes recovery after its own debuffs expire, using effective bed durations',()=>{
  for(const bed of [false,true]){
   const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.conditions=[{kind:'bruise',part:'arms',seconds:1},{kind:'stomachache',part:'torso',seconds:2}];
   if(bed)s.worker.sleep={phase:'sleeping',bed:{state:'completed',kind:'bed'}};
-  s.tick(4);const amount=(4-2*(bed ? .8 : 1))/4;assert.equal(s.worker.bodyHp.head,70+amount);assert.equal(s.worker.bodyHp.arms,30+amount);
+  s.tick(4);const factor=bed ? .8 : 1;assert.equal(s.worker.bodyHp.head,71);assert.equal(s.worker.bodyHp.arms,30+(4-factor)/4);assert.equal(s.worker.bodyHp.torso,80+(4-2*factor)/4);
  }
 });
 test('starving actors do not heal and dead actors never regenerate',()=>{
  const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.needs.satiety=0;s.tick(4);assert.equal(s.worker.bodyHp.head,68.75);
  s.worker.dead=true;const before={...s.worker.bodyHp};s.worker.needs.satiety=100;s.tick(100);assert.deepEqual(s.worker.bodyHp,before);
+});
+
+test('stacked debuffs block their own part until its final debuff expires',()=>{
+ const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.conditions=[{kind:'bruise',part:'arms',seconds:1},{kind:'stomachache',part:'arms',seconds:3},{kind:'bruise',part:'legs',seconds:100}];
+ s.tick(4);assert.deepEqual(s.worker.bodyHp,{head:71,torso:81,arms:30.25,legs:90});assert.equal(s.worker.hp,71);
 });
