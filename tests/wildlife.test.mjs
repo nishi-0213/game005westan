@@ -113,7 +113,7 @@ test('starvation and death release a deer harvest claim and prevent further acti
   const tile = { ...s.deer.movement.tile }; s.tick(100); assert.deepEqual(s.deer.movement.tile, tile);
 });
 
-test('random waves spawn2to3deer once per minute and mark2to3for departure around one minute', () => {
+test('random waves spawn2to3deer twice per minute and mark2to3for departure around one minute', () => {
   const s = scene();
   s.wildlife.update(0); assert.equal(s.wildlife.deer.length, 0);
   s.wildlife.update(.01, tile => tile.row === 0);
@@ -130,7 +130,7 @@ test('random waves spawn2to3deer once per minute and mark2to3for departure aroun
       advancePathMovement(deer.movement, .1, 8, s.walls.isBlocked, s.walls.cannotStop);
     }
   }
-  assert.equal(ids.size, 6); assert.equal(exiting.size, 3);
+  assert.equal(ids.size, 9); assert.equal(exiting.size, 3);
 });
 
 test('deer graze grass at any growth stage for five nutrition without dropping items',()=>{

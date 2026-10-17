@@ -103,7 +103,7 @@ export class Wildlife {
       for (let i = 0; i < count && candidates.length; i++) this.markForExit(candidates.splice(Math.floor(this.random() * candidates.length), 1)[0]);
       this.exitSeconds += this.interval();
     }
-    if (this.spawnSeconds <= 0) { this.spawn(occupied,'deer',this.firstDeerWave?this.initialPopulationMultiplier:1);this.firstDeerWave=false; this.spawnSeconds += this.interval(); }
+    if (this.spawnSeconds <= 0) { this.spawn(occupied,'deer',this.firstDeerWave?this.initialPopulationMultiplier:1);this.firstDeerWave=false; this.spawnSeconds += this.interval()/2; }
     if(this.combat&&this.corpseEating){
       this.wolfSpawnSeconds-=seconds;this.wolfExitSeconds-=seconds;
       if(this.wolfExitSeconds<=0){

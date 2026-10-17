@@ -30,10 +30,10 @@ test('stored wolf corpses are consumed once and return inventory and equipment i
 const s=scene(),p=s.human(),body=createWolf(tile(3,3),2);s.wildlife.wolves.push(body);killPawn(body,s.construction,s.harvesting,s.hauling);body.inventory={type:'wood',quantity:7};body.weapon='rifle';const box=s.walls.plan(tile(5,3),'wood','storage');s.walls.complete(box);s.storage.depositCorpse(box,body,'wolfCorpse');assert.equal(corpseItemType(body),'wolfCorpse');assert.equal(s.eating.request(p,body),true);
 for(let i=0;i<60&&!body.consumed;i++)s.feed(p);assert.equal(body.consumed,true);assert.equal(box.stored.wolfCorpse,0);assert.equal(box.storedCorpses.length,0);const counts=countItems(s.items);assert.equal(counts.wood,7);assert.equal(counts.rifle,1);assert.equal(counts.meat,0);
 });
-test('wolf waves use1to2animals every160seconds independently from deer2to3once per minute',()=>{
+test('wolf waves use1to2animals every160seconds independently from deer2to3twice per minute',()=>{
 const s=scene(),wolfIds=new Set(),deerIds=new Set(),exiting=new Set();s.wildlife.update(.01);assert.equal(s.wildlife.wolves.length,2);assert.equal(s.wildlife.deer.length,3);
 for(let i=0;i<1201;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves){wolfIds.add(wolf.id);if(wolf.leaving)exiting.add(wolf.id);}for(const deer of s.wildlife.deer)deerIds.add(deer.id);}
-assert.equal(wolfIds.size,2);assert.equal(deerIds.size,9);assert.equal(exiting.size,2);
+assert.equal(wolfIds.size,2);assert.equal(deerIds.size,15);assert.equal(exiting.size,2);
 for(let i=0;i<400;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves)wolfIds.add(wolf.id);}
 assert.equal(wolfIds.size,4);const newWolves=s.wildlife.wolves.filter(wolf=>wolf.id>Math.max(...exiting));assert.equal(newWolves.length,2);assert.ok(newWolves.every(wolf=>!wolf.leaving));
 });
