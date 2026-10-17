@@ -1,3 +1,4 @@
+import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
 export const BODY_PARTS = { head:'頭', torso:'胴', arms:'腕', legs:'脚' } as const;
 export type BodyPart = keyof typeof BODY_PARTS;
 export type BodyHp = Record<BodyPart,number>;
@@ -15,4 +16,13 @@ export function damageAllBodyParts(actor:Health,damage:number):void {
     for(const part of Object.keys(BODY_PARTS) as BodyPart[])actor.bodyHp[part]=Math.max(0,actor.bodyHp[part]-Math.max(0,damage));
     actor.hp=healthHp(actor);
   }else actor.hp=Math.max(0,(actor.hp??100)-Math.max(0,damage));
+}
+
+export function recoverHealth(actor:Health & {dead?:boolean},seconds:number):void {
+  if(actor.dead||healthHp(actor)<=0||seconds<=0)return;
+  const amount=seconds*GAME_MINUTES_PER_SECOND/60;
+  if(actor.bodyHp){
+    for(const part of Object.keys(BODY_PARTS) as BodyPart[])actor.bodyHp[part]=Math.min(100,actor.bodyHp[part]+amount);
+    actor.hp=healthHp(actor);
+  }else actor.hp=Math.min(100,(actor.hp??100)+amount);
 }

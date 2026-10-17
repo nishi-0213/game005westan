@@ -102,7 +102,7 @@ test('two equip orders never duplicate the last weapon and replacement returns t
 test('starvation HP drain counts only the time after satiety reaches zero and stops after feeding',()=>{
  const s=scene(),a=s.pawn(2,2);a.needs.satiety=.5;
  updateNeeds(a,s.construction,s.harvesting,s.hauling,3);assert.equal(a.hp,99.375);assert.equal(a.dead,undefined);
- a.needs.satiety=100;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,99.375);
+ a.needs.satiety=100;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,99.625);
  a.needs.satiety=0;a.hp=.3125;updateNeeds(a,s.construction,s.harvesting,s.hauling,1);assert.equal(a.hp,0);assert.equal(a.dead,true);
 });
 

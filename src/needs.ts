@@ -1,5 +1,5 @@
-import { mealConditions, updateConditions, type BodyCondition } from './body-conditions.ts';
-import { damageAllBodyParts, healthHp, type BodyHp } from './health.ts';
+import { conditionRemaining, mealConditions, updateConditions, type BodyCondition } from './body-conditions.ts';
+import { recoverHealth, damageAllBodyParts, healthHp, type BodyHp } from './health.ts';
 import { FOOD_THRESHOLD } from './needs-threshold.ts';
 import { canPlan } from './path-schedule.ts';
 import { GAME_MINUTES_PER_SECOND } from './game-time.ts';
@@ -131,7 +131,9 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   const previousSatiety = worker.needs.satiety;
   worker.needs.satiety = Math.max(0, previousSatiety - elapsed * SATIETY_LOSS_PER_SECOND);
   const starvingSeconds = Math.max(0, elapsed - previousSatiety / SATIETY_LOSS_PER_SECOND);
+  const recoveryBlockedSeconds=worker.conditions?.reduce((longest,condition)=>Math.max(longest,conditionRemaining(worker,condition)),0)??0;
   updateConditions(worker,elapsed);
+  recoverHealth(worker,Math.max(0,elapsed-starvingSeconds-recoveryBlockedSeconds));
   damageAllBodyParts(worker,starvingSeconds * STARVATION_HP_LOSS_PER_SECOND);
   if (healthHp(worker) <= 0) {
     killPawn(worker, construction, harvesting, hauling);

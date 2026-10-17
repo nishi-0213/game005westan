@@ -15,7 +15,7 @@ test('satiety falls0.5percent per second; strawberry mass is0.2kg',()=>{const s=
 test('at40percent a pawn eats enough held berries in one second to become full, but not above40',()=>{const s=scene();s.worker.inventory={type:'strawberry',quantity:7};s.worker.needs.satiety=40.01;s.tick(0);assert.equal(s.worker.inventory.quantity,7);s.worker.needs.satiety=40;s.tick(0);s.tick(.9);assert.equal(s.worker.inventory.quantity,7);s.tick(.1);assert.equal(s.worker.needs.satiety,100);assert.equal(s.worker.inventory,null);});
 test('hungry pawns route to food in storage, eat until full, and retain unrelated carried materials',()=>{const s=scene();const box=s.walls.plan({column:5,row:5},'wood','storage');s.walls.complete(box);s.storage.deposit(box,'strawberry',5);s.worker.inventory={type:'wood',quantity:20};s.worker.needs.satiety=20;assert.equal(s.tick(0),true);for(let i=0;i<100&&s.worker.needs.satiety<=20;i++){advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);s.tick(.1);}assert.ok(s.worker.needs.satiety>20);assert.equal(box.stored.strawberry,0);assert.deepEqual(s.worker.inventory,{type:'wood',quantity:20});});
 test('marked ground food is edible; ignored or unreachable food does not get consumed',()=>{const s=scene();const item={column:3,row:2,type:'strawberry',quantity:1};s.items.push(item);s.worker.needs.satiety=20;assert.equal(s.tick(0),false);item.collect=true;assert.equal(s.tick(0),true);for(let i=0;i<20;i++){advancePathMovement(s.worker.movement,.1,10,s.walls.isBlocked,s.walls.cannotStop);s.tick(.1);}assert.equal(item.quantity,0);assert.ok(s.worker.needs.satiety>20);const t=scene();t.items.push({column:7,row:2,type:'strawberry',quantity:1,collect:true});for(let row=0;row<10;row++){const wall=t.walls.plan({column:4,row},'wood');t.walls.complete(wall);}t.worker.needs.satiety=20;assert.equal(t.tick(0),false);});
-test('starvation directly drains HP at30per game day and eating stops the drain',()=>{const s=scene();s.worker.needs.satiety=1;s.tick(6);assert.equal(s.worker.needs.satiety,0);assert.equal(s.worker.hp,98.75);s.tick(5);assert.equal(s.worker.hp,97.1875);s.worker.inventory={type:'strawberry',quantity:1};s.tick(0);s.tick(1);assert.equal(s.worker.needs.satiety,10);assert.equal(s.worker.hp,96.875);s.tick(1);assert.equal(s.worker.hp,96.875);});
+test('starvation directly drains HP at30per game day and eating stops the drain',()=>{const s=scene();s.worker.needs.satiety=1;s.tick(6);assert.equal(s.worker.needs.satiety,0);assert.equal(s.worker.hp,98.75);s.tick(5);assert.equal(s.worker.hp,97.1875);s.worker.inventory={type:'strawberry',quantity:1};s.tick(0);s.tick(1);assert.equal(s.worker.needs.satiety,10);assert.equal(s.worker.hp,96.875);s.tick(1);assert.equal(s.worker.hp,97.125);});
 test('death releases jobs, freezes movement, prevents autonomous work and remains permanent',()=>{const s=scene();const plan=s.walls.plan({column:3,row:2},'wood');plan.delivered=10;s.construction.update(s.worker,0);assert.ok(s.worker.job);s.worker.needs.satiety=0;s.worker.hp=.625;s.tick(1);assert.equal(s.worker.dead,undefined);assert.equal(s.worker.hp,.3125);s.tick(1);assert.equal(s.worker.dead,true);assert.equal(s.worker.hp,0);assert.equal(currentAction(s.worker),'死亡');assert.equal(s.worker.job,null);assert.equal(s.construction.claims.size,0);assert.equal(s.worker.movement.nextTile,null);s.worker.inventory={type:'strawberry',quantity:2};s.tick(100);updateWork(s.worker,s.construction,s.harvesting,10);assert.equal(s.worker.inventory.quantity,2);assert.equal(s.worker.job,null);assert.equal(s.worker.hp,0);});
 test('multiple hungry pawns cannot consume the same last berry twice',()=>{const s=scene();const item={column:2,row:2,type:'strawberry',quantity:1,collect:true};s.items.push(item);s.worker.needs.satiety=20;const other={...s.worker,movement:createMovement({column:2,row:2}),needs:{satiety:20},eatJob:null};s.tick(0);updateNeeds(other,s.construction,s.harvesting,s.hauling,0);s.tick(1);updateNeeds(other,s.construction,s.harvesting,s.hauling,1);assert.equal(item.quantity,0);assert.ok(Math.abs(s.worker.needs.satiety+other.needs.satiety-49)<.0001);});
 
@@ -50,4 +50,25 @@ for(const kind of ['human','deer','wolf'])for(const progress of [.01,.5,.99])tes
  killPawn(p,s.construction,s.harvesting,s.hauling);
  assert.deepEqual(p.deadPosition,source);assert.deepEqual(p.movement.tile,source);assert.deepEqual(p.movement.destination,source);assert.equal(p.movement.nextTile,null);assert.equal(p.movement.progress,0);assert.deepEqual(p.movement.route,[]);
  advancePathMovement(p.movement,10,10,s.walls.isBlocked,s.walls.cannotStop);assert.deepEqual(p.movement.tile,source);
+});
+
+for(const kind of ['human','deer','wolf'])test(`${kind} recovers every body part at1HP per game hour when no body debuffs remain`,()=>{
+ const s=scene();s.worker.kind=kind;s.worker.bodyHp={head:70,torso:80,arms:0,legs:99.5};s.worker.hp=70;s.worker.mode='drafted';
+ updateNeeds(s.worker,s.construction,s.harvesting,s.hauling,4,false,undefined,undefined,false);
+ assert.deepEqual(s.worker.bodyHp,{head:71,torso:81,arms:1,legs:100});assert.equal(s.worker.hp,71);
+});
+for(const kind of ['bleeding','bruise','stomachache'])test(`${kind} on one part blocks natural recovery for all parts`,()=>{
+ const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.conditions=[{kind,part:'arms',seconds:100}];s.tick(4);
+ assert.equal(s.worker.bodyHp.head,70);assert.equal(s.worker.bodyHp.torso,80);assert.equal(s.worker.bodyHp.legs,90);assert.equal(s.worker.bodyHp.arms,kind==='bleeding'?25:30);
+});
+test('recovery starts only after the last debuff expires, using its effective bed duration',()=>{
+ for(const bed of [false,true]){
+  const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.conditions=[{kind:'bruise',part:'arms',seconds:1},{kind:'stomachache',part:'torso',seconds:2}];
+  if(bed)s.worker.sleep={phase:'sleeping',bed:{state:'completed',kind:'bed'}};
+  s.tick(4);const amount=(4-2*(bed ? .8 : 1))/4;assert.equal(s.worker.bodyHp.head,70+amount);assert.equal(s.worker.bodyHp.arms,30+amount);
+ }
+});
+test('starving actors do not heal and dead actors never regenerate',()=>{
+ const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.needs.satiety=0;s.tick(4);assert.equal(s.worker.bodyHp.head,68.75);
+ s.worker.dead=true;const before={...s.worker.bodyHp};s.worker.needs.satiety=100;s.tick(100);assert.deepEqual(s.worker.bodyHp,before);
 });
