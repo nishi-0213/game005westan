@@ -71,9 +71,9 @@ test('an unreachable target receives no attack and auto, wild, dead and self att
  a.mode='drafted';a.faction='wild';assert.equal(s.combat.requestAttack(a,b),false);a.faction='player';a.dead=true;assert.equal(s.combat.requestAttack(a,b),false);
 });
 
-test('drafted attacks hold their original firing position when targets leave range, and departure cancels the attack',()=>{
- const s=scene(),a=s.pawn(2,2),b=s.pawn(3,2);s.combat.requestAttack(a,b);
- b.movement.tile=tile(12,12);b.movement.destination=tile(12,12);b.movement.changed();s.combat.update(a,.3);
+test('drafted rifle attacks hold their firing position when targets leave range, and departure cancels the attack',()=>{
+ const s=scene(),a=s.pawn(2,2,'rifle'),b=s.pawn(3,2);s.combat.requestAttack(a,b);
+ b.movement.tile=tile(31,31);b.movement.destination=tile(31,31);b.movement.changed();s.combat.update(a,.3);
  assert.deepEqual(a.movement.destination,tile(2,2));assert.equal(b.hp,100);assert.ok(a.attackJob);
  b.departed=true;s.combat.update(a,.1);assert.equal(a.attackJob,null);
 });
@@ -234,4 +234,18 @@ test('a hit applies stacked injuries to its selected body part; misses apply non
  s.combat.update(a,.2);assert.equal(b.conditions.length,4);
  b.bodyHp.head=1;updateNeeds(b,s.construction,s.harvesting,s.hauling,1,false);assert.equal(b.dead,true);assert.equal(b.hp,0);
  const t=scene(()=>.9),c=t.pawn(3,3),d=t.pawn(4,3);d.bodyHp={head:100,torso:100,arms:100,legs:100};t.combat.requestAttack(c,d);t.combat.update(c,.2);assert.equal(d.conditions,undefined);
+});
+
+for(const weapon of ['unarmed','knife'])test(`manual ${weapon} attacks pursue a designated enemy after it moves away repeatedly`,()=>{
+ const s=scene(),a=s.pawn(2,2,weapon),b=s.pawn(3,2);b.faction='enemy1';assert.equal(s.combat.requestAttack(a,b),true);assert.equal(a.attackJob.holdPosition,undefined);
+ b.movement.tile=tile(8,2);b.movement.destination=tile(8,2);b.movement.changed();s.combat.update(a,.3);assert.notDeepEqual(a.movement.destination,tile(2,2));
+ for(let i=0;i<100&&b.hp===100;i++)s.tick(a,.05);assert.ok(b.hp<100);assert.equal(a.attackJob.target,b);assert.equal(a.attackJob.holdPosition,undefined);
+ b.movement.tile=tile(14,2);b.movement.destination=tile(14,2);b.movement.changed();const before={...a.movement.tile};s.combat.update(a,.3);assert.notDeepEqual(a.movement.destination,before);assert.equal(a.attackJob.target,b);assert.equal(a.attackJob.manual,true);
+ b.departed=true;s.combat.update(a,.1);assert.equal(a.attackJob,null);
+});
+for(const weapon of ['unarmed','knife'])test(`manual ${weapon} pursuit respects planning slots and preserves the current movement segment`,()=>{
+ const s=scene(),a=s.pawn(2,2,weapon),b=s.pawn(9,2);b.faction='enemy1';s.combat.requestAttack(a,b);s.move(a,.125);
+ const segment={next:{...a.movement.nextTile},progress:a.movement.progress},oldGoal={...a.movement.destination};
+ b.movement.tile=tile(12,6);b.movement.destination=tile(12,6);b.movement.changed();a.movement.planningAllowed=false;s.combat.update(a,.3);assert.deepEqual(a.movement.destination,oldGoal);
+ a.movement.planningAllowed=true;s.combat.update(a,.1);assert.notDeepEqual(a.movement.destination,oldGoal);assert.deepEqual(a.movement.nextTile,segment.next);assert.equal(a.movement.progress,segment.progress);assert.equal(a.attackJob.target,b);
 });

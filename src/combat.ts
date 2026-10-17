@@ -151,7 +151,7 @@ export class Combat {
     this.interrupt(pawn); this.cancel(pawn);
     pawn.attackJob = { target, cooldown: attackStats(pawn).interval, retrySeconds: .25,
       targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true,
-      holdPosition:stationary(pawn)&&positionKey(pawn.movement.tile)===positionKey(approach.goal)?{...approach.goal}:undefined };
+      holdPosition:(pawn.weapon??'unarmed')==='rifle'&&stationary(pawn)&&positionKey(pawn.movement.tile)===positionKey(approach.goal)?{...approach.goal}:undefined };
     return setRoute(pawn.movement, approach.path.tiles);
   }
 
@@ -291,8 +291,9 @@ export class Combat {
     }
     const weapon = pawn.kind === 'wolf' ? 'unarmed' : pawn.weapon ?? 'unarmed';
     const stats = attackStats(pawn);
-    if(manual&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
-    if(manual&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
+    if(manual&&weapon!=='rifle')delete job.holdPosition;
+    if(manual&&weapon==='rifle'&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
+    if(manual&&weapon==='rifle'&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
     if (!manual && !job.hunting && !job.predation && !job.retaliation && !stationary(pawn)) return true;
     if (!stationary(pawn) || (!this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)
       || (job.predation||job.retaliation)&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn,job.target))) {
