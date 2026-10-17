@@ -753,9 +753,7 @@ function selectPawnInfoTab(tab:'overview'|'needs'|'health'):void {
 overviewTab.addEventListener('click',()=>selectPawnInfoTab('overview'));
 needsTab.addEventListener('click',()=>selectPawnInfoTab('needs'));
 healthTab.addEventListener('click',()=>selectPawnInfoTab('health'));
-const pawnWorkList=document.createElement('aside');pawnWorkList.id='pawn-work-list';pawnWorkList.setAttribute('aria-label','作業一覧');
-const pawnWorkListTitle=document.createElement('h3');pawnWorkListTitle.textContent='作業一覧';pawnWorkList.append(pawnWorkListTitle);
-pawnSpecs.append(pawnSpecsTabs,pawnOverview,pawnNeeds,pawnHealth,pawnWorkList);
+pawnSpecs.append(pawnSpecsTabs,pawnOverview,pawnNeeds,pawnHealth);
 const pawnRoster = document.querySelector<HTMLElement>('#pawn-roster')!;
 const rosterButtons = pawns.map((pawn, index) => {
   const button = document.createElement('button');
