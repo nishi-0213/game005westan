@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Nursing,NURSING_SECONDS} from '../src/nursing.ts';
+import {Nursing,NURSING_SECONDS,isNursing} from '../src/nursing.ts';
 import {Walls} from '../src/walls.ts';
 import {Construction} from '../src/construction.ts';
 import {Harvesting} from '../src/harvesting.ts';
@@ -22,7 +22,7 @@ function scene(){
 test('manual nursing treats one bleeding condition per30game minutes, vital parts first, leaving bruises and HP unchanged',()=>{
  const s=scene(),n=s.pawn(2,2),p=s.pawn(3,2);addCondition(p,'bleeding','arms');addCondition(p,'bruise','torso');addCondition(p,'bleeding','head');updateMood(p,0);
  assert.equal(s.nursing.request(n,p),true);assert.equal(n.nurseJob.manual,true);assert.equal(n.nurseJob.condition.part,'head');assert.equal(s.nursing.claims.get(p),n);
- s.nursing.update(n,NURSING_SECONDS-.01);assert.equal(p.conditions.length,3);s.nursing.update(n,.01);assert.equal(p.conditions.length,2);assert.equal(n.nurseJob.condition.part,'arms');assert.equal(currentAction(n),'看護へ移動中');
+ s.nursing.update(n,NURSING_SECONDS-.01);assert.equal(p.conditions.length,3);assert.equal(currentAction(n),'看護');assert.equal(isNursing(n),true);s.nursing.update(n,.01);assert.equal(p.conditions.length,2);assert.equal(n.nurseJob.condition.part,'arms');assert.equal(currentAction(n),'看護へ移動中');
  s.nursing.update(n,NURSING_SECONDS);assert.deepEqual(p.conditions.map(c=>c.kind),['bruise']);assert.equal(n.nurseJob,null);assert.equal(s.nursing.claims.size,0);assert.deepEqual(p.bodyHp,initialBodyHp());updateMood(p,0);assert.equal(p.needs.happiness,40);
 });
 test('self nursing works manually and automatically and prevents duplicate nurses from reserving the same patient',()=>{

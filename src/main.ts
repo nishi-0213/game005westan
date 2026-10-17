@@ -1,4 +1,4 @@
-import { Nursing, type NursingJob } from './nursing';
+import { Nursing, isNursing, type NursingJob } from './nursing';
 import { BleedingEffects } from './bleeding-effects';
 import { conditionRemaining, CONDITION_LABELS, type BodyCondition } from './body-conditions';
 import { clothingLayers } from './clothing-layers';
@@ -326,6 +326,9 @@ function createSleepLabel(): Text {
   sleepLabelLayer.addChild(label);
   return label;
 }
+function createNursingLabel():Text {
+  const label=createSleepLabel();label.text='✚';label.style.fontSize=13;label.style.fill=0xf05b67;return label;
+}
 function updateSleepLabel(actor:{dead?:boolean;sleep?:SleepState},view:Container,label:Text):void {
   label.visible=!actor.dead&&view.visible&&actor.sleep?.phase==='sleeping';
   if(!label.visible)return;
@@ -428,7 +431,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
@@ -517,7 +520,7 @@ function removeConsumedHumans():void {
     const rosterIndex=rosterButtons.findIndex(entry=>entry.pawn===pawn);
     if(rosterIndex>=0){rosterButtons[rosterIndex].button.remove();rosterButtons.splice(rosterIndex,1);}
     priorityRowsByPawn.get(pawn)?.remove();priorityRowsByPawn.delete(pawn);
-    pawn.mealIcon.destroy();pawn.view.destroy({children:true});pawn.corpseIcon.destroy();pawn.sleepLabel.destroy();pawn.attackRange.destroy();pawn.movementPath.destroy();
+    pawn.mealIcon.destroy();pawn.view.destroy({children:true});pawn.corpseIcon.destroy();pawn.sleepLabel.destroy();pawn.nursingLabel.destroy();pawn.attackRange.destroy();pawn.movementPath.destroy();
     const index=pawns.indexOf(pawn);if(index>=0)pawns.splice(index,1);
   }
   consumedHumans.clear();
@@ -2030,6 +2033,8 @@ app.ticker.add((ticker) => {
     pawn.view.rotation = (pawn.dead || pawn.sleep?.phase==='sleeping') ? Math.PI / 2 : attackWobble(pawn);
     pawn.view.position.set((position.column + 0.5) * TILE_SIZE, (position.row + 0.5) * TILE_SIZE);
     updateSleepLabel(pawn,pawn.view,pawn.sleepLabel);
+    pawn.nursingLabel.visible=pawn.view.visible&&isNursing(pawn);
+    if(pawn.nursingLabel.visible){pawn.nursingLabel.scale.set(1/map.scale.x);pawn.nursingLabel.position.set(pawn.view.x,pawn.view.y-12-3/map.scale.y);}
     if(pawn.drawnWeapon!==pawn.weapon){drawWeapon(pawn.weaponView,pawn.weapon);pawn.drawnWeapon=pawn.weapon;}
     if(pawn.shotSeconds<=0 || pawn.weapon!=='rifle')pawn.weaponView.rotation=0;
     if(pawn.weapon==='knife'&&pawn.swingSeconds>0)pawn.weaponView.rotation=pawn.swingAngle+(.5-pawn.swingSeconds/.25)*Math.PI;

@@ -11,6 +11,10 @@ import { canGiveOrders } from './mood.ts';
 export const NURSING_SECONDS=2;
 export type NursingActor=Builder & Health & {kind?:string;faction?:string;conditions?:BodyCondition[];needs?:{happiness?:number};decisionSeconds?:number;workTask?:string};
 export interface NursingJob {patient:NursingActor;condition:BodyCondition;seconds:number;manual:boolean;goal:Tile}
+export function isNursing(worker:Pick<NursingActor,'nurseJob'|'dead'|'sleep'|'movement'|'mode'>):boolean {
+  const m=worker.movement,job=worker.nurseJob;
+  return Boolean(job&&job.seconds>0&&!worker.dead&&!job.patient.dead&&!worker.sleep&&worker.mode==='automatic'&&!m.nextTile&&m.tile.column===m.destination.column&&m.tile.row===m.destination.row);
+}
 const bleeding=(p:NursingActor)=>(p.conditions??[]).filter(c=>c.kind==='bleeding'&&c.seconds>0);
 const urgency=(c:BodyCondition)=>c.part==='head'||c.part==='torso'?0:1;
 export class Nursing {

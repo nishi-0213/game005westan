@@ -1,4 +1,4 @@
-import type { Nursing } from './nursing';
+import { isNursing, type Nursing } from './nursing.ts';
 import { canPlan } from './path-schedule.ts';
 import type { Cooking } from './cooking';
 import type { Hunting } from './hunting';
@@ -130,7 +130,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
 
 export function currentAction(worker: AutonomousWorker): string {
   if (worker.dead) return '死亡';
-  if(worker.nurseJob)return worker.nurseJob.seconds>0?'止血中':'看護へ移動中';
+  if(worker.nurseJob)return isNursing(worker)?'看護':'看護へ移動中';
   if (worker.dropRequested) return '地面に置く';
   if (worker.mode === 'drafted'&&!worker.forcedConstruction) return '徴兵';
   const moving = Boolean(worker.movement.nextTile) || worker.movement.tile.column !== worker.movement.destination.column || worker.movement.tile.row !== worker.movement.destination.row;
