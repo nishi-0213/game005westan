@@ -67,6 +67,7 @@ export class Sleeping {
       p.needs.wakefulness=Math.min(100,(p.needs.wakefulness??100)+elapsed*(state.bed?BED_SLEEP_RECOVERY:GROUND_SLEEP_RECOVERY));
       if(p.needs.wakefulness>=100-1e-9){
         p.needs.wakefulness=100;
+        if(p.receivingNursing)return true;
         if(state.bed){this.exit(p);}else p.sleep=undefined;
       }
       return true;

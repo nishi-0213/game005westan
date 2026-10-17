@@ -60,3 +60,28 @@ test('bed recovery scales effective remaining duration to0.8 and restores normal
 test('automatic nursing chooses another patient with vital bleeding before its own limb bleeding',()=>{
  const s=scene(),n=s.pawn(2,2),p=s.pawn(6,2);addCondition(n,'bleeding','arms');addCondition(p,'bleeding','torso');assert.equal(s.nursing.findWork(n).patient,p);
 });
+
+test('a patient cannot roam or receive player orders during nursing and resumes after treatment',async()=>{
+ const {canGiveOrders}=await import('../src/mood.ts');const s=scene(),n=s.pawn(2,2),p=s.pawn(3,2);addCondition(p,'bleeding','arms');p.freeSeconds=6;p.workTask='free';
+ assert.equal(s.nursing.request(n,p),true);assert.equal(p.receivingNursing,n);assert.equal(currentAction(p),'看護を受けている');assert.equal(canGiveOrders(p),false);
+ const original={...p.movement.tile};updateWork(p,s.construction,s.harvesting,10,()=>.5,10,s.hauling,undefined,undefined,undefined,undefined,s.nursing);s.move(p,10);assert.deepEqual(p.movement.tile,original);assert.equal(p.freeActive,false);
+ s.nursing.update(n,NURSING_SECONDS);assert.equal(p.receivingNursing,undefined);assert.equal(canGiveOrders(p),true);assert.equal(s.nursing.claims.size,0);
+ updateWork(p,s.construction,s.harvesting,0,()=>.5,0,s.hauling,undefined,undefined,undefined,undefined,s.nursing);assert.equal(p.freeActive,true);
+});
+test('a moving patient finishes the current segment and stops before nursing progresses',async()=>{
+ const {setRoute}=await import('../src/movement.ts');const s=scene(),n=s.pawn(2,2),p=s.pawn(3,2);addCondition(p,'bleeding','head');setRoute(p.movement,[{column:4,row:2},{column:5,row:2},{column:6,row:2}]);s.move(p,.125);
+ s.nursing.request(n,p);assert.deepEqual(p.movement.destination,{column:4,row:2});s.nursing.update(n,1);assert.equal(n.nurseJob.seconds,0);s.move(p,2);assert.deepEqual(p.movement.tile,{column:4,row:2});s.nursing.update(n,0);s.move(n,1);s.nursing.update(n,NURSING_SECONDS);assert.equal(p.conditions.length,0);assert.equal(p.receivingNursing,undefined);
+});
+test('cancelling nursing or losing the patient removes the receiving-care state',()=>{
+ for(const dead of [false,true]){const s=scene(),n=s.pawn(2,2),p=s.pawn(3,2);addCondition(p,'bleeding','head');s.nursing.request(n,p);
+  if(dead){p.dead=true;s.nursing.update(n,.1);}else s.nursing.cancel(n);
+  assert.equal(p.receivingNursing,undefined);assert.equal(n.nurseJob,null);assert.equal(s.nursing.claims.size,0);
+ }
+});
+
+test('a rested patient remains in bed until receiving care finishes',async()=>{
+ const {Sleeping}=await import('../src/sleep.ts');const s=scene(),n=s.pawn(2,2),p=s.pawn(3,2),bed=s.walls.plan({column:3,row:2},'wood','bed');s.walls.complete(bed);
+ p.sleep={phase:'sleeping',goal:{column:3,row:2},bed};p.needs.wakefulness=99;addCondition(p,'bleeding','head');s.nursing.request(n,p);
+ const sleeping=new Sleeping(s.construction);sleeping.update(p,1,true);assert.equal(p.sleep.phase,'sleeping');assert.equal(p.movement.nextTile,null);assert.deepEqual(p.movement.destination,{column:3,row:2});
+ s.nursing.cancel(n);sleeping.update(p,.1,true);assert.equal(p.sleep.phase,'exit');
+});

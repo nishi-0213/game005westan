@@ -23,6 +23,7 @@ export function nextPriority(value: number, direction: 1 | -1 = 1): number { ret
 
 export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling, clearing?: Clearing, butchery?: Butchery, hunting?: Hunting, cooking?:Cooking, nursing?:Nursing): void {
   if (worker.dead) {nursing?.cancel(worker);hunting?.cancel(worker);if(worker.cookJob)cooking?.cancel(worker);return;}
+  if(worker.receivingNursing){worker.freeActive=false;return;}
   if(!worker.workTask&&!canPlan(worker.movement)&&worker.mode==='automatic'&&!worker.dropRequested)return;
   const wasFree = worker.freeActive;
   worker.freeActive = false;
@@ -130,6 +131,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
 
 export function currentAction(worker: AutonomousWorker): string {
   if (worker.dead) return '死亡';
+  if(worker.receivingNursing)return '看護を受けている';
   if(worker.nurseJob)return isNursing(worker)?'看護':'看護へ移動中';
   if (worker.dropRequested) return '地面に置く';
   if (worker.mode === 'drafted'&&!worker.forcedConstruction) return '徴兵';

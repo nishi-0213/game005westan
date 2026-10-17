@@ -9,7 +9,7 @@ import { findNearest } from './pathfinding.ts';
 import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 export const NURSING_SECONDS=2;
-export type NursingActor=Builder & Health & {kind?:string;faction?:string;conditions?:BodyCondition[];needs?:{happiness?:number};decisionSeconds?:number;workTask?:string};
+export type NursingActor=Builder & Health & {kind?:string;faction?:string;conditions?:BodyCondition[];needs?:{happiness?:number};decisionSeconds?:number;workTask?:string;freeSeconds?:number};
 export interface NursingJob {patient:NursingActor;condition:BodyCondition;seconds:number;manual:boolean;goal:Tile}
 export function isNursing(worker:Pick<NursingActor,'nurseJob'|'dead'|'sleep'|'movement'|'mode'>):boolean {
   const m=worker.movement,job=worker.nurseJob;
@@ -20,10 +20,11 @@ const urgency=(c:BodyCondition)=>c.part==='head'||c.part==='torso'?0:1;
 export class Nursing {
   readonly claims=new Map<NursingActor,NursingActor>();
   onInterrupt?:(worker:NursingActor)=>void;
+  onPatientStart?:(patient:NursingActor)=>void;
   readonly construction:Construction;readonly harvesting:Harvesting;readonly hauling:Hauling;readonly patients:()=>readonly NursingActor[];
   constructor(construction:Construction,harvesting:Harvesting,hauling:Hauling,patients:()=>readonly NursingActor[]){this.construction=construction;this.harvesting=harvesting;this.hauling=hauling;this.patients=patients;}
   private eligible(worker:NursingActor,patient:NursingActor):boolean {
-    return !worker.dead&&!patient.dead&&patient.kind==='human'&&(patient.faction??'player')===(worker.faction??'player')&&bleeding(patient).length>0&&(!this.claims.has(patient)||this.claims.get(patient)===worker);
+    return !worker.dead&&!worker.receivingNursing&&!patient.dead&&patient.kind==='human'&&(patient.faction??'player')===(worker.faction??'player')&&bleeding(patient).length>0&&(!this.claims.has(patient)||this.claims.get(patient)===worker);
   }
   private approach(worker:NursingActor,patient:NursingActor){
     const from=worker.movement.nextTile??worker.movement.tile,walls=this.construction.walls;
@@ -52,6 +53,7 @@ export class Nursing {
   cancel(worker:NursingActor):void {
     const job=worker.nurseJob;if(!job)return;
     if(this.claims.get(job.patient)===worker)this.claims.delete(job.patient);
+    if(job.patient.receivingNursing===worker){delete job.patient.receivingNursing;job.patient.decisionSeconds=0;job.patient.workTask=undefined;job.patient.freeSeconds=0;}
     worker.nurseJob=null;worker.decisionSeconds=0;if(worker.workTask==='nurse')worker.workTask=undefined;
     stopAtNextSafeTile(worker.movement,this.construction.walls.cannotStop);
   }
@@ -67,13 +69,14 @@ export class Nursing {
     this.cancel(worker);this.onInterrupt?.(worker);
     this.harvesting.cancel(worker as Parameters<Harvesting['cancel']>[0]);this.hauling.cancel(worker as Parameters<Hauling['cancel']>[0]);this.construction.cancel(worker);
     const condition=bleeding(patient).sort((a,b)=>urgency(a)-urgency(b))[0];if(!condition)return false;
+    if(worker!==patient){this.cancel(patient);this.onPatientStart?.(patient);patient.receivingNursing=worker;patient.freeSeconds=0;stopAtNextSafeTile(patient.movement,this.construction.walls.cannotStop);}
     this.claims.set(patient,worker);worker.nurseJob={patient,condition,manual,seconds:0,goal:approach.goal};worker.workTask='nurse';
     if(worker!==patient)setRoute(worker.movement,approach.path.tiles);
     else stopAtNextSafeTile(worker.movement,this.construction.walls.cannotStop);
     return true;
   }
   update(worker:NursingActor,seconds:number):void {
-    if(worker.dead||worker.mode!=='automatic'||worker.sleep||worker.dropRequested){this.cancel(worker);return;}
+    if(worker.dead||worker.receivingNursing||worker.mode!=='automatic'||worker.sleep||worker.dropRequested){this.cancel(worker);return;}
     if(!worker.nurseJob){const work=this.findWork(worker);if(!work||!this.start(worker,work.patient,false))return;}
     const job=worker.nurseJob!;
     if(!this.eligible(worker,job.patient)||this.claims.get(job.patient)!==worker){this.cancel(worker);return;}
@@ -90,6 +93,8 @@ export class Nursing {
       return;
     }
     if(worker.movement.nextTile||from.column!==worker.movement.destination.column||from.row!==worker.movement.destination.row)return;
+    const pm=job.patient.movement;
+    if(pm.nextTile||pm.tile.column!==pm.destination.column||pm.tile.row!==pm.destination.row)return;
     job.seconds+=Math.max(0,seconds);
     if(job.seconds+1e-9<NURSING_SECONDS)return;
     job.patient.conditions=job.patient.conditions!.filter(c=>c!==job.condition);

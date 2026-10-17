@@ -11,6 +11,7 @@ import type { Wall, Walls } from './walls';
 import type { Storage } from './storage';
 
 export interface Builder {
+  receivingNursing?:import('./nursing').NursingActor;
   nurseJob?:import('./nursing').NursingJob|null;
   forcedConstruction?: Wall;
   sleep?:import('./sleep').SleepState;

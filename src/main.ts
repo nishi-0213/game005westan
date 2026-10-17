@@ -327,7 +327,7 @@ function createSleepLabel(): Text {
   return label;
 }
 function createNursingLabel():Text {
-  const label=createSleepLabel();label.text='✚';label.style.fontSize=13;label.style.fill=0xf05b67;return label;
+  const label=createSleepLabel();label.text='✚';label.style.fontSize=13;label.style.fill=0xffffff;return label;
 }
 function updateSleepLabel(actor:{dead?:boolean;sleep?:SleepState},view:Container,label:Text):void {
   label.visible=!actor.dead&&view.visible&&actor.sleep?.phase==='sleeping';
@@ -431,7 +431,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
@@ -465,6 +465,11 @@ const cooking=new Cooking(construction,hauling,()=>pawns);
 const sleeping=new Sleeping(construction);
 const nursing=new Nursing(construction,harvesting,hauling,()=>pawns);
 nursing.onInterrupt=worker=>{combat.cancel(worker as CombatPawn);sleeping.cancel(worker as EatingWorker);const pawn=pawns.find(p=>p===worker);if(pawn){pawn.eatJob=null;pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;pawn.decisionSeconds=0;}};
+nursing.onPatientStart=patient=>{
+  combat.cancel(patient as CombatPawn);hauling.cancel(patient as EatingWorker);harvesting.cancel(patient as EatingWorker);construction.cancel(patient);
+  if(patient.sleep?.phase!=='sleeping')sleeping.cancel(patient as EatingWorker);
+  const pawn=pawns.find(p=>p===patient);if(pawn){pawn.eatJob=null;pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;pawn.decisionSeconds=0;}
+};
 wildlife.sleeping=sleeping;
 sleeping.onInterrupt=worker=>{nursing.cancel(worker);combat.cancel(worker as CombatPawn);hauling.cancel(worker);harvesting.cancel(worker);construction.cancel(worker); const pawn=pawns.find(p=>p===worker);if(pawn){pawn.manualMove=false;pawn.fleeGoal=undefined;pawn.workTask=undefined;pawn.decisionSeconds=0;}else if('fleeGoal' in worker)worker.fleeGoal=undefined;};
 const corpseEating=new CorpseEating(construction,harvesting,hauling,()=>[...pawns,...wildlife.animals]);
@@ -830,7 +835,7 @@ function updatePawnPanels(): void {
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
   setText(pawnSpecsHp, `HP：${Math.round(healthHp(selectedPawn))}%`);
   setText(pawnSpecsWeapon, `装備：${WEAPONS[selectedPawn.weapon].name}`);
-  const action = selectedPawn.dead ? '死亡' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
+  const action = selectedPawn.dead ? '死亡' : selectedPawn.receivingNursing ? '看護を受けている' : selectedPawn.sleep ? (selectedPawn.sleep.phase==='sleeping'?'就寝中':selectedPawn.sleep.phase==='approach'?'就寝へ移動中':selectedPawn.sleep.phase==='exit'?'起床中':'寝落ち') : selectedPawn.fleeGoal ? '逃走中' : selectedPawn.equipJob ? '装備へ移動中' : selectedPawn.attackJob ? (selectedPawn.attackJob.hunting?'狩猟中':'攻撃中') : selectedPawn.eatJob ? (selectedPawn.eatJob.eatingSeconds !== undefined ? '食事中' : selectedPawn.eatJob.seat ? '食事の席へ移動中' : '食料へ移動中') : currentAction(selectedPawn);
   updateHealthMeters(healthMeters,selectedPawn);
   if (!pawnNeeds.hidden) for (const [index, value] of [selectedPawn.needs.happiness??50, selectedPawn.needs.satiety, selectedPawn.needs.wakefulness??100].entries()) {
     needsMeters[index].update(value);
@@ -1189,7 +1194,7 @@ function updatePawnModeButton(): void {
   const mixed = controlled.some(pawn => pawn.mode === 'drafted') && controlled.some(pawn => pawn.mode === 'automatic');
   const label = mixed ? '混在' : drafted ? '徴兵' : '自動';
   const disabled = !controlled.length;
-  pawnModeButton.title=selectedPawn&&!canGiveOrders(selectedPawn)&&!selectedPawn.dead?'幸福感25％未満のため操作不可。自動行動は続きます。':'';
+  pawnModeButton.title=selectedPawn&&!canGiveOrders(selectedPawn)&&!selectedPawn.dead?(selectedPawn.receivingNursing?'看護を受けているため操作できません':'幸福感25％未満のため操作不可。自動行動は続きます。'):'';
   if (pawnModeButton.disabled !== disabled) pawnModeButton.disabled = disabled;
   updatePawnPanels();
   for (const entry of rosterButtons) setAttribute(entry.button, 'aria-pressed', String(selectedPawns.has(entry.pawn)));
@@ -1806,6 +1811,7 @@ combat.onAttack = event => {
   if(pawn && event.weapon==='knife'){pawn.swingSeconds=.25;pawn.swingAngle=Math.atan2(event.to.row-event.from.row,event.to.column-event.from.column);}
   const player=pawns.find(pawn=>pawn===event.target&&pawn.faction==='player');
   if(player){
+    if(player.receivingNursing)nursing.cancel(player.receivingNursing);
     player.attackedSeconds=3;
     if(!player.dead){
       // Cancel work before choosing the escape route; cancellation can stop movement.
@@ -1975,7 +1981,8 @@ app.ticker.add((ticker) => {
       if(pawn.faction==='player'&&draftExpired(pawn,seconds))setPawnMode(pawn,'automatic');
       walls.bindMovement(pawn.movement,pawn.faction);
       updateMood(pawn,seconds);
-      const resting=sleeping.update(pawn,seconds,pawn.faction==='player');
+      const receiving=Boolean(pawn.receivingNursing);
+      const resting=sleeping.update(pawn,seconds,!receiving&&pawn.faction==='player');
       pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
       if(pawn.fleeGoal){
         const m=pawn.movement;
@@ -1988,16 +1995,16 @@ app.ticker.add((ticker) => {
       pawn.attackMotionSeconds=Math.max(0,pawn.attackMotionSeconds-seconds);
       pawn.shotSeconds=Math.max(0,pawn.shotSeconds-seconds);
       pawn.swingSeconds=Math.max(0,pawn.swingSeconds-seconds);
-      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !resting && !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse && !pawn.forcedConstruction && !pawn.nurseJob?.manual,corpseEating.automatic,undefined,!resting);
+      const eating = updateNeeds(pawn, construction, harvesting, hauling, seconds, !receiving && !resting && !fleeing && !pawn.attackJob && !pawn.equipJob && !pawn.forcedHaulSource && !pawn.forcedCorpse && !pawn.forcedConstruction && !pawn.nurseJob?.manual,corpseEating.automatic,undefined,!resting&&!receiving);
       updateMood(pawn,0);
       const blocked=!canGiveOrders(pawn)&&!pawn.dead;
-      if(blocked&&!pawn.controlBlocked&&(pawn.mode==='drafted'||pawn.manualMove||pawn.equipJob||pawn.forcedHaulSource||pawn.forcedCorpse||pawn.forcedConstruction||pawn.eatJob?.manual||pawn.dropRequested||pawn.attackJob?.manual||pawn.nurseJob?.manual)){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
+      if(blocked&&!receiving&&!pawn.controlBlocked&&(pawn.mode==='drafted'||pawn.manualMove||pawn.equipJob||pawn.forcedHaulSource||pawn.forcedCorpse||pawn.forcedConstruction||pawn.eatJob?.manual||pawn.dropRequested||pawn.attackJob?.manual||pawn.nurseJob?.manual)){setPawnMode(pawn,'automatic');if(pawn.eatJob?.manual)pawn.eatJob=null;pawn.dropRequested=false;}
       if(blocked!==pawn.controlBlocked){const row=priorityRowsByPawn.get(pawn);for(const button of row?.querySelectorAll('button')??[])button.disabled=blocked;}
       pawn.controlBlocked=blocked;
       if (pawn.dead && (pawn.butcherJob || pawn.carryingCorpse)) butchery.cancel(pawn);
       if(pawn.dead)sleeping.cancel(pawn);
       if(pawn.dead||resting||fleeing||eating||pawn.mode!=='automatic'||pawn.dropRequested||pawn.forcedConstruction||pawn.forcedCorpse||pawn.forcedHaulSource||pawn.equipJob||pawn.attackJob)nursing.cancel(pawn);
-      const commanding = resting||fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, combatTargets);
+      const commanding = receiving||resting||fleeing?true:pawn.attackJob?.hunting?false:combat.update(pawn, seconds, combatTargets);
       if(!eating&&!commanding&&pawn.nurseJob?.manual)nursing.update(pawn,seconds);
       else if (!eating && !commanding && pawn.forcedConstruction) construction.update(pawn,seconds);
       else if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');

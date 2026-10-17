@@ -46,6 +46,6 @@ export function rememberMood(pawn:MoodPawn,kind:MemoryKind):void {
   if(previous)previous.seconds=duration;else memories.push({kind,seconds:duration});
   updateMood(pawn,0);
 }
-export function canGiveOrders(pawn:{dead?:boolean;needs?:{happiness?:number}}):boolean {
-  return !pawn.dead&&(pawn.needs?.happiness??50)>=25;
+export function canGiveOrders(pawn:{dead?:boolean;receivingNursing?:unknown;needs?:{happiness?:number}}):boolean {
+  return !pawn.dead&&!pawn.receivingNursing&&(pawn.needs?.happiness??50)>=25;
 }
