@@ -1,4 +1,4 @@
-import { createSave, readSave, writeSave, pickFields, ACTOR_FIELDS, type SaveGame } from './save-game';
+import { createSave, readSave, writeSave, SAVE_KEY, pickFields, ACTOR_FIELDS, type SaveGame } from './save-game';
 import type { PawnAppearance } from './pawn-appearance';
 import { Nursing, isNursing, type NursingJob } from './nursing';
 import { BleedingEffects } from './bleeding-effects';
@@ -2155,6 +2155,11 @@ document.querySelector<HTMLButtonElement>('#save-game-button')!.addEventListener
   }catch(error){saveStatus.textContent=`セーブできませんでした：${error instanceof Error?error.message:String(error)}`;}
 });
 loadGameButton.addEventListener('click',()=>{try{if(!readSave(localStorage))throw new Error('保存データがありません');location.reload();}catch(error){saveStatus.textContent=`ロードできませんでした：${error instanceof Error?error.message:String(error)}`;}});
+document.querySelector<HTMLButtonElement>('#new-game-button')!.addEventListener('click',()=>{
+  if(!confirm('保存データと現在の進行状況を破棄して、最初から開始しますか？'))return;
+  try{localStorage.removeItem(SAVE_KEY);location.reload();}
+  catch(error){saveStatus.textContent=`最初から開始できませんでした：${error instanceof Error?error.message:String(error)}`;}
+});
 window.addEventListener('keydown',event=>{
   if(event.key!=='Escape'||event.isComposing)return;
   event.preventDefault();event.stopImmediatePropagation();
