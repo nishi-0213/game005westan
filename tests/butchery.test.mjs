@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Butchery, adjustButcherCount, corpseItemType } from '../src/butchery.ts';
 import { Walls, footprint, BUILD_RECIPES } from '../src/walls.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Harvesting } from '../src/harvesting.ts';
 import { Hauling } from '../src/hauling.ts';
 import { Storage } from '../src/storage.ts';

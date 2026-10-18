@@ -1,3 +1,4 @@
+import {huntingRetaliationChance} from './personality.ts';
 import { initialBodyHp } from './health.ts';
 import { canPlan } from './path-schedule.ts';
 import type { Combat, CombatTarget, AttackOrder } from './combat';
@@ -247,7 +248,9 @@ export class Wildlife {
     }
     wolf.prey=undefined;
     this.combat?.cancel(wolf);
-    if(this.random()<wolf.retaliationProbability){
+    const hunting=(attacker as import('./combat').CombatPawn).attackJob?.hunting;
+    const retaliation=hunting?huntingRetaliationChance(attacker,wolf.retaliationProbability):wolf.retaliationProbability;
+    if(this.random()<retaliation){
       wolf.fleeGoal=undefined;
       return this.combat?.requestRetaliation(wolf,attacker)?'retaliate':null;
     }

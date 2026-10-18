@@ -4,7 +4,7 @@ import { PawnOccupancy, commandGroup } from '../src/pawn-occupancy.ts';
 import { createMovement, setRoute, stopAtNextSafeTile, advanceMovement } from '../src/movement.ts';
 import { commandMove, advancePathMovement, findPaths, registerPathCache } from '../src/pathfinding.ts';
 import { Walls } from '../src/walls.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Harvesting } from '../src/harvesting.ts';
 import { Hauling } from '../src/hauling.ts';
 import { Storage } from '../src/storage.ts';

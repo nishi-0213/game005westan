@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Sleeping,GROUND_SLEEP_RECOVERY,BED_SLEEP_RECOVERY} from '../src/sleep.ts';
 import {Walls,footprint,BUILD_RECIPES} from '../src/walls.ts';
-import {Construction} from '../src/construction.ts';
+import {Construction} from './helpers/construction.mjs';
 import {Storage} from '../src/storage.ts';
 import {Harvesting} from '../src/harvesting.ts';
 import {Hauling} from '../src/hauling.ts';

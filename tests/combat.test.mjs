@@ -6,7 +6,7 @@ import { PawnOccupancy } from '../src/pawn-occupancy.ts';
 import { createMovement } from '../src/movement.ts';
 import { advancePathMovement, findPaths } from '../src/pathfinding.ts';
 import { Walls } from '../src/walls.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Storage } from '../src/storage.ts';
 import { Harvesting } from '../src/harvesting.ts';
 import { Hauling } from '../src/hauling.ts';
@@ -301,4 +301,11 @@ test('leaning does not cross walls, leave the map, or apply to melee and door-on
 test('automatic rifle targeting can use a lean and retracts when its cover is removed',()=>{
  const s=scene(()=>0),a=s.pawn(3,3,'rifle'),b=s.pawn(7,3);b.faction='enemy1';const wall=s.walls.plan(tile(4,3),'wood');s.walls.complete(wall);
  s.combat.update(a,.06,[b]);assert.ok(a.attackJob);assert.ok(a.lean);assert.deepEqual(a.movement.tile,tile(3,3));s.walls.erase(wall);s.combat.update(a,.06,[b]);assert.equal(a.lean,undefined);assert.equal(s.combat.previewAttack(a,b).leaning,false);
+});
+test('dexterous adds twenty rifle accuracy points, caps at100percent, and does not affect melee',()=>{
+ for(const weapon of ['rifle','knife']){const s=scene(()=>.899),a=s.pawn(3,3,weapon),b=s.pawn(4,3);a.personality={skills:{},traits:['dexterous','meticulous']};const preview=s.combat.previewAttack(a,b);assert.equal(preview.accuracy,weapon==='rifle'?1:.5);s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,weapon==='rifle'?70:100);}
+});
+test('shooting and melee skills change attack frequency rather than damage or hit accuracy',async()=>{
+ const {attackInterval}=await import('../src/combat.ts');
+ for(const weapon of ['rifle','knife','unarmed'])for(const level of [0,10,20]){const s=scene(()=>0),a=s.pawn(3,3,weapon),b=s.pawn(4,3);a.personality={skills:{shooting:level,melee:level},traits:['cautious','meticulous']};const interval=WEAPONS[weapon].interval/(.8+level*.02);assert.ok(Math.abs(attackInterval(a)-interval)<1e-12);const accuracy=s.combat.previewAttack(a,b).accuracy;s.combat.requestAttack(a,b);s.combat.update(a,interval-.0001);assert.equal(b.hp,100);s.combat.update(a,.0001);assert.equal(b.hp,100-WEAPONS[weapon].damage);assert.equal(s.combat.previewAttack(a,b).accuracy,accuracy);}
 });

@@ -1,3 +1,4 @@
+import {foodRequirement} from './personality.ts';
 import { conditionRemaining, mealConditions, updateConditions, type BodyCondition } from './body-conditions.ts';
 import { recoverHealth, damageAllBodyParts, healthHp, type BodyHp } from './health.ts';
 import { FOOD_THRESHOLD } from './needs-threshold.ts';
@@ -69,7 +70,7 @@ function seekDiningSeat(worker: EatingWorker, construction: Construction): boole
       returnItems(construction.items,worker.movement.tile,worker.inventory.type,worker.inventory.quantity);
       worker.inventory = null;
     }
-    const quantity = Math.min(job.source.quantity, Math.ceil(100 / foodNutrition(job.source.type)), carryCapacity(worker, job.source.type));
+    const quantity = Math.min(job.source.quantity, Math.ceil(100 * foodRequirement(worker) / foodNutrition(job.source.type)), carryCapacity(worker, job.source.type));
     job.source.quantity -= quantity;
     worker.inventory = {type:job.source.type,quantity};
     job.source = heldFoodSource(worker, worker.movement.tile);
@@ -201,9 +202,9 @@ export function updateNeeds(worker: EatingWorker, construction: Construction, ha
   }
   job.eatingSeconds = Math.min(EATING_SECONDS, (job.eatingSeconds ?? 0) + elapsed);
   if (job.eatingSeconds < EATING_SECONDS) return true;
-  const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) / foodNutrition(job.source.type))));
+  const quantity = Math.min(job.source.quantity, Math.max(1, Math.ceil((100 - worker.needs.satiety) * foodRequirement(worker) / foodNutrition(job.source.type))));
   job.source.quantity -= quantity;
-  worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * foodNutrition(job.source.type));
+  worker.needs.satiety = Math.min(100, worker.needs.satiety + quantity * foodNutrition(job.source.type) / foodRequirement(worker));
   mealConditions(worker,job.source.type);
   if(job.source.type==='meat'||job.source.type==='humanCorpse'||job.source.type==='deerCorpse'||job.source.type==='wolfCorpse')rememberMood(worker,'rawFood');
   if(!job.seat)rememberMood(worker,'standingMeal');

@@ -1,3 +1,4 @@
+import {constructionSuccessChance,type PersonalityCarrier} from './personality.ts';
 import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 import type { MapItem, ItemType } from './items';
@@ -10,7 +11,7 @@ import { BUILD_RECIPES, footprint } from './walls.ts';
 import type { Wall, Walls } from './walls';
 import type { Storage } from './storage';
 
-export interface Builder {
+export interface Builder extends PersonalityCarrier {
   receivingNursing?:import('./nursing').NursingActor;
   nurseJob?:import('./nursing').NursingJob|null;
   forcedConstruction?: Wall;
@@ -38,6 +39,7 @@ const adjacent = (a: Tile, b: Wall) => {
 };
 
 export class Construction {
+  random:()=>number=Math.random;
   readonly walls: Walls;
   readonly items: MapItem[];
   readonly claims = new Map<Wall, Builder>();
@@ -262,6 +264,13 @@ export class Construction {
       return;
     }
     job.target.workSeconds = Math.min(recipe.seconds, job.target.workSeconds + seconds);
-    if (job.target.workSeconds >= recipe.seconds && this.finish(job.target)) this.cancel(builder);
+    if (job.target.workSeconds >= recipe.seconds) {
+      if(job.target.buildRoll===undefined){
+        const roll=this.random();
+        if(roll>=constructionSuccessChance(builder)){job.target.workSeconds=0;return;}
+        job.target.buildRoll=roll;
+      }
+      if(this.finish(job.target)){delete job.target.buildRoll;this.cancel(builder);}
+    }
   }
 }

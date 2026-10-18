@@ -5,6 +5,7 @@ export interface Tile {
 
 export interface Movement {
   tilesPerSecond?:number;
+  actorSpeedMultiplier?:number;
   speedMultiplier?:(tile:Tile)=>number;
   queuedPlanning?: boolean;
   pendingRoute?:{goal:Tile;cancel:()=>void};
@@ -118,7 +119,7 @@ export function advanceMovement(movement: Movement, seconds: number, isBlocked: 
 }
 
 function advanceSegments(movement: Movement, seconds: number, isBlocked: TileRule, cannotStop: TileRule): void {
-  let remaining = Math.max(0, seconds) * Math.max(0,movement.tilesPerSecond??TILES_PER_SECOND);
+  let remaining = Math.max(0, seconds) * Math.max(0,movement.tilesPerSecond??TILES_PER_SECOND)*Math.max(0,movement.actorSpeedMultiplier??1);
   while (remaining > 0) {
     movement.nextTile ??= movement.route ? (movement.route.shift() ?? null) : nextStep(movement.tile, movement.destination);
     if (!movement.nextTile) return;

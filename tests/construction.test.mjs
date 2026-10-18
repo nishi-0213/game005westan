@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Walls } from '../src/walls.ts';
 import { createMovement, advanceMovement } from '../src/movement.ts';
 import { findPath } from '../src/pathfinding.ts';

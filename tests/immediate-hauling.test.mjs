@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Hauling } from '../src/hauling.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Storage } from '../src/storage.ts';
 import { Walls } from '../src/walls.ts';
 import { createMovement } from '../src/movement.ts';

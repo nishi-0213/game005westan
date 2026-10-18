@@ -1,3 +1,4 @@
+import {randomPersonality,movementRate,skillModifier,SKILL_LABELS,TRAITS} from './personality';
 import {initialSchedule,scheduleAt,nextSchedule,SCHEDULE_LABELS} from './schedule';
 import { createSave, readSave, writeSave, SAVE_KEY, pickFields, ACTOR_FIELDS, type SaveGame } from './save-game';
 import type { PawnAppearance } from './pawn-appearance';
@@ -65,6 +66,10 @@ const MAP_SIZE = 128;
 let startupSave:SaveGame|null=null;
 let saveStartupError='';
 try{startupSave=readSave(localStorage);}catch(error){saveStartupError=`保存データを読み込めませんでした：${error instanceof Error?error.message:String(error)}`;}
+if(startupSave){
+  let migrated=false;for(const actor of startupSave.actors)if(actor.kind==='human'&&!actor.data.personality){actor.data.personality=randomPersonality();migrated=true;}
+  if(migrated)try{writeSave(localStorage,startupSave);}catch(error){saveStartupError=`追加した人格情報を保存できませんでした：${error instanceof Error?error.message:String(error)}`;}
+}
 const savedHumans=startupSave?.actors.filter(actor=>actor.kind==='human');
 const TILE_SIZE = 24;
 const MAP_PIXELS = MAP_SIZE * TILE_SIZE;
@@ -413,6 +418,7 @@ map.addChild(attackRangeLayer);
 const movementPathLayer = new Container();
 map.addChild(movementPathLayer);
 const pawns = spawnTiles.map(({ column, row, color }, index) => {
+  const personality=savedHumans?savedHumans[index].data.personality??randomPersonality():randomPersonality();
   const view = new Container();
   const selection = new Graphics()
     .circle(0, 0, TILE_SIZE * 0.43)
@@ -439,7 +445,8 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { schedule:savedHumans?savedHumans[index].data.schedule??initialSchedule():initialSchedule(), view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  builder.movement.actorSpeedMultiplier=movementRate({personality});
+  return { personality, schedule:savedHumans?savedHumans[index].data.schedule??initialSchedule():initialSchedule(), view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
@@ -457,7 +464,7 @@ hauling.clearing = clearing;
 const harvesting = new Harvesting(environmentObjects, mapItems, walls);
 const wildlife = new Wildlife(construction, harvesting, hauling,Math.random,4);
 const combat = new Combat(construction, harvesting, hauling);
-const hunting=new Hunting(combat,()=>wildlife.deer);
+const hunting=new Hunting(combat,()=>wildlife.animals);
 hauling.onCommand = worker => {
   construction.cancel(worker);
   const pawn = pawns.find(pawn => pawn === worker);
@@ -753,7 +760,8 @@ overviewTab.type = 'button'; overviewTab.textContent = '概要'; overviewTab.set
 const needsTab = document.createElement('button');
 needsTab.type = 'button'; needsTab.textContent = '欲求'; needsTab.setAttribute('aria-pressed', 'false');
 const healthTab=document.createElement('button');healthTab.type='button';healthTab.textContent='健康';healthTab.setAttribute('aria-pressed','false');
-pawnSpecsTabs.append(overviewTab, needsTab, healthTab);
+const personalityTab=document.createElement('button');personalityTab.type='button';personalityTab.textContent='人格';personalityTab.setAttribute('aria-pressed','false');
+pawnSpecsTabs.append(overviewTab, needsTab, healthTab,personalityTab);
 const pawnOverview = document.createElement('div');
 pawnOverview.className = 'pawn-overview';
 pawnOverview.append(pawnSpecsName, pawnSpecsFaction, pawnSpecsAction, pawnSpecsHp, pawnSpecsWeapon, pawnCorpseMass, pawnSpecsInventory, pawnCarriedMass);
@@ -780,6 +788,16 @@ function createHealthMeters(host:HTMLElement){
     return {part:part as keyof typeof BODY_PARTS,gauge,armor,effects};
   });
 }
+const pawnPersonality=document.createElement('div');pawnPersonality.id='pawn-personality';pawnPersonality.className='pawn-personality';pawnPersonality.hidden=true;
+let displayedPersonality:unknown;
+function updatePersonalityPanel(pawn:typeof pawns[number]):void {
+  if(displayedPersonality===pawn.personality)return;displayedPersonality=pawn.personality;pawnPersonality.replaceChildren();
+  const title=document.createElement('h3');title.textContent='スキル';pawnPersonality.append(title);
+  for(const [skill,label] of Object.entries(SKILL_LABELS)){const row=document.createElement('label'),name=document.createElement('span'),bar=document.createElement('progress'),value=document.createElement('span');name.textContent=label;bar.max=20;bar.value=pawn.personality.skills[skill as keyof typeof SKILL_LABELS];bar.setAttribute('aria-label',label);const modifier=skillModifier(pawn,skill as keyof typeof SKILL_LABELS)*(skill==='hunting'?-100:100),sign=modifier>0?'+':'';value.textContent=`${bar.value} / 20`;row.title=skill==='hunting'?`狩猟時の狼の反撃率 ${sign}${Math.round(modifier)}ポイント`:`${label}${skill==='shooting'||skill==='melee'?'攻撃頻度':'速度'} ${sign}${Math.round(modifier)}％`;bar.title=row.title;const effect=document.createElement('span');effect.textContent=`${sign}${Math.round(modifier)}${skill==='hunting'?'pt':'%'}`;effect.title=row.title;row.append(name,bar,value,effect);pawnPersonality.append(row);}
+  const traitsTitle=document.createElement('h3');traitsTitle.textContent='性格';const list=document.createElement('ul');
+  for(const trait of pawn.personality.traits as (keyof typeof TRAITS)[]){const item=document.createElement('li');item.textContent=`${TRAITS[trait].name}：${TRAITS[trait].description}`;list.append(item);}
+  pawnPersonality.append(traitsTitle,list);
+}
 const healthMeters=createHealthMeters(pawnHealth);
 pawnHealth.append(pawnClothing);
 function updateHealthMeters(meters:ReturnType<typeof createHealthMeters>,actor:EatingWorker):void {
@@ -792,15 +810,16 @@ function updateHealthMeters(meters:ReturnType<typeof createHealthMeters>,actor:E
   }
 }
 
-function selectPawnInfoTab(tab:'overview'|'needs'|'health'):void {
-  pawnOverview.hidden=tab!=='overview';pawnNeeds.hidden=tab!=='needs';pawnHealth.hidden=tab!=='health';
-  for(const [button,name] of [[overviewTab,'overview'],[needsTab,'needs'],[healthTab,'health']] as const)button.setAttribute('aria-pressed',String(tab===name));
+function selectPawnInfoTab(tab:'overview'|'needs'|'health'|'personality'):void {
+  pawnOverview.hidden=tab!=='overview';pawnNeeds.hidden=tab!=='needs';pawnHealth.hidden=tab!=='health';pawnPersonality.hidden=tab!=='personality';
+  for(const [button,name] of [[overviewTab,'overview'],[needsTab,'needs'],[healthTab,'health'],[personalityTab,'personality']] as const)button.setAttribute('aria-pressed',String(tab===name));
   updatePawnPanels();
 }
 overviewTab.addEventListener('click',()=>selectPawnInfoTab('overview'));
 needsTab.addEventListener('click',()=>selectPawnInfoTab('needs'));
 healthTab.addEventListener('click',()=>selectPawnInfoTab('health'));
-pawnSpecs.append(pawnSpecsTabs,pawnOverview,pawnNeeds,pawnHealth);
+personalityTab.addEventListener('click',()=>selectPawnInfoTab('personality'));
+pawnSpecs.append(pawnSpecsTabs,pawnOverview,pawnNeeds,pawnHealth,pawnPersonality);
 const pawnRoster = document.querySelector<HTMLElement>('#pawn-roster')!;
 const rosterButtons = pawns.map((pawn, index) => {
   const button = document.createElement('button');
@@ -875,6 +894,7 @@ function updatePawnPanels(): void {
   const specsHidden=hidden||buildingInfoActive;
   if (pawnSpecs.hidden !== specsHidden) pawnSpecs.hidden = specsHidden;
   if (!selectedPawn) return;
+  updatePersonalityPanel(selectedPawn);
   setText(pawnSpecsFaction, `勢力：${FACTIONS[selectedPawn.faction]}`);
   pawnCorpseMass.hidden=!selectedPawn.dead;
   if(selectedPawn.dead)setText(pawnCorpseMass,`質量：${ITEM_APPEARANCE.humanCorpse.massKg}kg`);
@@ -922,7 +942,7 @@ const itemPropertiesMass = document.querySelector<HTMLElement>('#item-properties
 const acquisitionButton = document.querySelector<HTMLButtonElement>('#acquisition-button')!;
 const huntingButton=document.querySelector<HTMLButtonElement>('#hunting-button')!;
 huntingButton.addEventListener('click',()=>{
-  const targets=[...selectedDeerSet].filter(deer=>deer.kind==='deer'&&!deer.dead&&!deer.departed);
+  const targets=[...selectedDeerSet].filter(deer=>!deer.dead&&!deer.departed);
   const hunt=!targets.every(deer=>deer.hunt);
   for(const deer of targets)deer.hunt=hunt;
   updateItemSelection();
@@ -1162,7 +1182,7 @@ function updateItemSelection(): void {
   const hasSelection = infoFocus !== null;
   itemInfoButton.hidden = !hasSelection;
   itemInfoButton.setAttribute('aria-label', infoFocus === 'deer' ? '動物のインフォメーション' : infoFocus === 'environment' ? '環境オブジェクトのインフォメーション' : 'アイテムのインフォメーション');
-  const huntable=[...selectedDeerSet].filter(deer=>deer.kind==='deer'&&!deer.dead&&!deer.departed);
+  const huntable=[...selectedDeerSet].filter(deer=>!deer.dead&&!deer.departed);
   huntingButton.hidden=!huntable.length;
   const huntingSelected=huntable.length>0&&huntable.every(deer=>deer.hunt);
   huntingButton.textContent=huntingSelected?'🏹 狩猟':'無視';
@@ -2180,6 +2200,7 @@ function restoreSavedWorld(save:SaveGame):void {
     const actor=record.kind==='human'?pawns[humanIndex++]:record.kind==='wolf'?createWolf(record.movement.tile,record.data.id):createDeer(record.movement.tile,record.data.id);
     Object.assign(actor,pickFields(record.data,ACTOR_FIELDS));
     Object.assign(actor.movement,record.movement);
+    actor.movement.actorSpeedMultiplier=movementRate(actor);
     if(record.kind!=='human'){
       if(record.kind==='wolf')wildlife.wolves.push(actor as Wolf);else wildlife.deer.push(actor as Deer);
       wildlife.onSpawn?.(actor as Animal);

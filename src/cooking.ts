@@ -1,3 +1,4 @@
+import {skillRate} from './personality.ts';
 import { canPlan } from './path-schedule.ts';
 import type { Builder, Construction } from './construction';
 import type { Hauling } from './hauling';
@@ -108,7 +109,7 @@ export class Cooking {
       this.cancel(worker);return;
     }
     if(stagedNutrition(state)<COOK_NUTRITION){this.cancel(worker);return;}
-    state.seconds=Math.min(COOK_SECONDS,state.seconds+Math.max(0,seconds));if(state.seconds<COOK_SECONDS-1e-9)return;
+    state.seconds=Math.min(COOK_SECONDS,state.seconds+Math.max(0,seconds)*skillRate(worker,'cooking'));if(state.seconds<COOK_SECONDS-1e-9)return;
     let needed=COOK_NUTRITION;
     for(const type of ['meat','strawberry'] as const){const count=Math.min(state[type],Math.floor(needed/foodNutrition(type)));state[type]-=count;needed-=count*foodNutrition(type);}
     returnItems(this.construction.items,m.tile,'ration',RATION_YIELD);

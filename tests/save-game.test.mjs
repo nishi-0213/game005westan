@@ -60,3 +60,6 @@ test('per-hour schedules and scheduled sleep survive saving; invalid schedules a
  const saved=parseSave(JSON.stringify(createSave(world)));assert.deepEqual(saved.actors[0].data.schedule,pawn.schedule);assert.equal(saved.actors[0].sleep.scheduled,true);
  saved.actors[0].data.schedule[0]='invalid';assert.throws(()=>parseSave(JSON.stringify(saved)));
 });
+test('personality and a pending successful build roll survive saving and invalid skills are rejected',()=>{
+ const {world,pawn,bed}=scene();pawn.personality={skills:{shooting:20,melee:0,cooking:4,crafting:9,harvesting:12,hunting:7},traits:['cautious','dexterous']};bed.buildRoll=.7;const saved=parseSave(JSON.stringify(createSave(world)));assert.deepEqual(saved.actors[0].data.personality,pawn.personality);assert.equal(saved.walls[0].data.buildRoll,.7);saved.actors[0].data.personality.skills.shooting=21;assert.throws(()=>parseSave(JSON.stringify(saved)));
+});

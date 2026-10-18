@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { initialNeeds, requestEat, updateNeeds, killPawn } from '../src/needs.ts';
 import { Walls } from '../src/walls.ts';
 import { Storage } from '../src/storage.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Harvesting } from '../src/harvesting.ts';
 import { Hauling } from '../src/hauling.ts';
 import { createMovement } from '../src/movement.ts';
@@ -76,4 +76,8 @@ test('starving actors do not heal and dead actors never regenerate',()=>{
 test('stacked debuffs block their own part until its final debuff expires',()=>{
  const s=scene();s.worker.bodyHp={head:70,torso:80,arms:30,legs:90};s.worker.conditions=[{kind:'bruise',part:'arms',seconds:1},{kind:'stomachache',part:'arms',seconds:3},{kind:'bruise',part:'legs',seconds:100}];
  s.tick(4);assert.deepEqual(s.worker.bodyHp,{head:71,torso:81,arms:30.25,legs:90});assert.equal(s.worker.hp,71);
+});
+
+test('big eaters consume120percent as much food for the same satiety',()=>{
+ for(const big of [false,true]){const s=scene();s.worker.needs.satiety=0;if(big)s.worker.personality={skills:{},traits:['bigEater','cautious']};const food={column:2,row:2,type:'strawberry',quantity:30,collect:true};s.items.push(food);s.tick(0);s.tick(1);assert.equal(food.quantity,big?18:20);assert.equal(s.worker.needs.satiety,100);}
 });

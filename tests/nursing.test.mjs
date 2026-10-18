@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Nursing,NURSING_SECONDS,isNursing} from '../src/nursing.ts';
 import {Walls} from '../src/walls.ts';
-import {Construction} from '../src/construction.ts';
+import {Construction} from './helpers/construction.mjs';
 import {Harvesting} from '../src/harvesting.ts';
 import {Hauling} from '../src/hauling.ts';
 import {Storage} from '../src/storage.ts';

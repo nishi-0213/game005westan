@@ -375,8 +375,8 @@ canvas { touch-action: none; }
 
 /* All panes contribute their height while only the selected pane is visible. */
 #pawn-specs > .pawn-specs-tabs { grid-area: 1 / 1; }
-#pawn-specs > :is(.pawn-overview, .pawn-needs, .pawn-health) { grid-area: 2 / 1; align-self: start; }
-#pawn-specs > :is(.pawn-overview, .pawn-health)[hidden] { display: block; visibility: hidden; pointer-events: none; }
+#pawn-specs > :is(.pawn-overview, .pawn-needs, .pawn-health, .pawn-personality) { grid-area: 2 / 1; align-self: start; }
+#pawn-specs > :is(.pawn-overview, .pawn-health, .pawn-personality)[hidden] { display: block; visibility: hidden; pointer-events: none; }
 #pawn-specs > .pawn-needs[hidden] { display: grid; visibility: hidden; pointer-events: none; }
 
 .body-health-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; align-items:center; }
@@ -418,3 +418,8 @@ canvas { touch-action: none; }
 #schedule-window .current-hour { outline:1px solid #f2c66d; outline-offset:-1px; }
 #schedule-window button:focus-visible { outline:2px solid #f2c66d; }
 @media(max-width:448px) { .construction-tab { width:calc((100vw - 160px)/3); font-size:12px; } #priorities-tab { left:calc((100vw - 160px)/3); } #schedule-tab { left:calc((100vw - 160px)*2/3); } }
+
+.pawn-personality h3 { font-size:14px; margin:8px 0; }
+.pawn-personality label { display:grid; grid-template-columns:36px minmax(40px,1fr) 44px 48px; gap:8px; align-items:center; margin:8px 0; font-size:12px; }
+.pawn-personality progress { width:100%; height:10px; accent-color:#a8d4a0; }
+.pawn-personality ul { padding-left:18px; font-size:12px; line-height:1.8; }

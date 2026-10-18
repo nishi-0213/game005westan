@@ -3,7 +3,7 @@ import test from 'node:test';
 import { initialEnvironment, nearbySameType } from '../src/environment.ts';
 import { Harvesting } from '../src/harvesting.ts';
 import { Walls } from '../src/walls.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { createMovement, advanceMovement } from '../src/movement.ts';
 
 const object=(type,column,row)=>({type,column,row,collect:true,collected:false,workSeconds:0});

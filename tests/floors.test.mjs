@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Walls,BUILD_RECIPES} from '../src/walls.ts';
-import {Construction} from '../src/construction.ts';
+import {Construction} from './helpers/construction.mjs';
 import {createMovement,setDestination,advanceMovement,renderedPosition} from '../src/movement.ts';
 import {findPath} from '../src/pathfinding.ts';
 const tile=(column,row)=>({column,row});

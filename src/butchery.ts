@@ -1,3 +1,4 @@
+import {skillRate} from './personality.ts';
 import { canPlan } from './path-schedule.ts';
 import { canGiveOrders } from './mood.ts';
 import type { EatingWorker } from './needs';
@@ -182,7 +183,7 @@ export class Butchery {
       this.corpseClaims.delete(job.corpse); this.claims.delete(job.station); worker.butcherJob = null; return;
     }
     if (state.corpse !== job.corpse || Math.max(Math.abs(movement.tile.column-job.station.column),Math.abs(movement.tile.row-job.station.row)) !== 1) { this.cancel(worker); return; }
-    state.seconds = Math.min(BUTCHER_SECONDS, state.seconds + Math.max(0, seconds));
+    state.seconds = Math.min(BUTCHER_SECONDS, state.seconds + Math.max(0, seconds)*skillRate(worker,'crafting'));
     if (state.seconds < BUTCHER_SECONDS - 1e-9) return;
     returnItems(this.construction.items, movement.tile, 'meat', MEAT_YIELD);
     const meat = this.construction.items.find(item => item.type === 'meat' && sameTile(item,movement.tile))!; meat.collect = true;

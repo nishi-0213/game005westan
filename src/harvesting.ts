@@ -1,3 +1,4 @@
+import {skillRate} from './personality.ts';
 import { canPlan } from './path-schedule.ts';
 import type { Builder } from './construction';
 import type { EnvironmentObject } from './environment';
@@ -67,7 +68,7 @@ export class Harvesting {
     const active = worker.harvestJob;
     if (!sameTile(worker.movement.tile, active.goal)) { this.cancel(worker); return; }
     const properties = ENVIRONMENT_PROPERTIES[active.target.type];
-    active.target.workSeconds = Math.min(properties.seconds, active.target.workSeconds + seconds);
+    active.target.workSeconds = Math.min(properties.seconds, active.target.workSeconds + seconds*((active.target.type==='tree'||active.target.type==='wildStrawberry')?skillRate(worker,'harvesting'):1));
     if (active.target.workSeconds >= properties.seconds) {
       active.target.collected = true;
       invalidatePaths(this.walls.isBlocked);

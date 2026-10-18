@@ -1,3 +1,4 @@
+import {shootingBonus,skillRate} from './personality.ts';
 import { attackConditions } from './body-conditions.ts';
 import { unequipClothing } from './clothing-drop.ts';
 import { BODY_PARTS, damageBodyPart, healthHp, type BodyPart } from './health.ts';
@@ -33,6 +34,7 @@ export const ATTACK_INTERVAL = WEAPONS.unarmed.interval;
 export function attackStats(pawn: { kind?: string; weapon?: Weapon }) {
   return pawn.kind === 'wolf' ? WOLF_BITE : WEAPONS[pawn.weapon ?? 'unarmed'];
 }
+export function attackInterval(pawn:CombatPawn):number {return attackStats(pawn).interval/skillRate(pawn,pawn.weapon==='rifle'?'shooting':'melee');}
 export function rifleAccuracy(distance: number): number {
   if (distance > WEAPONS.rifle.range) return 0;
   const points = [[4,.8],[10,.5],[15,.3],[20,.1]];
@@ -157,7 +159,7 @@ export class Combat {
     const approach = this.attackApproach(pawn, target);
     if (!approach) return false;
     this.interrupt(pawn); this.cancel(pawn);
-    pawn.attackJob = { target, cooldown: attackStats(pawn).interval, retrySeconds: .25,
+    pawn.attackJob = { target, cooldown: attackInterval(pawn), retrySeconds: .25,
       targetPosition: positionKey(target.movement.tile), goal: approach.goal, manual: true,
       holdPosition:(pawn.weapon??'unarmed')==='rifle'&&stationary(pawn)&&positionKey(pawn.movement.tile)===positionKey(approach.goal)?{...approach.goal}:undefined };
     return setRoute(pawn.movement, approach.path.tiles);
@@ -192,7 +194,7 @@ export class Combat {
     const distance=Math.hypot(aim.column-origin.column,aim.row-origin.row);
     const penalty=weapon==='rifle'?shootingObstacles(this.construction.walls,origin,aim,structure).accuracyPenalty:0;
     const concealment=weapon==='rifle'&&target?.lean&&target.lean.amount>0&&this.screenedByWall(origin,target.movement.tile)? .3:0;
-    return Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-penalty-concealment);
+    return Math.max(0,Math.min(1,(weapon==='rifle'?rifleAccuracy(distance)+shootingBonus(pawn):stats.accuracy)-penalty-concealment));
   }
 
   previewAttack(pawn:CombatPawn,target:CombatTarget):{accuracy:number;damage:Record<BodyPart,number>;reason:string;leaning:boolean} {
@@ -212,7 +214,7 @@ export class Combat {
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach=this.attackApproach(pawn,target);if(!approach)return false;
     this.interrupt(pawn);this.cancel(pawn);
-    pawn.attackJob={target,cooldown:attackStats(pawn).interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,hunting:true};
+    pawn.attackJob={target,cooldown:attackInterval(pawn),retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,hunting:true};
     return setRoute(pawn.movement,approach.path.tiles);
   }
 
@@ -221,7 +223,7 @@ export class Combat {
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     const approach=this.attackApproach(pawn,target);if(!approach)return false;
     this.interrupt(pawn);this.cancel(pawn);
-    pawn.attackJob={target,cooldown:attackStats(pawn).interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,predation:true};
+    pawn.attackJob={target,cooldown:attackInterval(pawn),retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,predation:true};
     const assigned=setRoute(pawn.movement,approach.path.tiles);
     if(assigned&&pawn.kind==='wolf'){pawn.combatCommitted=true;pawn.fleeGoal=undefined;}
     return assigned;
@@ -325,7 +327,7 @@ export class Combat {
         if (target && (!forcedWork || isPredationThreat(pawn, target))
           && (!current || isPredationThreat(pawn, target) && !isPredationThreat(pawn, current.target))) {
           this.interrupt(pawn);
-          pawn.attackJob = { target, cooldown: attackStats(pawn).interval, retrySeconds: .25, manual: false };
+          pawn.attackJob = { target, cooldown: attackInterval(pawn), retrySeconds: .25, manual: false };
         }
       }
     }
@@ -375,7 +377,7 @@ export class Combat {
     job.cooldown -= seconds;
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
-      job.cooldown += stats.interval;
+      job.cooldown += attackInterval(pawn);
       const aim=shot.aim;
       const accuracy=this.hitAccuracy(pawn,aim,job.target.structure,shot.origin,job.target);
       const hit = this.random() < accuracy;

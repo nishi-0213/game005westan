@@ -4,7 +4,7 @@ import { Wildlife, createDeer, deerAction } from '../src/wildlife.ts';
 import { FACTIONS, isPlayerControlled } from '../src/factions.ts';
 import { Walls } from '../src/walls.ts';
 import { Storage } from '../src/storage.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Harvesting } from '../src/harvesting.ts';
 import { Hauling } from '../src/hauling.ts';
 import { createEnvironment } from '../src/environment.ts';

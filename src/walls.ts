@@ -19,6 +19,7 @@ export interface Wall extends Tile {
   state: 'planned' | 'completed' | 'cancelled';
   delivered: number;
   workSeconds: number;
+  buildRoll?:number;
   hp?: number;
   openness?: number;
   doorMode?:DoorMode;

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { generatePawnNames, formatPawnName } from '../src/pawn-names.ts';
 import { SURNAMES, GIVEN_NAMES, NICKNAMES } from '../src/data/pawn-name-pool.ts';
 import { INITIAL_PRIORITIES, nextPriority, updateWork, currentAction } from '../src/work-priorities.ts';
-import { Construction } from '../src/construction.ts';
+import { Construction } from './helpers/construction.mjs';
 import { Harvesting } from '../src/harvesting.ts';
 import { Walls } from '../src/walls.ts';
 import { createMovement } from '../src/movement.ts';

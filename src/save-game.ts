@@ -1,3 +1,4 @@
+import {isPersonality} from './personality.ts';
 import type {EnvironmentObject} from './environment';
 import type {MapItem} from './items';
 import {BUILD_RECIPES,footprint,isFloor,type Wall} from './walls.ts';
@@ -6,8 +7,8 @@ import type {Movement,Tile} from './movement';
 import type {EatingWorker} from './needs';
 import {corpsePosition} from './butchery.ts';
 export const SAVE_KEY='game005westan.save.v1';
-export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor','needs','conditions','moodMemories','mode','faction','weapon','inventory','priorities','dead','consumed','collectCorpse','hunt','id','freeSeconds','leaving','departed','exitGoal','outsideGoal','draftedSeconds','draftLimitSeconds','deadPosition','manualMove','schedule','combatCommitted'] as const;
-const WALL_FIELDS=['column','row','kind','orientation','material','state','delivered','workSeconds','hp','openness','doorMode','stored','accepted','demolition','demolitionSeconds','cooking'] as const;
+export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor','needs','conditions','moodMemories','mode','faction','weapon','inventory','priorities','dead','consumed','collectCorpse','hunt','id','freeSeconds','leaving','departed','exitGoal','outsideGoal','draftedSeconds','draftLimitSeconds','deadPosition','manualMove','personality','schedule','combatCommitted'] as const;
+const WALL_FIELDS=['column','row','kind','orientation','material','state','delivered','workSeconds','buildRoll','hp','openness','doorMode','stored','accepted','demolition','demolitionSeconds','cooking'] as const;
 export interface SavedActor {kind:'human'|'deer'|'wolf';data:Record<string,any>;movement:Pick<Movement,'tile'|'destination'|'nextTile'|'progress'|'route'|'tilesPerSecond'|'pendingRepath'>;sleep?:{phase:string;goal:Tile;bed?:number;scheduled?:boolean};storage?:number;station?:number;attack?:number;nursing?:{patient:number;seconds:number}}
 export interface SavedWall {data:Record<string,any>;corpses:number[];butcher?:Record<string,any>;processingCorpse?:number}
 export interface SaveGame {version:1;mapSize:number;savedAt:number;time:number;camera:{x:number;y:number;zoom:number};environment:EnvironmentObject[];items:MapItem[];actors:SavedActor[];walls:SavedWall[];growth:unknown;wildlife:unknown}
@@ -47,6 +48,7 @@ export function parseSave(text:string):SaveGame {
  for(const o of save.items)if(!tile(o)||!ITEM_TYPES.includes(o.type)||!finite(o.quantity)||o.quantity<=0)fail();
  for(const a of save.actors){
   const d=a.data;
+  if(d.personality!==undefined&&!isPersonality(d.personality))fail();
   if(d.schedule!==undefined&&(!Array.isArray(d.schedule)||d.schedule.length!==24||d.schedule.some((mode:unknown)=>!['free','work','sleep'].includes(mode as string))))fail();
   if(d.combatCommitted!==undefined&&typeof d.combatCommitted!=='boolean')fail();
   if(!numbers(d.needs)||!finite(d.hp)||!numbers(d.bodyHp)||!['head','torso','arms','legs'].every(k=>finite(d.bodyHp[k]))||!finite(a.movement.tilesPerSecond)||a.movement.progress<0||a.movement.progress>1)fail();
@@ -63,6 +65,7 @@ export function parseSave(text:string):SaveGame {
   const d=w.data;
   if(!Object.hasOwn(BUILD_RECIPES,d.kind)||!['wood','stone'].includes(d.material)||!['planned','completed'].includes(d.state)||![0,1,undefined].includes(d.orientation)||!finite(d.delivered)||!finite(d.workSeconds))fail();
   for(const p of footprint(d as Wall)){const key=`${isFloor(d.kind)?'floor:':''}${p.column},${p.row}`;if(!tile(p)||p.column<0||p.row<0||p.column>=128||p.row>=128||cells.has(key))fail();cells.add(key);}
+  if(d.buildRoll!==undefined&&(!finite(d.buildRoll)||d.buildRoll<0||d.buildRoll>=1))fail();
   if(d.stored&&!numbers(d.stored))fail();
   for(const state of [d.cooking,w.butcher])if(state&&(!['count','until','forever'].includes(state.mode)||!['remaining','target','seconds'].every(k=>finite(state[k]))))fail();
  }
