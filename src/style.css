@@ -423,3 +423,9 @@ canvas { touch-action: none; }
 .pawn-personality label { display:grid; grid-template-columns:36px minmax(40px,1fr) 44px 48px; gap:8px; align-items:center; margin:8px 0; font-size:12px; }
 .pawn-personality progress { width:100%; height:10px; accent-color:#a8d4a0; }
 .pawn-personality ul { padding-left:18px; font-size:12px; line-height:1.8; }
+
+.priority-value[data-skill-band] { border-width:2px; }
+.priority-value[data-skill-band="0"] { border-color:#454545; }
+.priority-value[data-skill-band="1"] { border-color:#808080; }
+.priority-value[data-skill-band="2"] { border-color:#c4c4c4; }
+.priority-value[data-skill-band="3"] { border-color:#fff36d; }

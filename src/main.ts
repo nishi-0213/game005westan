@@ -587,6 +587,7 @@ function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
   const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
 }
+const prioritySkills:Partial<Record<string,keyof typeof SKILL_LABELS>>={harvesting:'harvesting',butchery:'crafting',cooking:'cooking',hunting:'hunting'};
 for (const [index, pawn] of pawns.entries()) {
   const row = document.createElement('tr');
   const name = document.createElement('th');
@@ -606,6 +607,8 @@ for (const [index, pawn] of pawns.entries()) {
     const refresh = () => {
       button.textContent = String(pawn.priorities[task] ?? 3);
       button.dataset.priority = button.textContent;
+      const skill=prioritySkills[task];
+      if(skill){const value=pawn.personality.skills[skill];button.dataset.skillBand=String(value<5?0:value<10?1:value<15?2:3);button.title=`${SKILL_LABELS[skill]}スキル：${value} / 20`;}
       button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
     };
     button.addEventListener('click', () => { if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
