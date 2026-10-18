@@ -1,3 +1,4 @@
+import {initialSchedule,scheduleAt,nextSchedule,SCHEDULE_LABELS} from './schedule';
 import { createSave, readSave, writeSave, SAVE_KEY, pickFields, ACTOR_FIELDS, type SaveGame } from './save-game';
 import type { PawnAppearance } from './pawn-appearance';
 import { Nursing, isNursing, type NursingJob } from './nursing';
@@ -438,7 +439,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { schedule:savedHumans?savedHumans[index].data.schedule??initialSchedule():initialSchedule(), view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
@@ -620,6 +621,45 @@ prioritiesWindow.addEventListener('close', () => prioritiesTab.setAttribute('ari
 prioritiesWindow.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') { event.preventDefault(); prioritiesWindow.close(); }
 });
+const scheduleTab=document.querySelector<HTMLButtonElement>('#schedule-tab')!;
+const scheduleWindow=document.querySelector<HTMLDialogElement>('#schedule-window')!;
+const scheduleRows=document.querySelector<HTMLTableSectionElement>('#schedule-rows')!;
+const scheduleRowViews=new Map<typeof pawns[number],{row:HTMLTableRowElement;buttons:HTMLButtonElement[]}>();
+const scheduleHead=document.querySelector<HTMLTableRowElement>('#schedule-hours')!;
+for(let hour=0;hour<24;hour++){const th=document.createElement('th');th.scope='col';th.textContent=String(hour);scheduleHead.append(th);}
+for(const pawn of pawns){
+  const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=formatPawnName(pawn.name);row.append(name);
+  const buttons=Array.from({length:24},(_,hour)=>{
+    const cell=document.createElement('td'),button=document.createElement('button');button.type='button';
+    button.addEventListener('click',()=>{if(pawn.dead||pawn.faction!=='player')return;pawn.schedule[hour]=nextSchedule(pawn.schedule[hour]);pawn.decisionSeconds=0;updateScheduleWindow(true);});
+    cell.append(button);row.append(cell);return button;
+  });scheduleRows.append(row);scheduleRowViews.set(pawn,{row,buttons});
+}
+let scheduleLastHour=-1,scheduleLastState='';
+function updateScheduleWindow(force=false):void {
+  if(!scheduleWindow.open)return;
+  const current=Math.floor(gameTime.hour),state=pawns.map(p=>`${p.dead}:${p.faction}`).join('|');
+  if(!force&&current===scheduleLastHour&&state===scheduleLastState)return;
+  scheduleLastHour=current;scheduleLastState=state;
+  for(const [pawn,view]of scheduleRowViews){
+    if(!pawns.includes(pawn)){view.row.remove();scheduleRowViews.delete(pawn);continue;}
+    view.row.hidden=pawn.faction!=='player';
+    view.buttons.forEach((button,hour)=>{const mode=scheduleAt(pawn.schedule,hour),label=SCHEDULE_LABELS[mode];
+      button.textContent=label;button.dataset.schedule=mode;button.disabled=pawn.dead;
+      button.setAttribute('aria-label',`${formatPawnName(pawn.name)} ${hour}時〜${hour+1}時 ${label}`);
+      button.classList.toggle('current-hour',hour===current);
+    });
+  }
+  [...scheduleHead.children].forEach((th,index)=>th.classList.toggle('current-hour',index-1===current));
+}
+scheduleTab.addEventListener('click',()=>{
+  if(scheduleWindow.open)scheduleWindow.close();else{prioritiesWindow.close();constructionSubtabs.hidden=true;constructionTab.setAttribute('aria-expanded','false');closeConstructionOptions();scheduleWindow.show();updateScheduleWindow(true);}
+  scheduleTab.setAttribute('aria-expanded',String(scheduleWindow.open));
+});
+document.querySelector<HTMLButtonElement>('#close-schedule')!.addEventListener('click',()=>scheduleWindow.close());
+scheduleWindow.addEventListener('close',()=>scheduleTab.setAttribute('aria-expanded','false'));
+prioritiesTab.addEventListener('click',()=>scheduleWindow.close());
+document.querySelector<HTMLButtonElement>('[aria-controls="construction-subtabs"]')!.addEventListener('click',()=>scheduleWindow.close());
 const constructionProgressLayer = new Container();
 map.addChild(constructionProgressLayer);
 const constructionProgressViews = new Map<string, { view: Container; fill: Graphics; progress: number }>();
@@ -2020,7 +2060,8 @@ app.ticker.add((ticker) => {
       walls.bindMovement(pawn.movement,pawn.faction);
       updateMood(pawn,seconds);
       const receiving=Boolean(pawn.receivingNursing);
-      const resting=sleeping.update(pawn,seconds,!receiving&&pawn.faction==='player');
+      const schedule=pawn.faction==='player'?scheduleAt(pawn.schedule,gameTime.hour):'free';
+      const resting=sleeping.update(pawn,seconds,!receiving&&pawn.faction==='player',schedule==='sleep'&&!receiving&&pawn.mode==='automatic');
       pawn.attackedSeconds=Math.max(0,pawn.attackedSeconds-seconds);
       if(pawn.fleeGoal){
         const m=pawn.movement;
@@ -2047,7 +2088,7 @@ app.ticker.add((ticker) => {
       else if (!eating && !commanding && pawn.forcedConstruction) construction.update(pawn,seconds);
       else if (!eating && !commanding && pawn.forcedCorpse) butchery.update(pawn,seconds,'transport');
       else if (!eating && !commanding && pawn.forcedHaulSource) hauling.update(pawn);
-      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting,cooking,nursing);
+      else if (!eating && !commanding) updateWork(pawn, construction, harvesting, seconds, Math.random, seconds, hauling, clearing, butchery,hunting,cooking,nursing,schedule!=='work');
       if (!pawn.dead && pawn.sleep?.phase!=='sleeping') advancePathMovement(pawn.movement, seconds, MAP_SIZE, walls.isBlocked, walls.cannotStop);
     }
     for(const animal of wildlife.animals)animal.attackMotionSeconds=Math.max(0,(animal.attackMotionSeconds??0)-seconds);
@@ -2114,6 +2155,7 @@ app.ticker.add((ticker) => {
   updatePawnModeButton();
   updateItemSummary();
   updateStationInfo();
+  updateScheduleWindow();
   updateCombatHover();
   if(stressTest?.recording)stressTest.updates.push(performance.now()-stressStart);
 });
@@ -2145,7 +2187,7 @@ function restoreSavedWorld(save:SaveGame):void {
     walls.bindMovement(actor.movement,(actor as CombatPawn).faction);
     if(actor.dead&&actor.corpseStation===undefined&&record.station!==undefined)actor.corpseStation=structures[record.station];
     if(record.storage!==undefined)actor.corpseStorage=structures[record.storage];
-    if(record.sleep){const bed=record.sleep.bed===undefined?undefined:structures[record.sleep.bed];actor.sleep={phase:record.sleep.phase as SleepState['phase'],goal:record.sleep.goal,bed};if(bed)sleeping.claims.set(bed,actor);}
+    if(record.sleep){const bed=record.sleep.bed===undefined?undefined:structures[record.sleep.bed];actor.sleep={phase:record.sleep.phase as SleepState['phase'],goal:record.sleep.goal,bed,scheduled:record.sleep.scheduled};if(bed)sleeping.claims.set(bed,actor);}
     actor.movement.changed?.();actors.push(actor);
   }
   for(const [index,record]of save.walls.entries()){

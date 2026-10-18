@@ -6,9 +6,9 @@ import type {Movement,Tile} from './movement';
 import type {EatingWorker} from './needs';
 import {corpsePosition} from './butchery.ts';
 export const SAVE_KEY='game005westan.save.v1';
-export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor','needs','conditions','moodMemories','mode','faction','weapon','inventory','priorities','dead','consumed','collectCorpse','hunt','id','freeSeconds','leaving','departed','exitGoal','outsideGoal','draftedSeconds','draftLimitSeconds','deadPosition','manualMove','combatCommitted'] as const;
+export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor','needs','conditions','moodMemories','mode','faction','weapon','inventory','priorities','dead','consumed','collectCorpse','hunt','id','freeSeconds','leaving','departed','exitGoal','outsideGoal','draftedSeconds','draftLimitSeconds','deadPosition','manualMove','schedule','combatCommitted'] as const;
 const WALL_FIELDS=['column','row','kind','orientation','material','state','delivered','workSeconds','hp','openness','doorMode','stored','accepted','demolition','demolitionSeconds','cooking'] as const;
-export interface SavedActor {kind:'human'|'deer'|'wolf';data:Record<string,any>;movement:Pick<Movement,'tile'|'destination'|'nextTile'|'progress'|'route'|'tilesPerSecond'|'pendingRepath'>;sleep?:{phase:string;goal:Tile;bed?:number};storage?:number;station?:number;attack?:number;nursing?:{patient:number;seconds:number}}
+export interface SavedActor {kind:'human'|'deer'|'wolf';data:Record<string,any>;movement:Pick<Movement,'tile'|'destination'|'nextTile'|'progress'|'route'|'tilesPerSecond'|'pendingRepath'>;sleep?:{phase:string;goal:Tile;bed?:number;scheduled?:boolean};storage?:number;station?:number;attack?:number;nursing?:{patient:number;seconds:number}}
 export interface SavedWall {data:Record<string,any>;corpses:number[];butcher?:Record<string,any>;processingCorpse?:number}
 export interface SaveGame {version:1;mapSize:number;savedAt:number;time:number;camera:{x:number;y:number;zoom:number};environment:EnvironmentObject[];items:MapItem[];actors:SavedActor[];walls:SavedWall[];growth:unknown;wildlife:unknown}
 export interface SaveWorld {mapSize:number;time:number;camera:SaveGame['camera'];environment:EnvironmentObject[];items:MapItem[];actors:(EatingWorker & {kind:'human'|'deer'|'wolf';attackJob?:{target:unknown;manual?:boolean}|null})[];walls:Wall[];growth:unknown;wildlife:unknown}
@@ -23,7 +23,7 @@ export function createSave(world:SaveWorld):SaveGame {
   if(m.pendingRoute)movement.pendingRepath={...m.pendingRoute.goal};
   if(actor.dead&&actor.corpseCarrier){const p=corpsePosition(actor);data.deadPosition=p;movement.tile={column:Math.floor(p.column),row:Math.floor(p.row)};movement.destination=movement.tile;movement.nextTile=null;movement.progress=0;movement.route=[];delete movement.pendingRepath;}
   const saved:SavedActor={kind:actor.kind,data,movement};
-  if(actor.sleep)saved.sleep={phase:actor.sleep.phase,goal:actor.sleep.goal,bed:actor.sleep.bed?wallIds.get(actor.sleep.bed):undefined};
+  if(actor.sleep)saved.sleep={phase:actor.sleep.phase,goal:actor.sleep.goal,scheduled:actor.sleep.scheduled,bed:actor.sleep.bed?wallIds.get(actor.sleep.bed):undefined};
   if(actor.corpseStorage)saved.storage=wallIds.get(actor.corpseStorage);
   if(actor.corpseStation)saved.station=wallAt(actor.corpseStation);
   if(actor.attackJob?.manual!==false&&actor.attackJob){const id=actorIds.get(actor.attackJob.target as SaveWorld['actors'][number]);if(id!==undefined)saved.attack=id;}
@@ -47,6 +47,7 @@ export function parseSave(text:string):SaveGame {
  for(const o of save.items)if(!tile(o)||!ITEM_TYPES.includes(o.type)||!finite(o.quantity)||o.quantity<=0)fail();
  for(const a of save.actors){
   const d=a.data;
+  if(d.schedule!==undefined&&(!Array.isArray(d.schedule)||d.schedule.length!==24||d.schedule.some((mode:unknown)=>!['free','work','sleep'].includes(mode as string))))fail();
   if(d.combatCommitted!==undefined&&typeof d.combatCommitted!=='boolean')fail();
   if(!numbers(d.needs)||!finite(d.hp)||!numbers(d.bodyHp)||!['head','torso','arms','legs'].every(k=>finite(d.bodyHp[k]))||!finite(a.movement.tilesPerSecond)||a.movement.progress<0||a.movement.progress>1)fail();
   if(d.inventory&&(!ITEM_TYPES.includes(d.inventory.type)||!finite(d.inventory.quantity)||d.inventory.quantity<0))fail();

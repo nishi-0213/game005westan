@@ -401,3 +401,20 @@ canvas { touch-action: none; }
 #save-menu p { font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
 
 #combat-hover { position:fixed; z-index:100; pointer-events:none; max-width:min(380px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:hidden; box-sizing:border-box; padding:10px 12px; border:1px solid #708268; border-radius:4px; background:#263529f5; color:#f4e9cc; font:12px/1.6 system-ui,sans-serif; white-space:pre-line; box-shadow:0 2px 8px #0006; }
+
+#schedule-tab { left:192px; }
+#schedule-window { position:fixed; inset:auto auto 40px 0; margin:0; padding:16px; width:min(1180px,calc(100vw - 34px)); max-height:calc(100vh - 90px); box-sizing:content-box; overflow:auto; z-index:3; border:1px solid #708268; border-radius:6px 6px 0 0; background:#263529; color:#f4e9cc; font:12px system-ui,sans-serif; }
+#schedule-window h2 { margin:0 24px 12px 0; font-size:16px; }
+#schedule-window p { line-height:1.6; }
+#close-schedule { position:absolute; top:4px; right:4px; width:28px; height:28px; border:0; background:transparent; color:inherit; font:20px system-ui,sans-serif; cursor:pointer; }
+.schedule-scroll { overflow-x:auto; }
+#schedule-window table { border-collapse:collapse; min-width:1080px; width:100%; }
+#schedule-window th,#schedule-window td { padding:3px 1px; text-align:center; }
+#schedule-window th:first-child { position:sticky; left:0; width:170px; min-width:140px; z-index:1; background:#263529; text-align:left; }
+#schedule-window button[data-schedule] { width:34px; padding:7px 0; border:1px solid #708268; background:#263529; color:#f4e9cc; font:12px system-ui,sans-serif; cursor:pointer; }
+#schedule-window button[data-schedule="work"] { background:#4d4930; }
+#schedule-window button[data-schedule="sleep"] { background:#303f55; }
+#schedule-window button:disabled { opacity:.45; cursor:default; }
+#schedule-window .current-hour { outline:1px solid #f2c66d; outline-offset:-1px; }
+#schedule-window button:focus-visible { outline:2px solid #f2c66d; }
+@media(max-width:448px) { .construction-tab { width:calc((100vw - 160px)/3); font-size:12px; } #priorities-tab { left:calc((100vw - 160px)/3); } #schedule-tab { left:calc((100vw - 160px)*2/3); } }

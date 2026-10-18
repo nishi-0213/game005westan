@@ -108,3 +108,16 @@ test('a depleted construction supply releases the job while travelling and anoth
  updateWork(s.worker,s.construction,s.harvesting,0);
  assert.equal(s.worker.job,null);assert.ok(s.worker.harvestJob);assert.equal(s.construction.claims.size,0);
 });
+
+test('work hours exclude free time even when free has the highest priority, then restore it during free hours',()=>{
+ const s=scene({construction:4,harvesting:3,free:1});
+ const tick=allow=>updateWork(s.worker,s.construction,s.harvesting,.1,()=>.5,.1,undefined,undefined,undefined,undefined,undefined,undefined,allow);
+ tick(true);assert.equal(s.worker.workTask,'free');assert.equal(s.worker.freeActive,true);
+ tick(false);assert.equal(s.worker.workTask,'harvest');assert.equal(s.worker.freeActive,false);assert.ok(s.worker.harvestJob);
+ tick(true);assert.equal(s.worker.workTask,'free');assert.equal(s.worker.freeActive,true);assert.equal(s.worker.harvestJob,null);
+});
+test('work hours wait without roaming when no tasks are available',()=>{
+ const s=scene({construction:4,harvesting:4,free:1});s.construction.walls.erase(s.plan);s.node.collect=false;
+ for(let i=0;i<20;i++)updateWork(s.worker,s.construction,s.harvesting,1,()=>.5,1,undefined,undefined,undefined,undefined,undefined,undefined,false);
+ assert.notEqual(s.worker.workTask,'free');assert.equal(s.worker.freeActive,false);assert.deepEqual(s.worker.movement.destination,{column:2,row:2});
+});

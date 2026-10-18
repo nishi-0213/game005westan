@@ -65,6 +65,13 @@
     </dialog>
     <button class="construction-tab" type="button" aria-expanded="false" aria-controls="construction-subtabs">建設</button>
     <button id="priorities-tab" class="construction-tab" type="button" aria-expanded="false" aria-controls="priorities-window">優先順位</button>
+    <button id="schedule-tab" class="construction-tab" type="button" aria-expanded="false" aria-controls="schedule-window">時間管理</button>
+    <dialog id="schedule-window" aria-labelledby="schedule-title">
+      <button id="close-schedule" type="button" aria-label="時間管理ウィンドウを閉じる">×</button>
+      <h2 id="schedule-title">時間管理</h2>
+      <p>クリックで 自由 → 仕事 → 睡眠。自由は全作業、仕事は自由行動以外、睡眠は眠気に関係なく就寝します。徴兵・逃走を優先します。</p>
+      <div class="schedule-scroll"><table><thead><tr id="schedule-hours"><th scope="col">ポーン／時</th></tr></thead><tbody id="schedule-rows"></tbody></table></div>
+    </dialog>
     <dialog id="priorities-window" aria-labelledby="priorities-title">
       <button id="close-priorities" type="button" aria-label="優先順位ウィンドウを閉じる">×</button>
       <h2 id="priorities-title">優先順位</h2>

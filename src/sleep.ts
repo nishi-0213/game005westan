@@ -8,7 +8,7 @@ import {setRoute,stopAtNextSafeTile} from './movement.ts';
 import {findPaths,findNearest} from './pathfinding.ts';
 import {GAME_MINUTES_PER_SECOND} from './game-time.ts';
 import {SATIETY_LOSS_PER_SECOND} from './needs.ts';
-export interface SleepState {phase:'approach'|'settle'|'sleeping'|'exit';goal:Tile;bed?:Wall}
+export interface SleepState {phase:'approach'|'settle'|'sleeping'|'exit';goal:Tile;bed?:Wall;scheduled?:boolean}
 export type SleepWorker=EatingWorker & {sleep?:SleepState;sleepRetrySeconds?:number;fleeGoal?:Tile};
 export const GROUND_SLEEP_RECOVERY=100/(8*60/GAME_MINUTES_PER_SECOND);
 export const BED_SLEEP_RECOVERY=100/(6*60/GAME_MINUTES_PER_SECOND);
@@ -48,12 +48,18 @@ export class Sleeping {
     }
     return false;
   }
-  update(p:SleepWorker,seconds:number,useBeds:boolean):boolean {
+  update(p:SleepWorker,seconds:number,useBeds:boolean,scheduled=false):boolean {
     if(p.dead){this.cancel(p);return false;}
     const elapsed=Math.max(0,seconds),walls=this.construction.walls;
     // An exhausted pawn must be able to reach safety before collapsing again.
     if(p.fleeGoal){p.needs.wakefulness=Math.max(0,(p.needs.wakefulness??100)-elapsed*SATIETY_LOSS_PER_SECOND);return false;}
+    const forced=scheduled&&p.mode==='automatic';
     let state=p.sleep;
+    if(state?.scheduled&&!forced&&!p.receivingNursing){
+      if(state.bed&&state.phase==='sleeping'){this.exit(p);return true;}
+      this.cancel(p);stopAtNextSafeTile(p.movement,walls.cannotStop);state=undefined;
+    }
+    if(forced&&state)state.scheduled=true;
     if(state?.bed&&(state.bed.state!=='completed'||walls.at(state.bed)!==state.bed)){
       this.release(p);
       if(state.phase==='sleeping')state.bed=undefined;
@@ -65,7 +71,7 @@ export class Sleeping {
     }
     if(state?.phase==='sleeping'){
       p.needs.wakefulness=Math.min(100,(p.needs.wakefulness??100)+elapsed*(state.bed?BED_SLEEP_RECOVERY:GROUND_SLEEP_RECOVERY));
-      if(p.needs.wakefulness>=100-1e-9){
+      if(p.needs.wakefulness>=100-1e-9&&!forced){
         p.needs.wakefulness=100;
         if(p.receivingNursing)return true;
         if(state.bed){this.exit(p);}else p.sleep=undefined;
@@ -75,7 +81,7 @@ export class Sleeping {
     p.needs.wakefulness=Math.max(0,(p.needs.wakefulness??100)-elapsed*SATIETY_LOSS_PER_SECOND);
     if(p.needs.wakefulness<=0){if(state?.phase!=='settle')this.floor(p);state=p.sleep;}
     // The first tick of an immediate collapse must also suspend the caller's AI.
-    if(state?.phase==='sleeping')return true;
+    if(state?.phase==='sleeping'){if(forced)state.scheduled=true;return true;}
     if(state?.phase==='settle'){
       if(stationary(p))state.phase='sleeping';
       return true;
@@ -88,12 +94,14 @@ export class Sleeping {
       const tile=cells[0],m=p.movement;
       m.tile={...tile};m.destination={...tile};m.nextTile=null;m.route=[];m.progress=0;m.changed?.();state.phase='sleeping';return true;
     }
-    if(useBeds&&p.mode==='automatic'&&(p.needs.wakefulness??100)<20){
+    if(useBeds&&p.mode==='automatic'&&(forced||(p.needs.wakefulness??100)<20)){
       p.sleepRetrySeconds=(p.sleepRetrySeconds??0)-elapsed;
       if(p.sleepRetrySeconds<=0&&canPlan(p.movement)){p.sleepRetrySeconds=.25;const bed=this.nearestBed(p);if(bed){
-        this.interrupt(p);this.claims.set(bed.bed,p);p.sleep={phase:'approach',goal:bed.goal,bed:bed.bed};setRoute(p.movement,bed.tiles);return true;
-      }}
+        this.interrupt(p);this.claims.set(bed.bed,p);p.sleep={phase:'approach',goal:bed.goal,bed:bed.bed,scheduled:forced};setRoute(p.movement,bed.tiles);return true;
+      }
+      if(forced){this.floor(p);p.sleep!.scheduled=true;return true;}
+      }
     }
-    return false;
+    return forced;
   }
 }

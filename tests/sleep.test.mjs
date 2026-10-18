@@ -120,3 +120,17 @@ test('a lethal attack releases the sleeping bed without making the dead pawn fle
  assert.equal(combat.requestAttack(attacker,s.worker),true);combat.update(attacker,.4);
  assert.equal(s.worker.dead,true);assert.equal(s.worker.sleep,undefined);assert.equal(s.sleeping.claims.has(bed),false);assert.equal(s.worker.fleeGoal,undefined);
 });
+
+test('scheduled sleep starts at full wakefulness without a bed and remains asleep until its time ends',()=>{
+ const s=scene(),p=s.worker;p.needs.wakefulness=100;assert.equal(s.sleeping.update(p,.05,true,true),true);assert.equal(p.sleep.phase,'sleeping');assert.equal(p.sleep.scheduled,true);
+ for(let i=0;i<20;i++)assert.equal(s.sleeping.update(p,.1,true,true),true);assert.equal(p.needs.wakefulness,100);assert.equal(p.sleep.phase,'sleeping');
+ s.sleeping.update(p,.05,true,false);assert.equal(p.sleep,undefined);
+});
+test('scheduled sleep uses and releases a bed at full wakefulness, while drafting and fleeing override it',()=>{
+ const s=scene(),p=s.worker,bed=s.bed();p.needs.wakefulness=100;
+ for(let i=0;i<100&&p.sleep?.phase!=='sleeping';i++){s.sleeping.update(p,.05,true,true);if(p.sleep?.phase!=='sleeping')advancePathMovement(p.movement,.05,12,s.walls.isBlocked,s.walls.cannotStop);}
+ assert.equal(p.sleep.phase,'sleeping');assert.equal(p.sleep.bed,bed);assert.equal(s.sleeping.claims.get(bed),p);s.sleeping.update(p,.1,true,true);assert.equal(p.sleep.phase,'sleeping');
+ for(let i=0;i<100&&p.sleep;i++){s.sleeping.update(p,.05,true,false);if(p.sleep?.phase!=='sleeping')advancePathMovement(p.movement,.05,12,s.walls.isBlocked,s.walls.cannotStop);}
+ assert.equal(p.sleep,undefined);assert.equal(s.sleeping.claims.size,0);assert.equal(s.walls.isBlocked(p.movement.tile),false);
+ p.mode='drafted';s.sleeping.update(p,.05,true,true);assert.equal(p.sleep,undefined);p.mode='automatic';p.fleeGoal={column:0,row:0};assert.equal(s.sleeping.update(p,.05,true,true),false);assert.equal(p.sleep,undefined);
+});

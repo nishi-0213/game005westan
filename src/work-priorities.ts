@@ -21,10 +21,11 @@ export const INITIAL_PRIORITIES: WorkPriorities[] = [
 ];
 export function nextPriority(value: number, direction: 1 | -1 = 1): number { return (value - 1 + direction + 4) % 4 + 1; }
 
-export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling, clearing?: Clearing, butchery?: Butchery, hunting?: Hunting, cooking?:Cooking, nursing?:Nursing): void {
+export function updateWork(worker: AutonomousWorker, construction: Construction, harvesting: Harvesting, seconds: number, random: () => number = Math.random, freeElapsedSeconds = seconds, hauling?: Hauling, clearing?: Clearing, butchery?: Butchery, hunting?: Hunting, cooking?:Cooking, nursing?:Nursing, allowFree=true): void {
   if (worker.dead) {nursing?.cancel(worker);hunting?.cancel(worker);if(worker.cookJob)cooking?.cancel(worker);return;}
   if(worker.receivingNursing){worker.freeActive=false;return;}
   if(!worker.workTask&&!canPlan(worker.movement)&&worker.mode==='automatic'&&!worker.dropRequested)return;
+  if(!allowFree&&worker.workTask==='free'){worker.workTask=undefined;worker.decisionSeconds=0;}
   const wasFree = worker.freeActive;
   worker.freeActive = false;
   if (worker.mode !== 'automatic' || worker.dropRequested) {
@@ -39,7 +40,7 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
   const constructionUnavailable = construction.releaseUnavailable(worker);
   const cookingUnavailable = cooking?.releaseUnavailable(worker);
   if (constructionUnavailable || cookingUnavailable) { worker.workTask = undefined; worker.decisionSeconds = 0; }
-  const signature = `${worker.priorities.nursing??3},${worker.priorities.construction},${worker.priorities.harvesting},${worker.priorities.hauling ?? 3},${worker.priorities.free ?? 4},${worker.priorities.butchery ?? 3},${worker.priorities.hunting??3},${worker.priorities.cooking??3}`;
+  const signature = `${allowFree},${worker.priorities.nursing??3},${worker.priorities.construction},${worker.priorities.harvesting},${worker.priorities.hauling ?? 3},${worker.priorities.free ?? 4},${worker.priorities.butchery ?? 3},${worker.priorities.hunting??3},${worker.priorities.cooking??3}`;
   worker.decisionSeconds = (worker.decisionSeconds ?? 0) - seconds;
   let task = worker.workTask;
   if ((!task || worker.decisionSeconds <= 0 || worker.prioritySignature !== signature) && canPlan(worker.movement)) {
@@ -54,7 +55,9 @@ export function updateWork(worker: AutonomousWorker, construction: Construction,
       { task: 'free', priority: worker.priorities.free ?? 4 },
     ].sort((a, b) => a.priority - b.priority);
     // Only explore as far down the priority list as needed to select a task.
+    task=undefined;
     for (const choice of choices) {
+      if(choice.task==='free'&&!allowFree)continue;
       if(choice.task==='nurse'&&!worker.nurseJob&&!nursing?.findWork(worker))continue;
       if (choice.task==='hunt'&&!hunting?.hasAvailableWork(worker))continue;
       if (choice.task === 'harvest' && !worker.harvestJob && !harvesting.hasAvailableWork(worker)) continue;

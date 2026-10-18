@@ -55,3 +55,8 @@ test('combat commitment survives a save even when the animal no longer has an at
  const {world}=scene(),animal=createDeer({column:70,row:70},3);animal.kind='wolf';animal.combatCommitted=true;world.actors.push(animal);
  const saved=parseSave(JSON.stringify(createSave(world)));assert.equal(saved.actors[1].data.combatCommitted,true);assert.equal(saved.actors[1].attack,undefined);
 });
+test('per-hour schedules and scheduled sleep survive saving; invalid schedules are rejected',()=>{
+ const {world,pawn}=scene();pawn.schedule=Array(24).fill('free');pawn.schedule[8]='work';pawn.schedule[23]='sleep';pawn.sleep.scheduled=true;
+ const saved=parseSave(JSON.stringify(createSave(world)));assert.deepEqual(saved.actors[0].data.schedule,pawn.schedule);assert.equal(saved.actors[0].sleep.scheduled,true);
+ saved.actors[0].data.schedule[0]='invalid';assert.throws(()=>parseSave(JSON.stringify(saved)));
+});
