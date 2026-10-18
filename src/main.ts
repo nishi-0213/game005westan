@@ -587,6 +587,32 @@ function createPawnPortrait(pawn:typeof pawns[number]): HTMLDivElement {
   const portraits=pawnPortraits.get(pawn)??[];portraits.push(portrait);pawnPortraits.set(pawn,portraits);
   return portrait;
 }
+const skillTooltip=document.createElement('div');skillTooltip.id='skill-tooltip';skillTooltip.hidden=true;skillTooltip.setAttribute('role','tooltip');document.body.append(skillTooltip);
+let skillTooltipSource:HTMLElement|null=null;
+function hideSkillTooltip():void {
+  if(skillTooltipSource){const ids=(skillTooltipSource.getAttribute('aria-describedby')??'').split(' ').filter(id=>id&&id!==skillTooltip.id);if(ids.length)skillTooltipSource.setAttribute('aria-describedby',ids.join(' '));else skillTooltipSource.removeAttribute('aria-describedby');}
+  skillTooltipSource=null;skillTooltip.hidden=true;
+}
+function positionSkillTooltip(x:number,y:number):void {
+  const bounds=skillTooltip.getBoundingClientRect();
+  skillTooltip.style.left=`${Math.max(8,Math.min(x+12,window.innerWidth-bounds.width-8))}px`;
+  skillTooltip.style.top=`${Math.max(8,Math.min(y+16,window.innerHeight-bounds.height-8))}px`;
+}
+function showSkillTooltip(source:HTMLElement,x:number,y:number):void {
+  if(skillTooltipSource!==source)hideSkillTooltip();skillTooltipSource=source;
+  skillTooltip.textContent=source.dataset.skillTooltip??'';skillTooltip.hidden=false;
+  const ids=new Set((source.getAttribute('aria-describedby')??'').split(' ').filter(Boolean));ids.add(skillTooltip.id);source.setAttribute('aria-describedby',[...ids].join(' '));positionSkillTooltip(x,y);
+}
+const skillTooltipTarget=(target:EventTarget|null)=>target instanceof Element?target.closest<HTMLElement>('[data-skill-tooltip]'):null;
+document.addEventListener('pointerover',event=>{const source=skillTooltipTarget(event.target);if(source)showSkillTooltip(source,event.clientX,event.clientY);else hideSkillTooltip();});
+document.addEventListener('pointermove',event=>{if(skillTooltipSource)positionSkillTooltip(event.clientX,event.clientY);});
+document.addEventListener('pointerout',event=>{if(skillTooltipTarget(event.relatedTarget)!==skillTooltipSource)hideSkillTooltip();});
+document.addEventListener('focusin',event=>{const source=skillTooltipTarget(event.target);if(source){const bounds=source.getBoundingClientRect();showSkillTooltip(source,bounds.left,bounds.bottom);}});
+document.addEventListener('focusout',hideSkillTooltip);
+document.addEventListener('scroll',hideSkillTooltip,true);
+document.addEventListener('close',hideSkillTooltip,true);
+window.addEventListener('blur',hideSkillTooltip);window.addEventListener('resize',hideSkillTooltip);
+window.addEventListener('keydown',event=>{if(event.key==='Escape')hideSkillTooltip();},true);
 const prioritySkills:Partial<Record<string,keyof typeof SKILL_LABELS>>={harvesting:'harvesting',butchery:'crafting',cooking:'cooking',hunting:'hunting'};
 for (const [index, pawn] of pawns.entries()) {
   const row = document.createElement('tr');
@@ -608,7 +634,7 @@ for (const [index, pawn] of pawns.entries()) {
       button.textContent = String(pawn.priorities[task] ?? 3);
       button.dataset.priority = button.textContent;
       const skill=prioritySkills[task];
-      if(skill){const value=pawn.personality.skills[skill];button.dataset.skillBand=String(value<5?0:value<10?1:value<15?2:3);button.title=`${SKILL_LABELS[skill]}スキル：${value} / 20`;}
+      if(skill){const value=pawn.personality.skills[skill];button.dataset.skillBand=String(value<5?0:value<10?1:value<15?2:3);button.dataset.skillTooltip=`${SKILL_LABELS[skill]}スキル：${value} / 20`;}
       button.setAttribute('aria-label', `${formatPawnName(pawn.name)} ${label}の優先順位 ${pawn.priorities[task]}`);
     };
     button.addEventListener('click', () => { if(!canGiveOrders(pawn))return; pawn.priorities[task] = nextPriority(pawn.priorities[task] ?? 3, -1); refresh(); });
@@ -796,7 +822,7 @@ let displayedPersonality:unknown;
 function updatePersonalityPanel(pawn:typeof pawns[number]):void {
   if(displayedPersonality===pawn.personality)return;displayedPersonality=pawn.personality;pawnPersonality.replaceChildren();
   const title=document.createElement('h3');title.textContent='スキル';pawnPersonality.append(title);
-  for(const [skill,label] of Object.entries(SKILL_LABELS)){const row=document.createElement('label'),name=document.createElement('span'),bar=document.createElement('progress'),value=document.createElement('span');name.textContent=label;bar.max=20;bar.value=pawn.personality.skills[skill as keyof typeof SKILL_LABELS];bar.setAttribute('aria-label',label);const modifier=skillModifier(pawn,skill as keyof typeof SKILL_LABELS)*(skill==='hunting'?-100:100),sign=modifier>0?'+':'';value.textContent=`${bar.value} / 20`;row.title=skill==='hunting'?`狩猟時の狼の反撃率 ${sign}${Math.round(modifier)}ポイント`:`${label}${skill==='shooting'||skill==='melee'?'攻撃頻度':'速度'} ${sign}${Math.round(modifier)}％`;bar.title=row.title;const effect=document.createElement('span');effect.textContent=`${sign}${Math.round(modifier)}${skill==='hunting'?'pt':'%'}`;effect.title=row.title;row.append(name,bar,value,effect);pawnPersonality.append(row);}
+  for(const [skill,label] of Object.entries(SKILL_LABELS)){const row=document.createElement('label'),name=document.createElement('span'),bar=document.createElement('progress'),value=document.createElement('span');name.textContent=label;bar.max=20;bar.value=pawn.personality.skills[skill as keyof typeof SKILL_LABELS];bar.setAttribute('aria-label',label);const modifier=skillModifier(pawn,skill as keyof typeof SKILL_LABELS)*(skill==='hunting'?-100:100),sign=modifier>0?'+':'';value.textContent=`${bar.value} / 20`;row.dataset.skillTooltip=skill==='hunting'?`狩猟時の狼の反撃率 ${sign}${Math.round(modifier)}ポイント`:`${label}${skill==='shooting'||skill==='melee'?'攻撃頻度':'速度'} ${sign}${Math.round(modifier)}％`;const effect=document.createElement('span');effect.textContent=`${sign}${Math.round(modifier)}${skill==='hunting'?'pt':'%'}`;row.append(name,bar,value,effect);pawnPersonality.append(row);}
   const traitsTitle=document.createElement('h3');traitsTitle.textContent='性格';const list=document.createElement('ul');
   for(const trait of pawn.personality.traits as (keyof typeof TRAITS)[]){const item=document.createElement('li');item.textContent=`${TRAITS[trait].name}：${TRAITS[trait].description}`;list.append(item);}
   pawnPersonality.append(traitsTitle,list);
