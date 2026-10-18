@@ -180,7 +180,6 @@ function positionItemQuantity(quantity: Text, tile: Tile, scale = map.scale.x): 
 }
 const itemLayer = new Container();
 const itemViews = new Map<(typeof mapItems)[number], { view: Container; quantity: Text; collectIcon: Graphics }>();
-map.addChild(itemLayer);
 function drawWeapon(view: Graphics, weapon: Weapon): Graphics {
   clearArtwork(view);
   if (weapon !== 'unarmed') { const sprite = spriteArtwork(weapon); sprite.position.set(0,5); view.addChild(sprite); }
@@ -305,6 +304,8 @@ function updateDoors(seconds:number):void {
 }
 
 map.addChild(wallLayer);
+// Loose items render above furniture; actors and world markers keep their layers.
+map.addChild(itemLayer);
 
 const storedItemLayer = new Container();
 map.addChild(storedItemLayer);
