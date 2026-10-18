@@ -101,6 +101,15 @@ export function inWeaponRange(weapon: Weapon, from: Tile, target: Tile): boolean
 const stationary = (pawn: CombatPawn): boolean => !pawn.movement.nextTile
   && pawn.movement.tile.column === pawn.movement.destination.column && pawn.movement.tile.row === pawn.movement.destination.row;
 const positionKey = (tile: Tile): string => `${tile.column},${tile.row}`;
+function clearAttackPath(from:Tile,tiles:readonly Tile[],blocked:(tile:Tile)=>boolean):boolean {
+  let previous=from;
+  for(const tile of tiles){
+    if(blocked(tile)||tile.column!==previous.column&&tile.row!==previous.row
+      &&(blocked({column:tile.column,row:previous.row})||blocked({column:previous.column,row:tile.row})))return false;
+    previous=tile;
+  }
+  return true;
+}
 export function combatRenderPosition(actor:CombatTarget):Tile {
   const position=renderedPosition(actor.movement),lean=actor.lean;
   if(!lean||actor.dead||actor.movement.nextTile)return position;
@@ -114,6 +123,11 @@ export class Combat {
   readonly hauling: Hauling;
   readonly random: () => number;
   private structureTargets=new WeakMap<Wall,CombatTarget>();
+  private approachCandidates=new WeakMap<CombatTarget,Map<Weapon,{key:string;candidates:{target:Tile;goal:Tile}[]}>>();
+  private huntingApproaches=new WeakMap<CombatPawn,{target:CombatTarget;key:string;approach:{goal:Tile;path:Path}}>();
+  private approachKey(pawn:CombatPawn,target:CombatTarget):string {
+    return `${positionKey(pawn.movement.nextTile??pawn.movement.tile)}:${pawn.weapon??'unarmed'}:${positionKey(this.targetAim(pawn.weapon??'unarmed',target))}:${this.construction.walls.revision}:${pawn.faction}`;
+  }
   onDestroyStructure?:(structure:Wall)=>void;
   onAttack?: (event: AttackEvent) => void;
 
@@ -207,12 +221,19 @@ export class Combat {
 
   canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
-    return Boolean(this.attackApproach(pawn,target));
+    const approach=this.attackApproach(pawn,target);
+    if(approach)this.huntingApproaches.set(pawn,{target,key:this.approachKey(pawn,target),approach});else this.huntingApproaches.delete(pawn);
+    return Boolean(approach);
   }
   requestHunt(pawn:CombatPawn,target:CombatTarget):boolean {
     if(pawn.dead||pawn.mode!=='automatic'||!isPlayerControlled(pawn)||!target.hunt||target.dead||target.departed)return false;
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
-    const approach=this.attackApproach(pawn,target);if(!approach)return false;
+    const cached=this.huntingApproaches.get(pawn);this.huntingApproaches.delete(pawn);
+    const reusable=cached?.target===target&&cached.key===this.approachKey(pawn,target)
+      &&!pawn.movement.stopBlocked?.(cached.approach.goal)&&!this.construction.walls.cannotStop(cached.approach.goal)
+      &&clearAttackPath(pawn.movement.nextTile??pawn.movement.tile,cached.approach.path.tiles,pawn.movement.terrainBlocked??this.construction.walls.isBlocked)
+      &&this.canFireFrom(pawn.weapon??'unarmed',cached.approach.goal,this.targetAim(pawn.weapon??'unarmed',target),target.structure);
+    const approach=reusable?cached!.approach:this.attackApproach(pawn,target);if(!approach)return false;
     this.interrupt(pawn);this.cancel(pawn);
     pawn.attackJob={target,cooldown:attackInterval(pawn),retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,hunting:true};
     return setRoute(pawn.movement,approach.path.tiles);
@@ -250,13 +271,28 @@ export class Combat {
     const current=pawn.movement.nextTile??pawn.movement.tile,weaponType=pawn.weapon??'unarmed',targetTile=this.targetAim(weaponType,target);
     if(this.canFireFrom(weaponType,current,targetTile,target.structure)&&(pawn.faction!=='wild'||this.predationClear(current,targetTile,pawn,target)))return {goal:current,path:{tiles:[],distance:0}};
     if(walls.mapSize>=64){
-      const weapon=pawn.weapon??'unarmed',range=WEAPONS[weapon].range+(weapon==='rifle'?1:0),cells=target.structure?footprint(target.structure):[targetTile];
-      const left=Math.max(0,Math.min(...cells.map(t=>t.column))-range),right=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.column))+range);
-      const top=Math.max(0,Math.min(...cells.map(t=>t.row))-range),bottom=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.row))+range);
-      const candidates=[];
-      for(let row=top;row<=bottom;row++)for(let column=left;column<=right;column++){
-        const goal={column,row};if(weapon==='rifle'||cells.some(cell=>inWeaponRange(weapon,goal,cell)))candidates.push({target:goal,goal});
+      const weapon=pawn.weapon??'unarmed';
+      const key=`${positionKey(targetTile)}:${walls.revision}`;
+      let entries=this.approachCandidates.get(target);if(!entries){entries=new Map();this.approachCandidates.set(target,entries);}
+      let cached=entries.get(weapon);
+      if(!cached||cached.key!==key){
+        const range=WEAPONS[weapon].range+(weapon==='rifle'?1:0),cells=target.structure?footprint(target.structure):[targetTile];
+        const left=Math.max(0,Math.min(...cells.map(t=>t.column))-range),right=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.column))+range);
+        const top=Math.max(0,Math.min(...cells.map(t=>t.row))-range),bottom=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.row))+range);
+        const candidates:{target:Tile;goal:Tile}[]=[],direct=new Set<string>();
+        for(let row=top;row<=bottom;row++)for(let column=left;column<=right;column++){
+          const goal={column,row};
+          if(weapon!=='rifle'&&!cells.some(cell=>inWeaponRange(weapon,goal,cell)))continue;
+          candidates.push({target:goal,goal});
+          if(weapon==='rifle'&&this.aimPoint(weapon,goal,targetTile,target.structure))direct.add(positionKey(goal));
+        }
+        // Include possible leaning positions. Occupancy and plant clearance stay
+        // live in findNearest/canFireFrom; only wall-dependent sight lines are shared.
+        cached={key,candidates:weapon!=='rifle'?candidates:candidates.filter(({goal})=>
+          direct.has(positionKey(goal))||[[-1,0],[1,0],[0,-1],[0,1]].some(([dc,dr])=>direct.has(`${goal.column+dc},${goal.row+dr}`)))};
+        entries.set(weapon,cached);
       }
+      const candidates=cached.candidates;
       return findNearest(pawn.movement.nextTile??pawn.movement.tile,walls.mapSize,walls.isBlocked,walls.cannotStop,candidates,pawn.movement,Infinity,
         goal=>this.canFireFrom(weapon,goal,targetTile,target.structure)&&(pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn,target)));
     }
@@ -355,6 +391,11 @@ export class Combat {
       const sealedRoute=(job.predation||job.retaliation)&&job.retrySeconds<=0&&((pawn.movement.nextTile&&blocked(pawn.movement.nextTile))||pawn.movement.route?.some(blocked));
       if (canPlan(pawn.movement) && job.retrySeconds <= 0 && (movedTarget || stationary(pawn) || changedGoal || sealedRoute)) {
         job.retrySeconds = .25;
+        const keepRoute=job.hunting&&!stationary(pawn)&&!changedGoal&&job.goal
+          &&!pawn.movement.stopBlocked?.(job.goal)&&!this.construction.walls.cannotStop(job.goal)
+          &&clearAttackPath(pawn.movement.tile,[...(pawn.movement.nextTile?[pawn.movement.nextTile]:[]),...(pawn.movement.route??[])],blocked)
+          &&this.canFireFrom(weapon,job.goal,this.targetAim(weapon,job.target),job.target.structure);
+        if(keepRoute){job.targetPosition=positionKey(job.target.movement.tile);return true;}
         const approach = this.attackApproach(pawn, job.target);
         if (approach) {
           job.goal = approach.goal; job.targetPosition = positionKey(job.target.movement.tile);

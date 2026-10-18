@@ -1,0 +1,100 @@
+{
+  "baselineCommit": "37ca515",
+  "command": "node scripts/benchmark-hunting.mjs",
+  "scope": "CPU-only deterministic 128x128 map. Moving prey: 6 simulation seconds; wall-screened prey: 2 simulation seconds. 60 updates/second, staggered planning. One run per case; timing varies by host and warmup. Rendering, plants, needs, and other game systems excluded.",
+  "before": [
+    {
+      "scenario": "moving",
+      "count": 10,
+      "ms": 358,
+      "maxTickMs": 32.6,
+      "p95TickMs": 7.26,
+      "approachCalls": 70,
+      "fireChecks": 3888,
+      "hunting": 10
+    },
+    {
+      "scenario": "moving",
+      "count": 30,
+      "ms": 647,
+      "maxTickMs": 14.31,
+      "p95TickMs": 5.8,
+      "approachCalls": 210,
+      "fireChecks": 9216,
+      "hunting": 30
+    },
+    {
+      "scenario": "screened",
+      "count": 10,
+      "ms": 1490,
+      "maxTickMs": 97.84,
+      "p95TickMs": 81.05,
+      "approachCalls": 20,
+      "fireChecks": 33380,
+      "hunting": 0
+    },
+    {
+      "scenario": "screened",
+      "count": 30,
+      "ms": 4427,
+      "maxTickMs": 143.35,
+      "p95TickMs": 91.57,
+      "approachCalls": 60,
+      "fireChecks": 100140,
+      "hunting": 0
+    }
+  ],
+  "after": [
+    {
+      "scenario": "moving",
+      "count": 10,
+      "ms": 242,
+      "maxTickMs": 29.12,
+      "p95TickMs": 5.04,
+      "approachCalls": 40,
+      "fireChecks": 472,
+      "hunting": 10
+    },
+    {
+      "scenario": "moving",
+      "count": 30,
+      "ms": 433,
+      "maxTickMs": 12.48,
+      "p95TickMs": 5.21,
+      "approachCalls": 120,
+      "fireChecks": 1308,
+      "hunting": 30
+    },
+    {
+      "scenario": "screened",
+      "count": 10,
+      "ms": 21,
+      "maxTickMs": 18.26,
+      "p95TickMs": 0.1,
+      "approachCalls": 20,
+      "fireChecks": 20,
+      "hunting": 0
+    },
+    {
+      "scenario": "screened",
+      "count": 30,
+      "ms": 8,
+      "maxTickMs": 4.4,
+      "p95TickMs": 0.07,
+      "approachCalls": 60,
+      "fireChecks": 60,
+      "hunting": 0
+    }
+  ],
+  "browserSmokeTest": {
+    "scenario": "50 rifle hunters in the actual development game, 6 simulation seconds; deterministic misses keep one marked prey alive. Renderer removed by the existing benchmark hook.",
+    "result": {
+      "status": "PASS",
+      "ms": 2149.699999999255,
+      "pawns": 50,
+      "hunting": 50,
+      "moving": 47,
+      "targets": 1
+    }
+  }
+}
