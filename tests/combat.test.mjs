@@ -1,7 +1,7 @@
 import { createWolf, createDeer } from '../src/wildlife.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Combat, ATTACK_INTERVAL, WEAPONS, WOLF_BITE, rifleAccuracy, inWeaponRange } from '../src/combat.ts';
+import { Combat, ATTACK_INTERVAL, WEAPONS, WOLF_BITE, rifleAccuracy, inWeaponRange, combatRenderPosition } from '../src/combat.ts';
 import { PawnOccupancy } from '../src/pawn-occupancy.ts';
 import { createMovement } from '../src/movement.ts';
 import { advancePathMovement, findPaths } from '../src/pathfinding.ts';
@@ -133,7 +133,7 @@ test('rifles cannot fire through completed walls but barricades subtract40percen
  s.walls.erase(wall);s.combat.update(a,.4);assert.equal(b.hp,70);
 });
 test('initial rifle approach chooses the nearest reachable point with an unobstructed shot',()=>{
- const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);assert.ok(s.combat.requestAttack(a,b));assert.notDeepEqual(a.movement.destination,a.movement.tile);assert.equal(shootingObstacles(s.walls,a.movement.destination,b.movement.tile).blocked,false);
+ const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);assert.ok(s.combat.requestAttack(a,b));assert.notDeepEqual(a.movement.destination,a.movement.tile);assert.equal(s.combat.canFireFrom('rifle',a.movement.destination,b.movement.tile),true);
 });
 
 test('completed doors block rifle shots while planned doors do not',()=>{
@@ -275,4 +275,30 @@ test('preview reports blocked shots, out of range, melee accuracy and changing c
  const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);assert.equal(s.combat.previewAttack(a,b).accuracy,0);assert.equal(s.combat.previewAttack(a,b).reason,'射線が遮られています');s.walls.erase(wall);
  b.movement.tile=tile(24,3);assert.equal(s.combat.previewAttack(a,b).accuracy,0);assert.equal(s.combat.previewAttack(a,b).reason,'射程外');
  a.weapon='knife';b.movement.tile=tile(4,4);assert.equal(s.combat.previewAttack(a,b).accuracy,.5);assert.deepEqual(s.combat.previewAttack(a,b).damage,{head:50,torso:50,arms:50,legs:50});a.weapon='unarmed';assert.equal(s.combat.previewAttack(a,b).accuracy,.3);
+});
+
+test('rifles lean half a tile from cover, animate before firing, and keep their occupied tile',()=>{
+ const s=scene(()=>0),a=s.pawn(3,3,'rifle'),b=s.pawn(7,3);const wall=s.walls.plan(tile(4,3),'wood');s.walls.complete(wall);
+ assert.equal(shootingObstacles(s.walls,a.movement.tile,b.movement.tile).blocked,true);assert.equal(s.combat.previewAttack(a,b).leaning,true);
+ assert.equal(s.combat.requestAttack(a,b),true);assert.deepEqual(a.movement.destination,tile(3,3));let event;s.combat.onAttack=e=>event=e;
+ s.combat.update(a,.06);assert.equal(event,undefined);assert.ok(a.lean.amount>0&&a.lean.amount<1);assert.deepEqual(a.movement.tile,tile(3,3));assert.ok(combatRenderPosition(a).row<3&&combatRenderPosition(a).row>2.5);
+ for(let i=0;i<10&&!event;i++)s.combat.update(a,.06);
+ assert.ok(event);assert.equal(b.hp,70);assert.equal(a.lean.amount,1);assert.deepEqual(a.lean.origin,tile(3,2));assert.deepEqual(event.from,tile(3,2.5));assert.deepEqual(a.movement.tile,tile(3,3));assert.deepEqual(a.movement.destination,tile(3,3));
+ s.combat.cancel(a);assert.equal(a.lean,undefined);assert.deepEqual(combatRenderPosition(a),tile(3,3));
+});
+test('lean concealment subtracts thirty points only when a wall screens the original tile, and matches live shots',()=>{
+ const s=scene(()=>.49),a=s.pawn(3,3,'rifle'),b=s.pawn(7,3,'rifle');const wall=s.walls.plan(tile(4,3),'wood');s.walls.complete(wall);s.combat.requestAttack(a,b);s.combat.update(a,.12);
+ const exposed=s.combat.previewAttack(b,a);assert.ok(exposed.accuracy>0);assert.ok(Math.abs(exposed.accuracy-(rifleAccuracy(Math.hypot(4,1))-.3))<1e-12);
+ assert.equal(s.combat.requestAttack(b,a),true);let event;s.combat.onAttack=e=>event=e;s.combat.update(b,.4);assert.equal(event.hit,true);assert.equal(a.hp,70);assert.deepEqual(event.to,tile(3,2.5));
+ const flank=s.pawn(3,0,'rifle');assert.equal(s.combat.previewAttack(flank,a).accuracy,.8);
+ a.lean=undefined;assert.equal(s.combat.previewAttack(b,a).accuracy,0);
+});
+test('leaning does not cross walls, leave the map, or apply to melee and door-only obstruction',()=>{
+ const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(7,3);for(const t of [tile(2,3),tile(4,3),tile(3,2),tile(3,4)]){const w=s.walls.plan(t,'wood');s.walls.complete(w);}assert.equal(s.combat.previewAttack(a,b).accuracy,0);assert.equal(s.combat.canFireFrom('rifle',a.movement.tile,b.movement.tile),false);
+ const door=scene(),p=door.pawn(3,3,'rifle'),q=door.pawn(7,3);const d=door.walls.plan(tile(4,3),'wood','door');door.walls.complete(d);assert.equal(door.combat.previewAttack(p,q).leaning,false);assert.equal(door.combat.previewAttack(p,q).accuracy,0);
+ const melee=scene(),m=melee.pawn(3,3,'knife'),n=melee.pawn(5,3);const w=melee.walls.plan(tile(4,3),'wood');melee.walls.complete(w);assert.equal(melee.combat.previewAttack(m,n).leaning,false);assert.equal(melee.combat.previewAttack(m,n).accuracy,0);
+});
+test('automatic rifle targeting can use a lean and retracts when its cover is removed',()=>{
+ const s=scene(()=>0),a=s.pawn(3,3,'rifle'),b=s.pawn(7,3);b.faction='enemy1';const wall=s.walls.plan(tile(4,3),'wood');s.walls.complete(wall);
+ s.combat.update(a,.06,[b]);assert.ok(a.attackJob);assert.ok(a.lean);assert.deepEqual(a.movement.tile,tile(3,3));s.walls.erase(wall);s.combat.update(a,.06,[b]);assert.equal(a.lean,undefined);assert.equal(s.combat.previewAttack(a,b).leaning,false);
 });

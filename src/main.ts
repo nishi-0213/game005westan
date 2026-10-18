@@ -22,7 +22,7 @@ import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { CorpseEating } from './corpse-eating';
 import { Cooking,COOK_SECONDS,stagedNutrition } from './cooking';
 import { Hunting } from './hunting';
-import { Combat, WEAPONS, WOLF_BITE } from './combat';
+import { Combat, combatRenderPosition, WEAPONS, WOLF_BITE } from './combat';
 import type { CombatPawn, CombatTarget, Weapon } from './combat';
 import { AttackEffects } from './attack-effects';
 import { attackRangeEdges } from './attack-range';
@@ -438,7 +438,7 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   attackRangeLayer.addChild(attackRange);
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
-  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+  return { view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
 });
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
@@ -1649,7 +1649,7 @@ function updateCombatHover():void {
     const preview=combat.previewAttack(pawn,target),values=Object.values(preview.damage),min=Math.min(...values),max=Math.max(...values);
     const damage=min===max?`${min}`:`${min}〜${max}`;
     const parts=min===max?'':`\n${(Object.keys(BODY_PARTS) as (keyof typeof BODY_PARTS)[]).map(part=>`${BODY_PARTS[part]} ${preview.damage[part]}`).join(' / ')}`;
-    return `${formatPawnName(pawn.name)}（${WEAPONS[pawn.weapon].name}）\n命中率：${Math.round(preview.accuracy*1000)/10}%${preview.reason?`（${preview.reason}）`:''}\nダメージ：${damage}（命中時）${parts}`;
+    return `${formatPawnName(pawn.name)}（${WEAPONS[pawn.weapon].name}）\n命中率：${Math.round(preview.accuracy*1000)/10}%${preview.reason?`（${preview.reason}）`:preview.leaning?'（リーン射撃）':''}\nダメージ：${damage}（命中時）${parts}`;
   });
   const text=lines.join('\n\n');if(combatHover.textContent!==text)combatHover.textContent=text;
   combatHover.hidden=false;
@@ -2066,7 +2066,7 @@ app.ticker.add((ticker) => {
   updateMovementPaths();
   updateAttackRanges();
   for (const pawn of pawns) {
-    const position = pawn.dead ? corpsePosition(pawn) : renderedPosition(pawn.movement);
+    const position = pawn.dead ? corpsePosition(pawn) : combatRenderPosition(pawn);
     pawn.view.visible = !pawn.consumed && !pawn.corpseStorage;
     pawn.corpseIcon.visible = Boolean(pawn.dead&&pawn.collectCorpse&&!pawn.consumed&&!pawn.corpseCarrier&&!pawn.corpseStation&&!pawn.corpseStorage);
     pawn.corpseIcon.position.set(pawn.view.x,pawn.view.y-8);

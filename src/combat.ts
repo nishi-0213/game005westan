@@ -46,7 +46,7 @@ export function rifleAccuracy(distance: number): number {
 export function attackDamage(damage: number, penetration: number, armor = 0): number {
   return damage * (penetration < armor ? .5 : 1);
 }
-export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean; structure?:Wall };
+export type CombatTarget = EatingWorker & FactionMember & { departed?: boolean; hunt?: boolean; structure?:Wall; lean?:{origin:Tile;amount:number} };
 export interface AttackEvent {
   bodyPart?:BodyPart;
   attacker: CombatPawn;
@@ -99,6 +99,12 @@ export function inWeaponRange(weapon: Weapon, from: Tile, target: Tile): boolean
 const stationary = (pawn: CombatPawn): boolean => !pawn.movement.nextTile
   && pawn.movement.tile.column === pawn.movement.destination.column && pawn.movement.tile.row === pawn.movement.destination.row;
 const positionKey = (tile: Tile): string => `${tile.column},${tile.row}`;
+export function combatRenderPosition(actor:CombatTarget):Tile {
+  const position=renderedPosition(actor.movement),lean=actor.lean;
+  if(!lean||actor.dead||actor.movement.nextTile)return position;
+  return {column:position.column+(lean.origin.column-actor.movement.tile.column)*.5*lean.amount,row:position.row+(lean.origin.row-actor.movement.tile.row)*.5*lean.amount};
+}
+
 
 export class Combat {
   readonly construction: Construction;
@@ -123,7 +129,7 @@ export class Combat {
   }
 
   cancel(pawn: CombatPawn): void {
-    pawn.attackJob = null; pawn.equipJob = null;
+    pawn.attackJob = null; pawn.equipJob = null; pawn.lean=undefined;
   }
 
   private interrupt(pawn: CombatPawn): void {
@@ -158,22 +164,43 @@ export class Combat {
   }
 
   canFireFrom(weapon:Weapon,from:Tile,to:Tile,structure?:Wall):boolean {
-    return Boolean(this.aimPoint(weapon,from,to,structure));
+    return Boolean(this.firingPosition(weapon,from,to,structure));
   }
 
-  private hitAccuracy(pawn:CombatPawn,aim:Tile,structure?:Wall):number {
+  private targetAim(weapon:Weapon,target:CombatTarget):Tile {
+    return weapon==='rifle'&&target.lean&&target.lean.amount>0&&!target.dead&&!target.movement.nextTile?target.lean.origin:target.movement.tile;
+  }
+
+  private screenedByWall(from:Tile,to:Tile,target?:Wall):boolean {
+    const walls=this.construction.walls;
+    return rayTiles(from,to).some(tile=>{const wall=walls.at(tile);return wall!==target&&wall?.state==='completed'&&wall.kind==='wall';});
+  }
+
+  private firingPosition(weapon:Weapon,from:Tile,to:Tile,structure?:Wall):{origin:Tile;aim:Tile}|undefined {
+    const direct=this.aimPoint(weapon,from,to,structure);if(direct)return {origin:from,aim:direct};
+    if(weapon!=='rifle'||(structure?footprint(structure):[to]).every(cell=>Math.hypot(cell.column-from.column,cell.row-from.row)>WEAPONS.rifle.range+1)||!this.screenedByWall(from,to,structure))return;
+    const walls=this.construction.walls;
+    for(const [dc,dr] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const origin={column:from.column+dc,row:from.row+dr};
+      if(origin.column<0||origin.row<0||origin.column>=walls.mapSize||origin.row>=walls.mapSize||walls.isBlocked(origin)||walls.cannotStop(origin))continue;
+      const aim=this.aimPoint(weapon,origin,to,structure);if(aim)return {origin,aim};
+    }
+  }
+
+  private hitAccuracy(pawn:CombatPawn,aim:Tile,structure?:Wall,origin:Tile=pawn.movement.tile,target?:CombatTarget):number {
     const weapon=pawn.weapon??'unarmed',stats=attackStats(pawn);
-    const distance=Math.hypot(aim.column-pawn.movement.tile.column,aim.row-pawn.movement.tile.row);
-    const penalty=weapon==='rifle'?shootingObstacles(this.construction.walls,pawn.movement.tile,aim,structure).accuracyPenalty:0;
-    return Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-penalty);
+    const distance=Math.hypot(aim.column-origin.column,aim.row-origin.row);
+    const penalty=weapon==='rifle'?shootingObstacles(this.construction.walls,origin,aim,structure).accuracyPenalty:0;
+    const concealment=weapon==='rifle'&&target?.lean&&target.lean.amount>0&&this.screenedByWall(origin,target.movement.tile)? .3:0;
+    return Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-penalty-concealment);
   }
 
-  previewAttack(pawn:CombatPawn,target:CombatTarget):{accuracy:number;damage:Record<BodyPart,number>;reason:string} {
-    const weapon=pawn.weapon??'unarmed',stats=attackStats(pawn),from=pawn.movement.tile;
-    const aim=this.aimPoint(weapon,from,target.movement.tile,target.structure);
-    const inRange=(target.structure?footprint(target.structure):[target.movement.tile]).some(to=>inWeaponRange(weapon,from,to));
+  previewAttack(pawn:CombatPawn,target:CombatTarget):{accuracy:number;damage:Record<BodyPart,number>;reason:string;leaning:boolean} {
+    const weapon=pawn.weapon??'unarmed',stats=attackStats(pawn),from=pawn.movement.tile,to=this.targetAim(weapon,target);
+    const shot=this.firingPosition(weapon,from,to,target.structure);
+    const inRange=(target.structure?footprint(target.structure):[to]).some(cell=>inWeaponRange(weapon,from,cell));
     const damage=Object.fromEntries((Object.keys(BODY_PARTS) as BodyPart[]).map(part=>[part,attackDamage(stats.damage,stats.penetration,armorForPart(target,part))])) as Record<BodyPart,number>;
-    return {accuracy:aim?this.hitAccuracy(pawn,aim,target.structure):0,damage,reason:!inRange?'射程外':!aim?'射線が遮られています':''};
+    return {accuracy:shot?this.hitAccuracy(pawn,shot.aim,target.structure,shot.origin,target):0,damage,reason:shot?'':!inRange?'射程外':'射線が遮られています',leaning:Boolean(shot&&positionKey(shot.origin)!==positionKey(from))};
   }
 
   canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
@@ -218,22 +245,24 @@ export class Combat {
 
   private attackApproach(pawn: CombatPawn, target: CombatTarget): { goal: Tile; path: Path } | null {
     const walls = this.construction.walls;
+    const current=pawn.movement.nextTile??pawn.movement.tile,weaponType=pawn.weapon??'unarmed',targetTile=this.targetAim(weaponType,target);
+    if(this.canFireFrom(weaponType,current,targetTile,target.structure)&&(pawn.faction!=='wild'||this.predationClear(current,targetTile,pawn,target)))return {goal:current,path:{tiles:[],distance:0}};
     if(walls.mapSize>=64){
-      const weapon=pawn.weapon??'unarmed',range=WEAPONS[weapon].range,cells=target.structure?footprint(target.structure):[target.movement.tile];
+      const weapon=pawn.weapon??'unarmed',range=WEAPONS[weapon].range+(weapon==='rifle'?1:0),cells=target.structure?footprint(target.structure):[targetTile];
       const left=Math.max(0,Math.min(...cells.map(t=>t.column))-range),right=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.column))+range);
       const top=Math.max(0,Math.min(...cells.map(t=>t.row))-range),bottom=Math.min(walls.mapSize-1,Math.max(...cells.map(t=>t.row))+range);
       const candidates=[];
       for(let row=top;row<=bottom;row++)for(let column=left;column<=right;column++){
-        const goal={column,row};if(cells.some(cell=>inWeaponRange(weapon,goal,cell)))candidates.push({target:goal,goal});
+        const goal={column,row};if(weapon==='rifle'||cells.some(cell=>inWeaponRange(weapon,goal,cell)))candidates.push({target:goal,goal});
       }
       return findNearest(pawn.movement.nextTile??pawn.movement.tile,walls.mapSize,walls.isBlocked,walls.cannotStop,candidates,pawn.movement,Infinity,
-        goal=>this.canFireFrom(weapon,goal,target.movement.tile,target.structure)&&(pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn,target)));
+        goal=>this.canFireFrom(weapon,goal,targetTile,target.structure)&&(pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn,target)));
     }
     const paths = findPaths(pawn.movement.nextTile ?? pawn.movement.tile, walls.mapSize, walls.isBlocked, walls.cannotStop, pawn.movement);
     // Dijkstra's endpoint order is nearest first. Only stopping cells are filtered.
     for (const [index, path] of paths) {
       const goal = { column: index % walls.mapSize, row: Math.floor(index / walls.mapSize) };
-      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, target.movement.tile,target.structure)
+      if (this.canFireFrom(pawn.weapon ?? 'unarmed', goal, targetTile,target.structure)
         && (pawn.faction!=='wild'||this.predationClear(goal,target.movement.tile,pawn,target))) return { goal, path };
     }
     return null;
@@ -250,7 +279,7 @@ export class Combat {
     for (const target of targets) {
       const threat = isPredationThreat(pawn, target);
       if (target === pawn || target.dead || target.departed || (!areHostile(pawn, target) && !threat)
-        || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, target.movement.tile,target.structure)) continue;
+        || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, this.targetAim(pawn.weapon??'unarmed',target),target.structure)) continue;
       const candidateDistance = Math.hypot(target.movement.tile.column - pawn.movement.tile.column, target.movement.tile.row - pawn.movement.tile.row);
       if (threat && !defending || threat === defending && candidateDistance < distance) { distance = candidateDistance; nearest = target; defending = threat; }
     }
@@ -305,16 +334,17 @@ export class Combat {
     const manual = job.manual !== false;
     if (manual && pawn.mode !== 'drafted' || job.target.dead || job.target.departed
       || job.hunting && (pawn.mode!=='automatic'||!job.target.hunt)
-      || !manual && !job.hunting && !job.predation && !job.retaliation && ((!areHostile(pawn, job.target) && !isPredationThreat(pawn, job.target)) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, job.target.movement.tile,job.target.structure))) {
+      || !manual && !job.hunting && !job.predation && !job.retaliation && ((!areHostile(pawn, job.target) && !isPredationThreat(pawn, job.target)) || !this.canFireFrom(pawn.weapon ?? 'unarmed', pawn.movement.tile, this.targetAim(pawn.weapon??'unarmed',job.target),job.target.structure))) {
       this.cancel(pawn); stopAtNextSafeTile(pawn.movement, this.construction.walls.cannotStop); return false;
     }
     const weapon = pawn.kind === 'wolf' ? 'unarmed' : pawn.weapon ?? 'unarmed';
     const stats = attackStats(pawn);
+    if(!stationary(pawn)||weapon!=='rifle')pawn.lean=undefined;
     if(manual&&weapon!=='rifle')delete job.holdPosition;
     if(manual&&weapon==='rifle'&&!job.holdPosition&&stationary(pawn)&&job.goal&&positionKey(pawn.movement.tile)===positionKey(job.goal))job.holdPosition={...pawn.movement.tile};
-    if(manual&&weapon==='rifle'&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure))return true;
+    if(manual&&weapon==='rifle'&&job.holdPosition&&!this.canFireFrom(weapon,pawn.movement.tile,this.targetAim(pawn.weapon??'unarmed',job.target),job.target.structure)){pawn.lean=undefined;return true;}
     if (!manual && !job.hunting && !job.predation && !job.retaliation && !stationary(pawn)) return true;
-    if (!stationary(pawn) || (!this.canFireFrom(weapon, pawn.movement.tile, job.target.movement.tile,job.target.structure)
+    if (!stationary(pawn) || (!this.canFireFrom(weapon, pawn.movement.tile, this.targetAim(pawn.weapon??'unarmed',job.target),job.target.structure)
       || (job.predation||job.retaliation)&&!this.predationClear(pawn.movement.tile,job.target.movement.tile,pawn,job.target))) {
       job.retrySeconds -= seconds;
       const movedTarget = job.targetPosition !== positionKey(job.target.movement.tile);
@@ -335,22 +365,29 @@ export class Combat {
       }
       return true;
     }
+    const shot=this.firingPosition(weapon,pawn.movement.tile,this.targetAim(weapon,job.target),job.target.structure);
+    if(!shot){pawn.lean=undefined;return true;}
+    if(positionKey(shot.origin)!==positionKey(pawn.movement.tile)){
+      const previous=pawn.lean;
+      pawn.lean={origin:shot.origin,amount:Math.min(1,(previous&&positionKey(previous.origin)===positionKey(shot.origin)?previous.amount:0)+seconds/.12)};
+      if(pawn.lean.amount<1)return true;
+    }else pawn.lean=undefined;
     job.cooldown -= seconds;
     if (job.cooldown > 1e-9) return true;
     while (job.cooldown <= 1e-9) {
       job.cooldown += stats.interval;
-      const aim=job.target.structure?this.aimPoint(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure)!:job.target.movement.tile;
-      const accuracy=this.hitAccuracy(pawn,aim,job.target.structure);
+      const aim=shot.aim;
+      const accuracy=this.hitAccuracy(pawn,aim,job.target.structure,shot.origin,job.target);
       const hit = this.random() < accuracy;
       const parts=Object.keys(BODY_PARTS) as BodyPart[];
       const bodyPart=hit&&job.target.bodyHp?parts[Math.min(parts.length-1,Math.floor(this.random()*parts.length))]:undefined;
       const event: AttackEvent = { attacker: pawn, target: job.target, weapon, hit, bodyPart,
-        from: renderedPosition(pawn.movement), to: job.target.structure?aim:renderedPosition(job.target.movement),
+        from: combatRenderPosition(pawn), to: job.target.structure?aim:combatRenderPosition(job.target),
         damage: hit ? attackDamage(stats.damage, stats.penetration, armorForPart(job.target,bodyPart??'torso')) : 0 };
       if(!hit&&weapon==='rifle'){
         const angle=this.random()*Math.PI*2,offset=.6+this.random()*.9;
         event.to={column:event.to.column+Math.cos(angle)*offset,row:event.to.row+Math.sin(angle)*offset};
-        const start={column:Math.floor(event.from.column+.5),row:Math.floor(event.from.row+.5)};
+        const start=shot.origin;
         const end={column:Math.floor(event.to.column+.5),row:Math.floor(event.to.row+.5)};
         // A missed bullet can strike a wall/door before its sampled landing point.
         for(const cell of rayTiles(start,end)){
