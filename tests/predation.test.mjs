@@ -175,3 +175,14 @@ test('hunting skill lowers initial wolf retaliation from70to30percent, without c
  for(const [level,chance]of [[0,.7],[10,.5],[20,.3]])for(const reacts of [true,false]){const s=scene(),wolf=createWolf(tile(8,8),1),hunter=s.human(7,8);s.wildlife.wolves.push(wolf);hunter.personality={skills:{hunting:level},traits:['cautious','meticulous']};hunter.attackJob={target:wolf,hunting:true,manual:false,cooldown:.4,retrySeconds:0};s.wildlife.random=()=>chance+(reacts?-.0001:.0001);assert.equal(s.wildlife.reactToAttack(wolf,hunter),reacts?'retaliate':'flee');if(reacts){s.wildlife.random=()=>.999;assert.equal(s.wildlife.reactToAttack(wolf,hunter),'retaliate');assert.equal(wolf.fleeGoal,undefined);}}
  const s=scene(),wolf=createWolf(tile(8,8),1),human=s.human(7,8);human.personality={skills:{hunting:0},traits:['cautious','meticulous']};s.wildlife.random=()=>.6;assert.equal(s.wildlife.reactToAttack(wolf,human),'flee');
 });
+test('player deaths reset corpse collection to ignored and hungry humans do not automatically eat them',()=>{
+ const s=scene(),body=s.human(4,3),hungry=s.human(2,3);body.collectCorpse=true;killPawn(body,s.construction,s.harvesting,s.hauling);assert.equal(body.collectCorpse,false);hungry.needs.satiety=10;
+ for(let i=0;i<30;i++)s.feed(hungry);assert.equal(body.consumed,undefined);assert.equal(body.corpseEater,undefined);assert.equal(hungry.eatJob,null);
+ body.collectCorpse=true;for(let i=0;i<60&&!body.consumed;i++)s.feed(hungry);assert.equal(body.consumed,true);
+});
+test('ignored player corpses permit explicit eating and remain available to wolves',()=>{
+ for(const wolf of [false,true]){const s=scene(),body=s.human(4,3),eater=wolf?createWolf(tile(3,3),1):s.human(3,3);killPawn(body,s.construction,s.harvesting,s.hauling);eater.needs.satiety=10;assert.equal(body.collectCorpse,false);assert.equal(s.eating.request(eater,body,!wolf),true);assert.equal(eater.eatJob.corpse,body);}
+});
+test('marking a player corpse ignored cancels an ongoing automatic meal and releases its reservation',()=>{
+ const s=scene(),body=s.human(4,3),hungry=s.human(2,3);killPawn(body,s.construction,s.harvesting,s.hauling);body.collectCorpse=true;hungry.needs.satiety=10;assert.equal(s.eating.automatic(hungry),true);assert.equal(body.corpseEater,hungry);body.collectCorpse=false;s.eating.updateClaims();assert.equal(hungry.eatJob,null);assert.equal(body.corpseEater,undefined);assert.equal(s.eating.claims.size,0);
+});

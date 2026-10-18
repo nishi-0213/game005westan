@@ -115,6 +115,7 @@ export function killPawn(worker: EatingWorker, construction: Construction, harve
     worker.weapon='unarmed';
   }
   worker.dead = true;
+  if(worker.kind==='human'&&'faction' in worker&&worker.faction==='player')worker.collectCorpse=false;
   interruptWork(worker, construction, harvesting, hauling);
   worker.eatJob = null;
   worker.dropRequested = false;

@@ -18,7 +18,11 @@ export class CorpseEating {
   onConsume?:(corpse:Corpse)=>void;
   isReserved?:(corpse:Corpse)=>boolean;
   constructor(construction:Construction,harvesting:Harvesting,hauling:Hauling,corpses:()=>readonly Corpse[]){this.construction=construction;this.harvesting=harvesting;this.hauling=hauling;this.corpses=corpses;}
+  private ignoredPlayerCorpse(worker:EatingWorker,corpse:Corpse):boolean {
+    return worker.kind==='human'&&corpse.kind==='human'&&'faction' in corpse&&corpse.faction==='player'&&!corpse.collectCorpse;
+  }
   updateClaims(seconds=0):void {
+    for(const [corpse,{worker}]of this.claims)if(!worker.eatJob?.manual&&this.ignoredPlayerCorpse(worker,corpse)){worker.eatJob=null;stopAtNextSafeTile(worker.movement,this.construction.walls.cannotStop);}
     if(seconds>0){
       for(const [corpse,{worker}]of this.claims)if(canPlan(worker.movement)&&!this.approach(worker,corpse)){
         worker.eatJob=null;
@@ -46,7 +50,7 @@ export class CorpseEating {
   }
   canEat(worker:EatingWorker,corpse:Corpse):boolean {this.updateClaims();return !worker.dead&&this.eligible(corpse,worker)&&Boolean(this.approach(worker,corpse));}
   request(worker:EatingWorker,corpse:Corpse,manual=true):boolean {
-    this.updateClaims();if(!this.eligible(corpse,worker)||worker.dead)return false;
+    this.updateClaims();if(!this.eligible(corpse,worker)||worker.dead||!manual&&this.ignoredPlayerCorpse(worker,corpse))return false;
     const approach=this.approach(worker,corpse);if(!approach)return false;
     const position=corpse.corpseStorage??corpse.movement.tile,type=corpseItemType(corpse);
     const source:MapItem={...approach.goal,type,
@@ -66,7 +70,7 @@ export class CorpseEating {
   automatic=(worker:EatingWorker):boolean=>{
     if(worker.mode!=='automatic'||worker.dead)return false;this.updateClaims();
     let best:Corpse|null=null,distance=Infinity;
-    for(const corpse of this.corpses())if(this.eligible(corpse,worker)){const approach=this.approach(worker,corpse);if(approach&&approach.distance<distance){best=corpse;distance=approach.distance;}}
+    for(const corpse of this.corpses())if(!this.ignoredPlayerCorpse(worker,corpse)&&this.eligible(corpse,worker)){const approach=this.approach(worker,corpse);if(approach&&approach.distance<distance){best=corpse;distance=approach.distance;}}
     return best?this.request(worker,best,false):false;
   };
 }
