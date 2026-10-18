@@ -1,3 +1,4 @@
+import {constructionHasClearance} from './construction-clearance';
 import { Recruitment } from './recruitment';
 import {randomPersonality,movementRate,skillModifier,SKILL_LABELS,TRAITS} from './personality';
 import {initialSchedule,scheduleAt,nextSchedule,SCHEDULE_LABELS} from './schedule';
@@ -19,7 +20,7 @@ import { createNeedsMeter } from './needs-meter';
 import { Sleeping, type SleepState } from './sleep';
 import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
 import './style.css';
-import { createMovement, movementHasSafeExit, renderedPosition, stopAtNextSafeTile } from './movement';
+import { createMovement, renderedPosition, stopAtNextSafeTile } from './movement';
 import { advancePathMovement, advancePathRequests } from './pathfinding';
 import { PawnOccupancy, commandGroup } from './pawn-occupancy';
 import { CorpseEating } from './corpse-eating';
@@ -1590,20 +1591,7 @@ export function completeConstruction(tile: Tile): boolean {
     constructionProgressViews.get(key)?.view.destroy({children:true});constructionProgressViews.delete(key);refreshSelection();return true;
   }
   if (needsClearing(tile)) return false;
-  const sameTile = (entry: Tile): boolean => footprint(item).some(cell => entry.column === cell.column && entry.row === cell.row);
-  const blockedAfter = (entry: Tile): boolean => walls.isBlocked(entry) || ((item.kind === 'wall' || item.kind === 'storage' || isMultiTile(item.kind)) && sameTile(entry));
-  const cannotStopAfter = (entry: Tile): boolean => walls.cannotStop(entry) || (item.kind === 'barricade' && sameTile(entry));
-  if ([...pawns, ...wildlife.animals].filter(pawn => !pawn.consumed && !pawn.corpseCarrier && !pawn.corpseStation && !pawn.corpseStorage).some(({ movement,faction }) => {
-    const occupied = [movement.tile, movement.nextTile, movement.destination];
-    if ((item.kind === 'wall' || item.kind === 'storage' || isMultiTile(item.kind)) && movement.nextTile && movement.nextTile.column !== movement.tile.column && movement.nextTile.row !== movement.tile.row) {
-      occupied.push(
-        { column: movement.nextTile.column, row: movement.tile.row },
-        { column: movement.tile.column, row: movement.nextTile.row },
-      );
-    }
-    return occupied.some((entry) => entry && sameTile(entry))
-      || !movementHasSafeExit(movement, faction!=='player' ? entry=>walls.nonPlayerBlocked(entry)||blockedAfter(entry)||(item.kind==='door'&&sameTile(entry)) : blockedAfter, cannotStopAfter);
-  })) return false;
+  if(!constructionHasClearance(walls,item,[...pawns,...wildlife.animals]))return false;
   if (!walls.complete(tile)) return false;
   const key = `${tile.column},${tile.row}`;
   wallViews.get(key)!.alpha = 1;
