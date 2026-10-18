@@ -321,9 +321,9 @@ export class Combat {
     while (job.cooldown <= 1e-9) {
       job.cooldown += stats.interval;
       const aim=job.target.structure?this.aimPoint(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure)!:job.target.movement.tile;
-      const covered=weapon==='rifle'&&shootingObstacles(this.construction.walls,pawn.movement.tile,aim,job.target.structure).covered;
+      const coverPenalty=weapon==='rifle'?shootingObstacles(this.construction.walls,pawn.movement.tile,aim,job.target.structure).accuracyPenalty:0;
       const distance=Math.hypot(aim.column-pawn.movement.tile.column,aim.row-pawn.movement.tile.row);
-      const accuracy=Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-(covered?.4:0));
+      const accuracy=Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-coverPenalty);
       const hit = this.random() < accuracy;
       const parts=Object.keys(BODY_PARTS) as BodyPart[];
       const bodyPart=hit&&job.target.bodyHp?parts[Math.min(parts.length-1,Math.floor(this.random()*parts.length))]:undefined;

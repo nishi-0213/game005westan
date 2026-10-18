@@ -1,6 +1,7 @@
 import {Rooms} from './rooms.ts';
 import { invalidatePaths, registerPathCache, registerReachability, registerHierarchy, invalidateHierarchy } from './pathfinding.ts';
 import type { ItemType } from './items';
+import type { EnvironmentObject } from './environment';
 import type { Movement, Tile } from './movement';
 
 export type DoorMode='automatic'|'closed'|'open';
@@ -64,6 +65,7 @@ export class Walls {
   readonly mapSize: number;
   revision=0;
   readonly rooms:Rooms;
+  environmentAt: (tile: Tile) => EnvironmentObject | undefined = () => undefined;
   environmentCannotStop: (tile: Tile) => boolean = () => false;
 
   constructor(mapSize: number) {

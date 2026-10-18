@@ -256,6 +256,7 @@ function updateItemSummary(): void {
 }
 updateItemSummary();
 
+walls.environmentAt = tile => environmentByTile.get(`${tile.column},${tile.row}`);
 walls.environmentCannotStop = tile => { const object = environmentByTile.get(`${tile.column},${tile.row}`); return Boolean(object && !object.collected && object.type !== 'grass'); };
 const structureShadows=new StructureShadows(walls,TILE_SIZE);
 shadowLayer.addChild(structureShadows.view);

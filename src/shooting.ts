@@ -15,12 +15,17 @@ export function rayTiles(from:Tile,to:Tile):Tile[] {
   }
   return cells;
 }
-export function shootingObstacles(walls:Walls,from:Tile,to:Tile,target?:Wall):{blocked:boolean;covered:boolean} {
-  let covered=false;
+// Cover protects only the target's tile and its eight neighbors on the shot ray.
+// Multiple obstacles use the strongest cover rather than stacking penalties.
+export function shootingObstacles(walls:Walls,from:Tile,to:Tile,target?:Wall):{blocked:boolean;accuracyPenalty:number} {
+  let accuracyPenalty=0;
   for(const cell of rayTiles(from,to)){
-    const structure=walls.at(cell);if(structure?.state!=='completed'||structure===target)continue;
-    if(structure.kind==='wall'||structure.kind==='door')return {blocked:true,covered};
-    if(structure.kind==='barricade')covered=true;
+    const structure=walls.at(cell);
+    if(structure?.state==='completed'&&structure!==target&&(structure.kind==='wall'||structure.kind==='door'))return {blocked:true,accuracyPenalty};
+    if(cell.column===from.column&&cell.row===from.row||Math.max(Math.abs(cell.column-to.column),Math.abs(cell.row-to.row))>1)continue;
+    if(structure?.state==='completed'&&structure!==target&&structure.kind==='barricade')accuracyPenalty=.4;
+    const object=walls.environmentAt(cell);
+    if(object&&!object.collected&&(object.type==='tree'||object.type==='rock'))accuracyPenalty=Math.max(accuracyPenalty,.2);
   }
-  return {blocked:false,covered};
+  return {blocked:false,accuracyPenalty};
 }

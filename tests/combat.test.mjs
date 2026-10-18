@@ -128,7 +128,7 @@ test('equipped workers haul and build using real3stone batches without exceeding
  });
 
 test('rifles cannot fire through completed walls but barricades subtract40percentage points once',()=>{
- for(const roll of [.299,.301]){const s=scene(()=>roll),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(6,3),'wood','barricade');s.walls.complete(barrier);const second=s.walls.plan(tile(7,3),'wood','barricade');s.walls.complete(second);s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,roll<.3?70:100);}
+ for(const roll of [.299,.301]){const s=scene(()=>roll),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(8,3),'wood','barricade');s.walls.complete(barrier);const second=s.walls.plan(tile(7,3),'wood','barricade');s.walls.complete(second);s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,roll<.3?70:100);}
  const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);s.combat.requestAttack(a,b);const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);let shots=0;s.combat.onAttack=()=>shots++;s.combat.update(a,10);assert.equal(b.hp,100);assert.equal(shots,0);assert.deepEqual(a.movement.destination,tile(3,3));
  s.walls.erase(wall);s.combat.update(a,.4);assert.equal(b.hp,70);
 });
@@ -248,4 +248,15 @@ for(const weapon of ['unarmed','knife'])test(`manual ${weapon} pursuit respects 
  const segment={next:{...a.movement.nextTile},progress:a.movement.progress},oldGoal={...a.movement.destination};
  b.movement.tile=tile(12,6);b.movement.destination=tile(12,6);b.movement.changed();a.movement.planningAllowed=false;s.combat.update(a,.3);assert.deepEqual(a.movement.destination,oldGoal);
  a.movement.planningAllowed=true;s.combat.update(a,.1);assert.notDeepEqual(a.movement.destination,oldGoal);assert.deepEqual(a.movement.nextTile,segment.next);assert.equal(a.movement.progress,segment.progress);assert.equal(a.attackJob.target,b);
+});
+
+test('rifle shots apply twenty-point tree/rock cover only on the ray beside the target',()=>{
+ for(const type of ['tree','rock'])for(const [column,row,penalty] of [[8,3,.2],[6,3,0],[8,4,0]])for(const hit of [true,false]){
+  const accuracy=.7-penalty,s=scene(()=>accuracy+(hit?-.0001:.0001)),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);
+  s.walls.environmentAt=t=>t.column===column&&t.row===row?{column,row,type,collected:false}:undefined;
+  assert.equal(s.combat.requestAttack(a,b),true);s.combat.update(a,.4);assert.equal(b.hp,hit?70:100,`${type} at ${column},${row}; hit ${hit}`);
+ }
+});
+test('barricades far from the target do not reduce rifle accuracy',()=>{
+ for(const hit of [true,false]){const s=scene(()=>.7+(hit?-.0001:.0001)),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(6,3),'wood','barricade');s.walls.complete(barrier);s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,hit?70:100);}
 });
