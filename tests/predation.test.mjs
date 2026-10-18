@@ -33,9 +33,9 @@ for(let i=0;i<60&&!body.consumed;i++)s.feed(p);assert.equal(body.consumed,true);
 test('wolf waves use1to2animals every160seconds independently from deer2to3twice per minute',()=>{
 const s=scene(),wolfIds=new Set(),deerIds=new Set(),exiting=new Set();s.wildlife.update(.01);assert.equal(s.wildlife.wolves.length,2);assert.equal(s.wildlife.deer.length,3);
 for(let i=0;i<1201;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves){wolfIds.add(wolf.id);if(wolf.leaving)exiting.add(wolf.id);}for(const deer of s.wildlife.deer)deerIds.add(deer.id);}
-assert.equal(wolfIds.size,2);assert.equal(deerIds.size,15);assert.equal(exiting.size,2);
+assert.equal(wolfIds.size,2);assert.equal(deerIds.size,10);assert.equal(exiting.size,2);
 for(let i=0;i<400;i++){for(const wolf of s.wildlife.wolves)wolf.needs.satiety=100;s.wildlife.update(.1);for(const wolf of s.wildlife.wolves)wolfIds.add(wolf.id);}
-assert.equal(wolfIds.size,4);const newWolves=s.wildlife.wolves.filter(wolf=>wolf.id>Math.max(...exiting));assert.equal(newWolves.length,2);assert.ok(newWolves.every(wolf=>!wolf.leaving));
+assert.equal(wolfIds.size,3);const newWolves=s.wildlife.wolves.filter(wolf=>wolf.id>Math.max(...exiting));assert.equal(newWolves.length,1);assert.ok(newWolves.every(wolf=>!wolf.leaving));
 });
 test('wolves share starvation/death behavior and stop attacking when told to leave',()=>{
 const s=scene(),wolf=createWolf(tile(2,3),1),target=s.human(3,3);s.wildlife.wolves.push(wolf);wolf.needs.satiety=20;s.wildlife.updateWolf(wolf,0);assert.equal(wolf.attackJob.target,target);s.wildlife.markForExit(wolf);assert.equal(wolf.attackJob,null);for(let i=0;i<60&&!wolf.departed;i++){s.wildlife.updateWolf(wolf,.1);s.move(wolf);}assert.equal(wolf.departed,true);
@@ -151,13 +151,19 @@ test('a drafted defender also targets an animal eating a player corpse, and stop
  wolf.eatJob=null;s.combat.update(defender,0,[wolf,victim]);assert.equal(defender.attackJob,null);
 });
 
-test('fourfold starting deer and wolf populations do not multiply later spawn waves',()=>{
+test('initial and later animal waves respect ten live deer and three live wolves, including departing animals',()=>{
  const s=scene(4),spawned=[];s.wildlife.onSpawn=animal=>spawned.push(animal.kind);
  s.wildlife.updateDeer=()=>{};s.wildlife.updateWolf=()=>{};
- s.wildlife.update(.01);assert.equal(spawned.filter(k=>k==='deer').length,12);assert.equal(spawned.filter(k=>k==='wolf').length,8);
- assert.equal(new Set(s.wildlife.animals.map(a=>`${a.movement.tile.column},${a.movement.tile.row}`)).size,20);
- spawned.length=0;s.wildlife.update(60);assert.equal(spawned.filter(k=>k==='deer').length,3);assert.equal(spawned.filter(k=>k==='wolf').length,0);
- spawned.length=0;s.wildlife.update(100);assert.equal(spawned.filter(k=>k==='wolf').length,2);
+ s.wildlife.update(.01);assert.equal(s.wildlife.deer.length,10);assert.equal(s.wildlife.wolves.length,3);
+ assert.equal(new Set(s.wildlife.animals.map(a=>`${a.movement.tile.column},${a.movement.tile.row}`)).size,13);
+ spawned.length=0;s.wildlife.update(200);assert.equal(spawned.length,0);
+ assert.ok(s.wildlife.deer.some(a=>a.leaving));assert.ok(s.wildlife.wolves.some(a=>a.leaving));
+ // Death frees one slot, but corpses remain and do not count against the live limit.
+ s.wildlife.deer[0].dead=true;s.wildlife.wolves[0].dead=true;
+ s.wildlife.update(200);assert.equal(spawned.filter(k=>k==='deer').length,1);assert.equal(spawned.filter(k=>k==='wolf').length,1);
+ assert.equal(s.wildlife.deer.filter(a=>!a.dead&&!a.departed).length,10);assert.equal(s.wildlife.wolves.filter(a=>!a.dead&&!a.departed).length,3);
+ spawned.length=0;s.wildlife.deer[1].departed=true;s.wildlife.wolves[1].departed=true;s.wildlife.update(200);
+ assert.equal(spawned.filter(k=>k==='deer').length,1);assert.equal(spawned.filter(k=>k==='wolf').length,1);
 });
 test('a wolf that entered retaliation never flees on later attacks and keeps its attack cooldown',()=>{
  const s=scene(),wolf=createWolf(tile(8,8),1),attacker=s.human(7,8);s.wildlife.wolves.push(wolf);s.wildlife.random=()=>0;

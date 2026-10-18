@@ -1,3 +1,4 @@
+export const ANIMAL_POPULATION_LIMITS={deer:10,wolf:3} as const;
 import {huntingRetaliationChance} from './personality.ts';
 import { initialBodyHp } from './health.ts';
 import { canPlan } from './path-schedule.ts';
@@ -125,6 +126,8 @@ export class Wildlife {
   }
 
   private spawn(occupied: (tile: Tile) => boolean,kind:'deer'|'wolf'='deer',multiplier=1): void {
+    const remaining=ANIMAL_POPULATION_LIMITS[kind]-this.animals.filter(animal=>animal.kind===kind&&!animal.dead&&!animal.departed).length;
+    if(remaining<=0)return;
     const walls = this.construction.walls, candidates: Tile[] = [];
     for (let row = 0; row < walls.mapSize; row++) for (let column = 0; column < walls.mapSize; column++) {
       if (column !== 0 && row !== 0 && column !== walls.mapSize - 1 && row !== walls.mapSize - 1) continue;
@@ -132,7 +135,7 @@ export class Wildlife {
       if (!walls.at(tile) && !walls.isBlocked(tile) && !walls.cannotStop(tile) && !occupied(tile)
         && !this.animals.some(deer => sameTile(deer.movement.tile, tile) || sameTile(deer.movement.destination, tile))) candidates.push(tile);
     }
-    const count = (kind==='wolf'?this.wolfCount():this.count())*multiplier;
+    const count = Math.min(remaining,(kind==='wolf'?this.wolfCount():this.count())*multiplier);
     for (let i = 0; i < count && candidates.length; i++) {
       const tile = candidates.splice(Math.floor(this.random() * candidates.length), 1)[0];
       const animal=kind==='wolf'?createWolf(tile,this.nextId++):createDeer(tile,this.nextId++);
