@@ -159,6 +159,21 @@ export class Combat {
     return Boolean(this.aimPoint(weapon,from,to,structure));
   }
 
+  private hitAccuracy(pawn:CombatPawn,aim:Tile,structure?:Wall):number {
+    const weapon=pawn.weapon??'unarmed',stats=attackStats(pawn);
+    const distance=Math.hypot(aim.column-pawn.movement.tile.column,aim.row-pawn.movement.tile.row);
+    const penalty=weapon==='rifle'?shootingObstacles(this.construction.walls,pawn.movement.tile,aim,structure).accuracyPenalty:0;
+    return Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-penalty);
+  }
+
+  previewAttack(pawn:CombatPawn,target:CombatTarget):{accuracy:number;damage:Record<BodyPart,number>;reason:string} {
+    const weapon=pawn.weapon??'unarmed',stats=attackStats(pawn),from=pawn.movement.tile;
+    const aim=this.aimPoint(weapon,from,target.movement.tile,target.structure);
+    const inRange=(target.structure?footprint(target.structure):[target.movement.tile]).some(to=>inWeaponRange(weapon,from,to));
+    const damage=Object.fromEntries((Object.keys(BODY_PARTS) as BodyPart[]).map(part=>[part,attackDamage(stats.damage,stats.penetration,armorForPart(target,part))])) as Record<BodyPart,number>;
+    return {accuracy:aim?this.hitAccuracy(pawn,aim,target.structure):0,damage,reason:!inRange?'射程外':!aim?'射線が遮られています':''};
+  }
+
   canReachAttack(pawn:CombatPawn,target:CombatTarget):boolean {
     this.construction.walls.bindMovement(pawn.movement,pawn.faction);
     return Boolean(this.attackApproach(pawn,target));
@@ -321,9 +336,7 @@ export class Combat {
     while (job.cooldown <= 1e-9) {
       job.cooldown += stats.interval;
       const aim=job.target.structure?this.aimPoint(weapon,pawn.movement.tile,job.target.movement.tile,job.target.structure)!:job.target.movement.tile;
-      const coverPenalty=weapon==='rifle'?shootingObstacles(this.construction.walls,pawn.movement.tile,aim,job.target.structure).accuracyPenalty:0;
-      const distance=Math.hypot(aim.column-pawn.movement.tile.column,aim.row-pawn.movement.tile.row);
-      const accuracy=Math.max(0,(weapon==='rifle'?rifleAccuracy(distance):stats.accuracy)-coverPenalty);
+      const accuracy=this.hitAccuracy(pawn,aim,job.target.structure);
       const hit = this.random() < accuracy;
       const parts=Object.keys(BODY_PARTS) as BodyPart[];
       const bodyPart=hit&&job.target.bodyHp?parts[Math.min(parts.length-1,Math.floor(this.random()*parts.length))]:undefined;

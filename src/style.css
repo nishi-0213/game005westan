@@ -399,3 +399,5 @@ canvas { touch-action: none; }
 #save-menu button:disabled { opacity:.5; cursor:default; }
 #save-menu button:focus-visible { outline:2px solid #f2c66d; }
 #save-menu p { font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+
+#combat-hover { position:fixed; z-index:100; pointer-events:none; max-width:min(380px,calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:hidden; box-sizing:border-box; padding:10px 12px; border:1px solid #708268; border-radius:4px; background:#263529f5; color:#f4e9cc; font:12px/1.6 system-ui,sans-serif; white-space:pre-line; box-shadow:0 2px 8px #0006; }

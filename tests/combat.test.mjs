@@ -260,3 +260,19 @@ test('rifle shots apply twenty-point tree/rock cover only on the ray beside the 
 test('barricades far from the target do not reduce rifle accuracy',()=>{
  for(const hit of [true,false]){const s=scene(()=>.7+(hit?-.0001:.0001)),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const barrier=s.walls.plan(tile(6,3),'wood','barricade');s.walls.complete(barrier);s.combat.requestAttack(a,b);s.combat.update(a,.4);assert.equal(b.hp,hit?70:100);}
 });
+
+test('attack preview shares live accuracy and body armor calculations without consuming randomness or issuing orders',()=>{
+ let rolls=0;const s=scene(()=>{rolls++;return .299}),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);
+ b.bodyHp={head:100,torso:100,arms:100,legs:100};b.clothing={torso:'jacket',outerwear:'ballisticVest'};
+ const barrier=s.walls.plan(tile(8,3),'wood','barricade');s.walls.complete(barrier);
+ const movement=structuredClone({tile:a.movement.tile,destination:a.movement.destination,nextTile:a.movement.nextTile,route:a.movement.route});
+ const preview=s.combat.previewAttack(a,b);assert.ok(Math.abs(preview.accuracy-.3)<1e-12);assert.deepEqual(preview.damage,{head:30,torso:15,arms:30,legs:30});assert.equal(preview.reason,'');assert.equal(rolls,0);assert.equal(a.attackJob,undefined);assert.deepEqual({tile:a.movement.tile,destination:a.movement.destination,nextTile:a.movement.nextTile,route:a.movement.route},movement);
+ s.combat.requestAttack(a,b);let event;s.combat.onAttack=e=>event=e;s.combat.update(a,.4);assert.equal(event.hit,true);assert.equal(event.bodyPart,'torso');assert.equal(event.damage,preview.damage.torso);assert.equal(b.bodyHp.torso,85);
+});
+test('preview reports blocked shots, out of range, melee accuracy and changing cover',()=>{
+ const s=scene(),a=s.pawn(3,3,'rifle'),b=s.pawn(9,3);const tree={column:8,row:3,type:'tree',collected:false};s.walls.environmentAt=t=>t.column===8&&t.row===3?tree:undefined;
+ assert.ok(Math.abs(s.combat.previewAttack(a,b).accuracy-.5)<1e-12);tree.collected=true;assert.ok(Math.abs(s.combat.previewAttack(a,b).accuracy-.7)<1e-12);
+ const wall=s.walls.plan(tile(6,3),'wood');s.walls.complete(wall);assert.equal(s.combat.previewAttack(a,b).accuracy,0);assert.equal(s.combat.previewAttack(a,b).reason,'射線が遮られています');s.walls.erase(wall);
+ b.movement.tile=tile(24,3);assert.equal(s.combat.previewAttack(a,b).accuracy,0);assert.equal(s.combat.previewAttack(a,b).reason,'射程外');
+ a.weapon='knife';b.movement.tile=tile(4,4);assert.equal(s.combat.previewAttack(a,b).accuracy,.5);assert.deepEqual(s.combat.previewAttack(a,b).damage,{head:50,torso:50,arms:50,legs:50});a.weapon='unarmed';assert.equal(s.combat.previewAttack(a,b).accuracy,.3);
+});

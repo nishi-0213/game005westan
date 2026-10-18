@@ -1630,6 +1630,34 @@ function hitSelection(event: MouseEvent) {
   const floor=walls.floorAt(tile);return floor?.state==='planned'?{kind:'structure' as const,value:floor}:null;
 }
 
+const combatHover=document.createElement('div');combatHover.id='combat-hover';combatHover.hidden=true;combatHover.setAttribute('role','tooltip');document.body.append(combatHover);
+let combatHoverPointer:{clientX:number;clientY:number}|null=null;
+let combatHoverUpdated=0;
+function hideCombatHover():void {combatHover.hidden=true;combatHoverPointer=null;}
+app.canvas.addEventListener('pointerleave',hideCombatHover);
+app.canvas.addEventListener('pointercancel',hideCombatHover);
+window.addEventListener('blur',hideCombatHover);
+function updateCombatHover():void {
+  if(!combatHoverPointer||selectedConstruction||demolitionSelected||selectionDrag||document.querySelector('dialog[open]')){combatHover.hidden=true;return;}
+  const attackers=controlledSelection().filter(p=>p.mode==='drafted'&&!p.dead);
+  if(!attackers.length){combatHover.hidden=true;return;}
+  const now=performance.now();if(now-combatHoverUpdated<100)return;combatHoverUpdated=now;
+  const pointer=new MouseEvent('mousemove',combatHoverPointer),hit=hitSelection(pointer);
+  const target=hit?.kind==='pawn'||hit?.kind==='deer'?hit.value:null;
+  if(!target||target.dead||target.consumed||target.faction==='player'){combatHover.hidden=true;return;}
+  const lines=attackers.map(pawn=>{
+    const preview=combat.previewAttack(pawn,target),values=Object.values(preview.damage),min=Math.min(...values),max=Math.max(...values);
+    const damage=min===max?`${min}`:`${min}〜${max}`;
+    const parts=min===max?'':`\n${(Object.keys(BODY_PARTS) as (keyof typeof BODY_PARTS)[]).map(part=>`${BODY_PARTS[part]} ${preview.damage[part]}`).join(' / ')}`;
+    return `${formatPawnName(pawn.name)}（${WEAPONS[pawn.weapon].name}）\n命中率：${Math.round(preview.accuracy*1000)/10}%${preview.reason?`（${preview.reason}）`:''}\nダメージ：${damage}（命中時）${parts}`;
+  });
+  const text=lines.join('\n\n');if(combatHover.textContent!==text)combatHover.textContent=text;
+  combatHover.hidden=false;
+  const bounds=combatHover.getBoundingClientRect(),{clientX,clientY}=combatHoverPointer;
+  combatHover.style.left=`${Math.max(8,Math.min(clientX+16,window.innerWidth-bounds.width-8))}px`;
+  combatHover.style.top=`${Math.max(8,Math.min(clientY+16,window.innerHeight-bounds.height-8))}px`;
+}
+
 function selectHit(event: MouseEvent, additive: boolean, nearby = false): void {
   const hit = hitSelection(event);
   if (!additive) clearSelection();
@@ -1765,6 +1793,7 @@ app.canvas.addEventListener('dblclick', event => {
   if (!selectedConstruction && !demolitionSelected) selectHit(event, event.shiftKey, true);
 });
 app.canvas.addEventListener('pointermove', event => {
+  combatHoverPointer={clientX:event.clientX,clientY:event.clientY};combatHoverUpdated=0;
   if (isMultiTile(selectedConstruction)) { stationPreviewPoint = mapPosition(event); drawStationPreview(); }
   if (drawingPointer === event.pointerId && selectedConstruction) drawWalls(event);
   else updateSelectionDrag(event);
@@ -2085,6 +2114,7 @@ app.ticker.add((ticker) => {
   updatePawnModeButton();
   updateItemSummary();
   updateStationInfo();
+  updateCombatHover();
   if(stressTest?.recording)stressTest.updates.push(performance.now()-stressStart);
 });
 
