@@ -134,6 +134,8 @@ let selectedDeer: Animal | null = null;
 const selectedDeerSet = new Set<Animal>();
 let infoFocus: 'item' | 'environment' | 'deer' | null = null;
 const environmentLayer = new Container();
+// Collection markers sit above structures; item counts retain the top layer.
+const collectionMarkerLayer=new Container();collectionMarkerLayer.zIndex=1;map.addChild(collectionMarkerLayer);
 const environmentHud = new Container();
 map.addChild(environmentLayer);
 function createEnvironmentView(object: EnvironmentObject) {
@@ -153,7 +155,8 @@ function createEnvironmentView(object: EnvironmentObject) {
   progressBar.position.set(object.column * TILE_SIZE, (object.row + 1) * TILE_SIZE + 1);
   progressBar.visible = false;
   view.addChild(outline, shape);
-  environmentHud.addChild(collectIcon, progressBar);
+  collectionMarkerLayer.addChild(collectIcon);
+  environmentHud.addChild(progressBar);
   (object.type === 'grass' ? grassLayer : environmentLayer).addChild(view);
   return { object, view, shape, outline, collectIcon, progressBar, progressFill, progress: -1 };
 }
@@ -168,7 +171,7 @@ let selectedItem: (typeof mapItems)[number] | null = null;
 // Quantity labels stay above every map object, including later-created views.
 map.sortableChildren = true;
 const itemQuantityLayer = new Container();
-itemQuantityLayer.zIndex = 1;
+itemQuantityLayer.zIndex = 2;
 map.addChild(itemQuantityLayer);
 function positionItemQuantity(quantity: Text, tile: Tile, scale = map.scale.x): void {
   quantity.scale.set(1 / scale);
@@ -212,7 +215,8 @@ function createItemView(item: (typeof mapItems)[number]): void {
   quantity.anchor.set(0.5, 0);
   positionItemQuantity(quantity, item);
   const collectIcon = new Graphics().moveTo(-3, -6).lineTo(3, -6).moveTo(0, -9).lineTo(0, -3).stroke({ color: 0xf2c66d, width: 2 });
-  view.addChild(icon, collectIcon);
+  view.addChild(icon);
+  collectIcon.position.copyFrom(view.position);collectionMarkerLayer.addChild(collectIcon);
   itemQuantityLayer.addChild(quantity);
   itemLayer.addChild(view);
   itemViews.set(item, { view, quantity, collectIcon });
@@ -245,7 +249,7 @@ function updateItemSummary(): void {
   for (const [item, { view, quantity, collectIcon }] of itemViews) {
     if (item.quantity <= 0) {
       view.destroy({ children: true });
-      quantity.destroy();
+      quantity.destroy();collectIcon.destroy();
       itemViews.delete(item);
       continue;
     }
@@ -349,7 +353,7 @@ function updateSleepLabel(actor:{dead?:boolean;sleep?:SleepState},view:Container
   label.scale.set(1/map.scale.x);
   label.position.set(view.x,view.y-12-3/map.scale.y);
 }
-const corpseHud = new Container();
+const corpseHud = new Container();corpseHud.zIndex=1;
 map.addChild(corpseHud);
 function createCorpseIcon(): Graphics {
   const icon=new Graphics().moveTo(-3,-6).lineTo(3,-6).moveTo(0,-9).lineTo(0,-3).stroke({color:0xf2c66d,width:2});
