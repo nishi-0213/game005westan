@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {Hunting} from '../src/hunting.ts';import {Combat} from '../src/combat.ts';import {Walls} from '../src/walls.ts';import {Construction} from './helpers/construction.mjs';import {Storage} from '../src/storage.ts';import {Hauling} from '../src/hauling.ts';import {Harvesting} from '../src/harvesting.ts';import {createMovement} from '../src/movement.ts';import {advancePathMovement} from '../src/pathfinding.ts';import {createDeer} from '../src/wildlife.ts';import {initialNeeds} from '../src/needs.ts';import {INITIAL_PRIORITIES,updateWork} from '../src/work-priorities.ts';
+import {Hunting} from '../src/hunting.ts';import {Combat} from '../src/combat.ts';import {Walls} from '../src/walls.ts';import {Construction} from './helpers/construction.mjs';import {Storage} from '../src/storage.ts';import {Hauling} from '../src/hauling.ts';import {Harvesting} from '../src/harvesting.ts';import {createMovement} from '../src/movement.ts';import {advancePathMovement} from '../src/pathfinding.ts';import {createDeer,createWolf} from '../src/wildlife.ts';import {initialNeeds} from '../src/needs.ts';import {INITIAL_PRIORITIES,updateWork} from '../src/work-priorities.ts';
 const tile=(column,row)=>({column,row});
 function scene(){const walls=new Walls(32),items=[],construction=new Construction(walls,items,t=>walls.complete(t)),harvesting=new Harvesting([],items,walls),hauling=new Hauling(items,new Storage(walls)),combat=new Combat(construction,harvesting,hauling,()=>0),deer=[createDeer(tile(20,15),1),createDeer(tile(18,15),2),createDeer(tile(16,15),3)],hunting=new Hunting(combat,()=>deer);
 const worker={movement:createMovement(tile(15,15)),faction:'player',mode:'automatic',weapon:'knife',hp:100,needs:initialNeeds(),eatJob:null,inventory:null,job:null,retrySeconds:0,harvestJob:null,harvestRetrySeconds:0,priorities:{...INITIAL_PRIORITIES[0],hunting:1}};
@@ -18,5 +18,5 @@ s.worker.faction='enemy1';assert.equal(s.hunting.hasAvailableWork(s.worker),fals
 s.worker.faction='player';assert.equal(s.hunting.hasAvailableWork(s.worker),true);
 });
 test('marked wolves are also valid automatic hunting targets',()=>{
- const s=scene();s.deer[0].kind='wolf';s.deer[0].hunt=true;s.tick();assert.ok(s.worker.attackJob?.hunting);assert.equal(s.worker.attackJob.target,s.deer[0]);
+ const s=scene();s.deer[0]=createWolf(tile(20,15),4);s.deer[0].hunt=true;s.tick();assert.ok(s.worker.attackJob?.hunting);assert.equal(s.worker.attackJob.target,s.deer[0]);
 });

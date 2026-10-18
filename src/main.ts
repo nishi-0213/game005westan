@@ -1,3 +1,4 @@
+import { Recruitment } from './recruitment';
 import {randomPersonality,movementRate,skillModifier,SKILL_LABELS,TRAITS} from './personality';
 import {initialSchedule,scheduleAt,nextSchedule,SCHEDULE_LABELS} from './schedule';
 import { createSave, readSave, writeSave, SAVE_KEY, pickFields, ACTOR_FIELDS, type SaveGame } from './save-game';
@@ -354,9 +355,17 @@ function createCorpseIcon(): Graphics {
   const icon=new Graphics().moveTo(-3,-6).lineTo(3,-6).moveTo(0,-9).lineTo(0,-3).stroke({color:0xf2c66d,width:2});
   icon.visible=false;corpseHud.addChild(icon);return icon;
 }
+function createHuntIcon():Graphics {
+  // Outlined crosshair remains legible above the animal at every zoom level.
+  const icon=new Graphics();
+  for(const [color,width]of [[0x152019,4],[0xf2c66d,2]]){
+    icon.circle(0,0,4).moveTo(-7,0).lineTo(-2,0).moveTo(2,0).lineTo(7,0).moveTo(0,-7).lineTo(0,-2).moveTo(0,2).lineTo(0,7).stroke({color,width});
+  }
+  icon.visible=false;sleepLabelLayer.addChild(icon);return icon;
+}
 const deerLayer = new Container();
 map.addChild(deerLayer);
-const deerViews = new Map<Animal, { view: Container; selection: Graphics; food: Graphics; corpseIcon: Graphics; sleepLabel: Text }>();
+const deerViews = new Map<Animal, { view: Container; selection: Graphics; food: Graphics; corpseIcon: Graphics; sleepLabel: Text; huntIcon:Graphics }>();
 function updateDeerViews(): void {
   for (const deer of wildlife.animals) {
     let entry = deerViews.get(deer);
@@ -367,7 +376,7 @@ function updateDeerViews(): void {
       const food = new Graphics();
       view.addChild(selection, body, food);
       deerLayer.addChild(view);
-      entry = { view, selection, food, corpseIcon:createCorpseIcon(), sleepLabel:createSleepLabel() };
+      entry = { view, selection, food, corpseIcon:createCorpseIcon(), sleepLabel:createSleepLabel(),huntIcon:createHuntIcon() };
       deerViews.set(deer, entry);
     }
     const position = deer.dead ? corpsePosition(deer) : renderedPosition(deer.movement);
@@ -380,12 +389,15 @@ function updateDeerViews(): void {
     entry.view.visible = !deer.consumed && !deer.corpseStorage;
     entry.corpseIcon.visible = Boolean(deer.dead && deer.collectCorpse && !deer.corpseCarrier && !deer.corpseStation && !deer.corpseStorage && !deer.consumed);
     entry.corpseIcon.position.set(entry.view.x,entry.view.y-8);
+    entry.huntIcon.visible=Boolean(deer.hunt&&!deer.dead&&!deer.departed&&!deer.consumed);
+    entry.huntIcon.scale.set(1/map.scale.x);
+    entry.huntIcon.position.set(entry.view.x,entry.view.y-18-6/map.scale.y);
     updateSleepLabel(deer,entry.view,entry.sleepLabel);
   }
   for (const [deer, entry] of deerViews) if (deer.departed) {
     entry.view.destroy({ children: true });
     entry.corpseIcon.destroy();
-    entry.sleepLabel.destroy();
+    entry.sleepLabel.destroy();entry.huntIcon.destroy();
     deerViews.delete(deer);
     if (selectedDeerSet.delete(deer)) refreshSelection();
   }
@@ -417,18 +429,18 @@ const attackRangeLayer = new Container();
 map.addChild(attackRangeLayer);
 const movementPathLayer = new Container();
 map.addChild(movementPathLayer);
-const pawns = spawnTiles.map(({ column, row, color }, index) => {
-  const personality=savedHumans?savedHumans[index].data.personality??randomPersonality():randomPersonality();
+function createPlayerPawn({column,row}:Tile,index:number,saved?:NonNullable<typeof savedHumans>[number]) {
+  const personality=saved?saved.data.personality??randomPersonality():randomPersonality();
   const view = new Container();
   const selection = new Graphics()
     .circle(0, 0, TILE_SIZE * 0.43)
     .stroke({ color: 0xfff2a3, width: 2 });
   selection.visible = false;
   view.addChild(selection);
-  const appearance:PawnAppearance=savedHumans?savedHumans[index].data.appearance:{...randomPawnAppearance(),hair:randomHairStyle()};
+  const appearance:PawnAppearance=saved?saved.data.appearance:{...randomPawnAppearance(),hair:randomHairStyle()};
   const body = pawnBody(appearance);
   view.addChild(body);
-  const clothing:ReturnType<typeof initialClothing>=savedHumans?savedHumans[index].data.clothing:initialClothing();
+  const clothing:ReturnType<typeof initialClothing>=saved?saved.data.clothing:initialClothing();
   const clothingView=new Graphics();drawClothing(clothingView,clothing);view.addChild(clothingView);
   const heldItem = new Graphics();
   heldItem.scale.set(.45);
@@ -446,8 +458,9 @@ const pawns = spawnTiles.map(({ column, row, color }, index) => {
   const movementPath = new Graphics();
   movementPathLayer.addChild(movementPath);
   builder.movement.actorSpeedMultiplier=movementRate({personality});
-  return { personality, schedule:savedHumans?savedHumans[index].data.schedule??initialSchedule():initialSchedule(), view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: pawnNames[index], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
-});
+  return { personality, schedule:saved?saved.data.schedule??initialSchedule():initialSchedule(), view, appearance, clothing, clothingView, clothingSignature:JSON.stringify(clothing), selection, heldItem, mealIcon, sleepLabel:createSleepLabel(), nursingLabel:createNursingLabel(), weaponView, drawnWeapon: 'unarmed' as Weapon, shotSeconds: 0, sleep:undefined as SleepState|undefined, sleepRetrySeconds:0, controlBlocked:false, draftedSeconds:0, draftLimitSeconds:undefined as number|undefined, workTask:undefined as string|undefined, decisionSeconds:0, attackMotionSeconds:0, attackedSeconds:0, fleeGoal:undefined as Tile|undefined, swingSeconds: 0, swingAngle: 0, corpseIcon:createCorpseIcon(), collectCorpse:false, corpseStorage:undefined as EatingWorker['corpseStorage'], attackRange, rangeSignature: '', weapon: 'unarmed' as Weapon, lean:undefined as CombatPawn['lean'], attackJob: null as CombatPawn['attackJob'], equipJob: null as CombatPawn['equipJob'], movementPath, manualMove: false, pathSignature: '', hp: 100, bodyHp:initialBodyHp(), conditions:[] as BodyCondition[], nurseJob:null as NursingJob|null, receivingNursing:undefined as NursingJob['patient']|undefined, armor: 0, ...builder, kind: 'human' as const, faction: 'player' as Faction, needs: initialNeeds(), dead: false, consumed: false, corpseCarrier: undefined as EatingWorker['corpseCarrier'], corpseStation: undefined as EatingWorker['corpseStation'], deadPosition: undefined as Tile | undefined, eatJob: null as import('./needs').EatingWorker['eatJob'], name: saved?.data.name??pawnNames[index]??generatePawnNames(1)[0], priorities: { ...INITIAL_PRIORITIES[index % INITIAL_PRIORITIES.length] } };
+}
+const pawns=spawnTiles.map((tile,index)=>createPlayerPawn(tile,index,savedHumans?.[index]));
 const needsClearingCell = (tile: Tile, clearItems=true) => Boolean(environmentByTile.get(`${tile.column},${tile.row}`)?.collected === false && environmentByTile.get(`${tile.column},${tile.row}`)?.type !== 'grass')
   || (clearItems && ((walls.at(tile)?.state === 'planned' && mapItems.some(item => item.quantity > 0 && item.column === tile.column && item.row === tile.row)) || clearing.isClearing(tile)));
 const needsClearing = (tile: Tile): boolean => {
@@ -614,7 +627,7 @@ document.addEventListener('close',hideSkillTooltip,true);
 window.addEventListener('blur',hideSkillTooltip);window.addEventListener('resize',hideSkillTooltip);
 window.addEventListener('keydown',event=>{if(event.key==='Escape')hideSkillTooltip();},true);
 const prioritySkills:Partial<Record<string,keyof typeof SKILL_LABELS>>={harvesting:'harvesting',butchery:'crafting',cooking:'cooking',hunting:'hunting'};
-for (const [index, pawn] of pawns.entries()) {
+function addPriorityRow(pawn:typeof pawns[number]) {
   const row = document.createElement('tr');
   const name = document.createElement('th');
   name.scope = 'row';
@@ -643,6 +656,7 @@ for (const [index, pawn] of pawns.entries()) {
   }
   prioritiesRows.appendChild(row);priorityRowsByPawn.set(pawn,row);
 }
+for(const pawn of pawns)addPriorityRow(pawn);
 prioritiesTab.addEventListener('click', () => {
   if (prioritiesWindow.open) prioritiesWindow.close(); else {
     constructionSubtabs.hidden = true;
@@ -663,7 +677,7 @@ const scheduleRows=document.querySelector<HTMLTableSectionElement>('#schedule-ro
 const scheduleRowViews=new Map<typeof pawns[number],{row:HTMLTableRowElement;buttons:HTMLButtonElement[]}>();
 const scheduleHead=document.querySelector<HTMLTableRowElement>('#schedule-hours')!;
 for(let hour=0;hour<24;hour++){const th=document.createElement('th');th.scope='col';th.textContent=String(hour);scheduleHead.append(th);}
-for(const pawn of pawns){
+function addScheduleRow(pawn:typeof pawns[number]){
   const row=document.createElement('tr'),name=document.createElement('th');name.scope='row';name.textContent=formatPawnName(pawn.name);row.append(name);
   const buttons=Array.from({length:24},(_,hour)=>{
     const cell=document.createElement('td'),button=document.createElement('button');button.type='button';
@@ -671,6 +685,7 @@ for(const pawn of pawns){
     cell.append(button);row.append(cell);return button;
   });scheduleRows.append(row);scheduleRowViews.set(pawn,{row,buttons});
 }
+for(const pawn of pawns)addScheduleRow(pawn);
 let scheduleLastHour=-1,scheduleLastState='';
 function updateScheduleWindow(force=false):void {
   if(!scheduleWindow.open)return;
@@ -850,7 +865,7 @@ healthTab.addEventListener('click',()=>selectPawnInfoTab('health'));
 personalityTab.addEventListener('click',()=>selectPawnInfoTab('personality'));
 pawnSpecs.append(pawnSpecsTabs,pawnOverview,pawnNeeds,pawnHealth,pawnPersonality);
 const pawnRoster = document.querySelector<HTMLElement>('#pawn-roster')!;
-const rosterButtons = pawns.map((pawn, index) => {
+function createRosterButton(pawn:typeof pawns[number]) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'pawn-roster-button';
@@ -860,7 +875,13 @@ const rosterButtons = pawns.map((pawn, index) => {
   const portrait = createPawnPortrait(pawn);
   const label = document.createElement('span');
   label.textContent = pawn.name.nickname || pawn.name.givenName;
-  button.append(portrait, label);
+  const weaponIcon=document.createElement('img');weaponIcon.className='pawn-roster-weapon';
+  function updateWeapon():void {
+    const equipped=pawn.weapon!=='unarmed';weaponIcon.hidden=!equipped;
+    weaponIcon.alt=equipped?ITEM_APPEARANCE[pawn.weapon as 'knife'|'rifle'].name:'';
+    if(equipped)weaponIcon.src=SPRITE_URLS[pawn.weapon as 'knife'|'rifle'];else weaponIcon.removeAttribute('src');
+  }
+  updateWeapon();button.append(portrait, label,weaponIcon);
   button.addEventListener('click', event => selectPawn(pawn, event.shiftKey));
   button.addEventListener('dblclick', event => {
     selectPawn(pawn, event.shiftKey);
@@ -869,8 +890,9 @@ const rosterButtons = pawns.map((pawn, index) => {
     applyCamera();
   });
   pawnRoster.appendChild(button);
-  return { pawn, button, portrait, dead: false };
-});
+  return { pawn, button, portrait, dead: false,weapon:pawn.weapon,updateWeapon };
+}
+const rosterButtons=pawns.map(createRosterButton);
 
 function clearSelection(): void {
   buildingInfoActive=false;selectedStructures.clear();
@@ -2053,7 +2075,7 @@ function setGameSpeed(speed:GameSpeed):void {
 for(const button of speedButtons)button.addEventListener('click',()=>setGameSpeed(Number(button.dataset.gameSpeed) as GameSpeed));
 window.addEventListener('keydown',event=>{
   const target=event.target;
-  if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey
+  if(recruitmentWindow.open||event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey
     || target instanceof HTMLElement&&(target.isContentEditable||Boolean(target.closest('input,textarea,select'))))return;
   const speed=event.code==='Digit1'||event.code==='Numpad1'?1:event.code==='Digit3'||event.code==='Numpad3'?3:undefined;
   if(event.code!=='Space'&&speed===undefined)return;
@@ -2097,6 +2119,7 @@ app.ticker.add((ticker) => {
     applyCamera();
   }
   simulationClock.advance(ticker.deltaMS / 1000, (seconds) => {
+    recruitment.update(seconds,pawns.filter(p=>p.faction==='player'&&!p.dead).length);
     pathSearchSchedule.advance();
     for(const pawn of pawns)pathSearchSchedule.assign(pawn.movement);
     for(const animal of wildlife.animals)pathSearchSchedule.assign(animal.movement);
@@ -2185,6 +2208,7 @@ app.ticker.add((ticker) => {
       pawn.mealIcon.position.set((top.column+.5+(seat.chair.column-top.column)*.2)*TILE_SIZE,(top.row+.5+(seat.chair.row-top.row)*.2)*TILE_SIZE-3);
     }
   }
+  for(const entry of rosterButtons)if(entry.weapon!==entry.pawn.weapon){entry.weapon=entry.pawn.weapon;entry.updateWeapon();}
   for(const entry of rosterButtons)entry.button.classList.toggle('under-attack',!entry.pawn.dead&&entry.pawn.attackedSeconds>0);
   for (const entry of rosterButtons) if (entry.dead !== entry.pawn.dead) {
     entry.dead = entry.pawn.dead;
@@ -2206,6 +2230,7 @@ app.ticker.add((ticker) => {
   updateStationInfo();
   updateScheduleWindow();
   updateCombatHover();
+  showRecruitment();
   if(stressTest?.recording)stressTest.updates.push(performance.now()-stressStart);
 });
 
@@ -2273,7 +2298,7 @@ saveMenu.addEventListener('keydown',event=>event.stopPropagation());
 document.querySelector<HTMLButtonElement>('#resume-game-button')!.addEventListener('click',()=>saveMenu.close());
 document.querySelector<HTMLButtonElement>('#save-game-button')!.addEventListener('click',()=>{
   try{
-    const save=createSave({mapSize:MAP_SIZE,time:gameTime.date.getTime(),camera:{...camera},environment:environmentObjects,items:mapItems,actors:[...pawns,...wildlife.animals],walls:[...walls.items.values()],growth:plantGrowth.saveState(),wildlife:wildlife.saveState()});
+    const save=createSave({mapSize:MAP_SIZE,time:gameTime.date.getTime(),camera:{...camera},environment:environmentObjects,items:mapItems,actors:[...pawns,...wildlife.animals],walls:[...walls.items.values()],growth:plantGrowth.saveState(),wildlife:wildlife.saveState(),recruitment:recruitment.saveState()});
     writeSave(localStorage,save);saveStartupError='';refreshSaveStatus();saveStatus.textContent=`セーブしました。${saveStatus.textContent}`;
   }catch(error){saveStatus.textContent=`セーブできませんでした：${error instanceof Error?error.message:String(error)}`;}
 });
@@ -2285,6 +2310,48 @@ document.querySelector<HTMLButtonElement>('#new-game-button')!.addEventListener(
 });
 window.addEventListener('keydown',event=>{
   if(event.key!=='Escape'||event.isComposing)return;
+  if(recruitmentWindow.open){event.preventDefault();event.stopImmediatePropagation();return;}
   event.preventDefault();event.stopImmediatePropagation();
   if(saveMenu.open)saveMenu.close();else openSaveMenu();
 },true);
+
+// Recruitment pauses while the player chooses; no pawn exists until acceptance.
+const recruitment=new Recruitment();
+if(startupSave?.recruitment)recruitment.restoreState(startupSave.recruitment);
+const recruitmentWindow=document.querySelector<HTMLDialogElement>('#recruitment-window')!;
+let recruitmentResumeSpeed:GameSpeed=1;
+function recruitmentSpawn():Tile|undefined {
+  // Prefer a clear tile near the colony, without placing a newcomer in a wall or another pawn.
+  const center=pawns.find(p=>p.faction==='player'&&!p.dead)?.movement.tile??{column:mapCenter,row:mapCenter};
+  for(let radius=1;radius<MAP_SIZE;radius++)for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){
+    if(Math.max(Math.abs(dx),Math.abs(dy))!==radius)continue;
+    const tile={column:center.column+dx,row:center.row+dy};
+    if(tile.column<0||tile.row<0||tile.column>=MAP_SIZE||tile.row>=MAP_SIZE||walls.cannotStop(tile)||pawnOccupies(tile))continue;
+    const object=environmentByTile.get(`${tile.column},${tile.row}`);
+    if(object&&!object.collected&&(object.type==='tree'||object.type==='rock'))continue;
+    return tile;
+  }
+}
+function showRecruitment():void {
+  if(!recruitment.pending||recruitmentWindow.open||document.querySelector('dialog[open]'))return;
+  if(pawns.filter(p=>p.faction==='player'&&!p.dead).length>5||!recruitmentSpawn())return;
+  recruitmentResumeSpeed=simulationClock.speed;setGameSpeed(0);cameraKeys.clear();stopDrawing();cancelSelectionDrag();hideSkillTooltip();
+  recruitmentWindow.showModal();
+}
+recruitmentWindow.addEventListener('cancel',event=>event.preventDefault());
+recruitmentWindow.addEventListener('keydown',event=>event.stopPropagation());
+function resolveRecruitment(accept:boolean):void {
+  if(!recruitmentWindow.open)return;
+  if(accept){
+    const tile=recruitmentSpawn();if(!tile)return;
+    if(pawns.filter(p=>p.faction==='player'&&!p.dead).length<=5){
+      const pawn=createPlayerPawn(tile,pawns.length);pawns.push(pawn);
+      pawn.movement.queuedPlanning=true;pathSearchSchedule.assign(pawn.movement);walls.bindMovement(pawn.movement,pawn.faction);pawnOccupancy.track(pawn.movement);
+      rosterButtons.push(createRosterButton(pawn));addPriorityRow(pawn);addScheduleRow(pawn);updateScheduleWindow(true);
+      app.canvas.setAttribute('aria-label',`れ・こんきすた。${MAP_SIZE}×${MAP_SIZE}マスのマップと${pawns.length}人のポーン`);
+    }
+  }
+  recruitment.resolve();recruitmentWindow.close();setGameSpeed(recruitmentResumeSpeed);
+}
+document.querySelector('#accept-recruitment')!.addEventListener('click',()=>resolveRecruitment(true));
+document.querySelector('#reject-recruitment')!.addEventListener('click',()=>resolveRecruitment(false));

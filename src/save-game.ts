@@ -11,8 +11,8 @@ export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor',
 const WALL_FIELDS=['column','row','kind','orientation','material','state','delivered','workSeconds','buildRoll','hp','openness','doorMode','stored','accepted','demolition','demolitionSeconds','cooking'] as const;
 export interface SavedActor {kind:'human'|'deer'|'wolf';data:Record<string,any>;movement:Pick<Movement,'tile'|'destination'|'nextTile'|'progress'|'route'|'tilesPerSecond'|'pendingRepath'>;sleep?:{phase:string;goal:Tile;bed?:number;scheduled?:boolean};storage?:number;station?:number;attack?:number;nursing?:{patient:number;seconds:number}}
 export interface SavedWall {data:Record<string,any>;corpses:number[];butcher?:Record<string,any>;processingCorpse?:number}
-export interface SaveGame {version:1;mapSize:number;savedAt:number;time:number;camera:{x:number;y:number;zoom:number};environment:EnvironmentObject[];items:MapItem[];actors:SavedActor[];walls:SavedWall[];growth:unknown;wildlife:unknown}
-export interface SaveWorld {mapSize:number;time:number;camera:SaveGame['camera'];environment:EnvironmentObject[];items:MapItem[];actors:(EatingWorker & {kind:'human'|'deer'|'wolf';attackJob?:{target:unknown;manual?:boolean}|null})[];walls:Wall[];growth:unknown;wildlife:unknown}
+export interface SaveGame {version:1;mapSize:number;savedAt:number;time:number;camera:{x:number;y:number;zoom:number};environment:EnvironmentObject[];items:MapItem[];actors:SavedActor[];walls:SavedWall[];growth:unknown;wildlife:unknown;recruitment?:{remainingSeconds:number}}
+export interface SaveWorld {mapSize:number;time:number;camera:SaveGame['camera'];environment:EnvironmentObject[];items:MapItem[];actors:(EatingWorker & {kind:'human'|'deer'|'wolf';attackJob?:{target:unknown;manual?:boolean}|null})[];walls:Wall[];growth:unknown;wildlife:unknown;recruitment?:{remainingSeconds:number}}
 const clone=<T>(value:T):T=>JSON.parse(JSON.stringify(value));
 export function pickFields(object:object,fields:readonly string[]):Record<string,any> {const result:Record<string,any>={};for(const key of fields)if(Object.hasOwn(object,key))result[key]=(object as Record<string,unknown>)[key];return result;}
 export function createSave(world:SaveWorld):SaveGame {
@@ -32,7 +32,7 @@ export function createSave(world:SaveWorld):SaveGame {
   return saved;
  });
  const walls=world.walls.map(wall=>({data:pickFields(wall,WALL_FIELDS),corpses:(wall.storedCorpses??[]).map(c=>actorIds.get(c as SaveWorld['actors'][number])).filter((id):id is number=>id!==undefined),butcher:wall.butcher?pickFields(wall.butcher,['mode','remaining','target','seconds']):undefined,processingCorpse:wall.butcher?.corpse?actorIds.get(wall.butcher.corpse as SaveWorld['actors'][number]):undefined}));
- return clone({version:1,mapSize:world.mapSize,savedAt:Date.now(),time:world.time,camera:world.camera,environment:world.environment.filter(o=>!o.collected),items:world.items.filter(i=>i.quantity>0),actors,walls,growth:world.growth,wildlife:world.wildlife});
+ return clone({version:1,mapSize:world.mapSize,savedAt:Date.now(),time:world.time,camera:world.camera,environment:world.environment.filter(o=>!o.collected),items:world.items.filter(i=>i.quantity>0),actors,walls,growth:world.growth,wildlife:world.wildlife,recruitment:world.recruitment});
 }
 export function parseSave(text:string):SaveGame {
  const save=JSON.parse(text) as SaveGame;
@@ -69,6 +69,7 @@ export function parseSave(text:string):SaveGame {
   if(d.stored&&!numbers(d.stored))fail();
   for(const state of [d.cooking,w.butcher])if(state&&(!['count','until','forever'].includes(state.mode)||!['remaining','target','seconds'].every(k=>finite(state[k]))))fail();
  }
+ if(save.recruitment&&(!finite(save.recruitment.remainingSeconds)||save.recruitment.remainingSeconds<0||save.recruitment.remainingSeconds>192))fail();
  const growth=save.growth as any,wildlife=save.wildlife as any;
  if(!growth||!finite(growth.elapsed)||growth.elapsed<0||growth.elapsed>=60||!Array.isArray(growth.births)||!Number.isInteger(growth.birthIndex)||growth.birthIndex<0||growth.birthIndex>growth.births.length||growth.births.some((b:any,i:number)=>!['tree','wildStrawberry','grass'].includes(b.type)||!finite(b.time)||b.time<0||b.time>60||i>0&&b.time<growth.births[i-1].time))fail();
  if(!wildlife||!['nextId','spawnSeconds','exitSeconds','wolfSpawnSeconds','wolfExitSeconds'].every(k=>finite(wildlife[k]))||typeof wildlife.firstDeerWave!=='boolean'||typeof wildlife.firstWolfWave!=='boolean')fail();

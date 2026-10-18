@@ -63,3 +63,8 @@ test('per-hour schedules and scheduled sleep survive saving; invalid schedules a
 test('personality and a pending successful build roll survive saving and invalid skills are rejected',()=>{
  const {world,pawn,bed}=scene();pawn.personality={skills:{shooting:20,melee:0,cooking:4,crafting:9,harvesting:12,hunting:7},traits:['cautious','dexterous']};bed.buildRoll=.7;const saved=parseSave(JSON.stringify(createSave(world)));assert.deepEqual(saved.actors[0].data.personality,pawn.personality);assert.equal(saved.walls[0].data.buildRoll,.7);saved.actors[0].data.personality.skills.shooting=21;assert.throws(()=>parseSave(JSON.stringify(saved)));
 });
+test('recruitment countdown roundtrips, old saves remain supported and invalid timers are rejected',()=>{
+ const {world}=scene();world.recruitment={remainingSeconds:76.5};const save=createSave(world);assert.deepEqual(parseSave(JSON.stringify(save)).recruitment,world.recruitment);
+ delete save.recruitment;assert.doesNotThrow(()=>parseSave(JSON.stringify(save)));
+ for(const value of [-1,193,'10',null]){save.recruitment={remainingSeconds:value};assert.throws(()=>parseSave(JSON.stringify(save)));}
+});

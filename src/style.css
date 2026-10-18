@@ -431,3 +431,16 @@ canvas { touch-action: none; }
 .priority-value[data-skill-band="3"] { border-color:#fff36d; }
 
 #skill-tooltip { border-radius:4px; padding:10px 12px; font-weight:500; }
+
+#recruitment-window { width:min(360px,calc(100vw - 64px)); padding:20px; border:1px solid #708268; border-radius:6px; background:#263529; color:#f4e9cc; font:14px system-ui,sans-serif; }
+#recruitment-window::backdrop { background:#101813b3; }
+#recruitment-window h2 { margin:0 0 16px; font-size:18px; }
+#recruitment-window button { display:block; width:100%; margin:8px 0; padding:10px; border:1px solid #708268; background:#263529; color:#f4e9cc; cursor:pointer; }
+#recruitment-window button:hover:not(:disabled) { background:#354936; }
+#recruitment-window button:disabled { opacity:.5; cursor:default; }
+#recruitment-window button:focus-visible { outline:2px solid #f2c66d; }
+#recruitment-window p { font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
+
+.pawn-roster-button { aspect-ratio:auto; min-height:110px; }
+.pawn-roster-button .pawn-roster-weapon { width:36px; height:24px; max-height:none; flex-shrink:0; object-fit:contain; }
+.pawn-roster-button .pawn-roster-weapon[hidden] { display:block; visibility:hidden; }
