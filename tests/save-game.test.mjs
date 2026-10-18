@@ -51,3 +51,7 @@ test('queued route searches are restored as repath requests without serializing 
  const {world,pawn}=scene();pawn.movement.pendingRoute={goal:{column:90,row:88},cancel:()=>{throw new Error('not called')}};
  const saved=parseSave(JSON.stringify(createSave(world)));assert.deepEqual(saved.actors[0].movement.pendingRepath,{column:90,row:88});assert.equal(saved.actors[0].movement.pendingRoute,undefined);
 });
+test('combat commitment survives a save even when the animal no longer has an attack order',()=>{
+ const {world}=scene(),animal=createDeer({column:70,row:70},3);animal.kind='wolf';animal.combatCommitted=true;world.actors.push(animal);
+ const saved=parseSave(JSON.stringify(createSave(world)));assert.equal(saved.actors[1].data.combatCommitted,true);assert.equal(saved.actors[1].attack,undefined);
+});

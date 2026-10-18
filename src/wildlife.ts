@@ -19,6 +19,7 @@ import type { MapItem } from './items';
 
 export interface Animal extends EatingWorker, FactionMember {
   kind: 'deer' | 'wolf';
+  combatCommitted?:boolean;
   retaliationProbability?:number;
   attackJob?: AttackOrder | null;
   hunt?: boolean;
@@ -36,7 +37,7 @@ export type Deer=Animal & {kind:'deer'};
 export type Wolf=Animal & {kind:'wolf';prey?:CombatTarget;retaliationProbability:number};
 export const WOLF_RETALIATION_PROBABILITY=.5;
 export function createWolf(tile:Tile,id:number):Wolf {return {...createDeer(tile,id),kind:'wolf',retaliationProbability:WOLF_RETALIATION_PROBABILITY};}
-export type FleeingPawn=EatingWorker & FactionMember & {fleeGoal?:Tile;freeSeconds?:number};
+export type FleeingPawn=EatingWorker & FactionMember & {fleeGoal?:Tile;freeSeconds?:number;combatCommitted?:boolean;attackJob?:AttackOrder|null};
 export const DEER_FLEE_DISTANCE = 8;
 const sameTile = (a: Tile, b: Tile): boolean => a.column === b.column && a.row === b.row;
 const deerForage = (object: EnvironmentObject): boolean => object.type === 'grass' || object.type === 'wildStrawberry' && harvestYield(object) > 0;
@@ -160,6 +161,7 @@ export class Wildlife {
 
   flee(deer: FleeingPawn & {departed?:boolean}, attacker: Tile): boolean {
     if (deer.dead || deer.departed) return false;
+    if(deer.kind==='wolf'&&(deer.combatCommitted||deer.attackJob)){deer.combatCommitted=true;return false;}
     const walls = this.construction.walls;
     walls.bindMovement(deer.movement,deer.faction);
     const start = deer.movement.nextTile ?? deer.movement.tile;
@@ -238,6 +240,11 @@ export class Wildlife {
 
   reactToAttack(wolf:Wolf,attacker:CombatTarget):'retaliate'|'flee'|null {
     if(wolf.dead||wolf.sleep||wolf.departed||attacker.dead||attacker.departed)return null;
+    if(wolf.combatCommitted||wolf.attackJob){
+      wolf.combatCommitted=true;wolf.fleeGoal=undefined;
+      if(wolf.attackJob&&!wolf.attackJob.target.dead&&!wolf.attackJob.target.departed)return 'retaliate';
+      return this.combat?.requestRetaliation(wolf,attacker)?'retaliate':null;
+    }
     wolf.prey=undefined;
     this.combat?.cancel(wolf);
     if(this.random()<wolf.retaliationProbability){

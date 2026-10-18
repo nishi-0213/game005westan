@@ -75,6 +75,8 @@ export type CombatPawn = CombatTarget & {
   freeSeconds?: number;
   attackJob?: AttackOrder | null;
   equipJob?: { source: MapItem; goal: Tile } | null;
+  combatCommitted?: boolean;
+  fleeGoal?: Tile;
   combatDecisionSeconds?: number;
   attackMotionSeconds?: number;
 };
@@ -193,7 +195,9 @@ export class Combat {
     const approach=this.attackApproach(pawn,target);if(!approach)return false;
     this.interrupt(pawn);this.cancel(pawn);
     pawn.attackJob={target,cooldown:attackStats(pawn).interval,retrySeconds:.25,targetPosition:positionKey(target.movement.tile),goal:approach.goal,manual:false,predation:true};
-    return setRoute(pawn.movement,approach.path.tiles);
+    const assigned=setRoute(pawn.movement,approach.path.tiles);
+    if(assigned&&pawn.kind==='wolf'){pawn.combatCommitted=true;pawn.fleeGoal=undefined;}
+    return assigned;
   }
 
   requestRetaliation(pawn:CombatPawn,target:CombatTarget):boolean {

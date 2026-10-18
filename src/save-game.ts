@@ -6,7 +6,7 @@ import type {Movement,Tile} from './movement';
 import type {EatingWorker} from './needs';
 import {corpsePosition} from './butchery.ts';
 export const SAVE_KEY='game005westan.save.v1';
-export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor','needs','conditions','moodMemories','mode','faction','weapon','inventory','priorities','dead','consumed','collectCorpse','hunt','id','freeSeconds','leaving','departed','exitGoal','outsideGoal','draftedSeconds','draftLimitSeconds','deadPosition','manualMove'] as const;
+export const ACTOR_FIELDS=['name','appearance','clothing','hp','bodyHp','armor','needs','conditions','moodMemories','mode','faction','weapon','inventory','priorities','dead','consumed','collectCorpse','hunt','id','freeSeconds','leaving','departed','exitGoal','outsideGoal','draftedSeconds','draftLimitSeconds','deadPosition','manualMove','combatCommitted'] as const;
 const WALL_FIELDS=['column','row','kind','orientation','material','state','delivered','workSeconds','hp','openness','doorMode','stored','accepted','demolition','demolitionSeconds','cooking'] as const;
 export interface SavedActor {kind:'human'|'deer'|'wolf';data:Record<string,any>;movement:Pick<Movement,'tile'|'destination'|'nextTile'|'progress'|'route'|'tilesPerSecond'|'pendingRepath'>;sleep?:{phase:string;goal:Tile;bed?:number};storage?:number;station?:number;attack?:number;nursing?:{patient:number;seconds:number}}
 export interface SavedWall {data:Record<string,any>;corpses:number[];butcher?:Record<string,any>;processingCorpse?:number}
@@ -47,6 +47,7 @@ export function parseSave(text:string):SaveGame {
  for(const o of save.items)if(!tile(o)||!ITEM_TYPES.includes(o.type)||!finite(o.quantity)||o.quantity<=0)fail();
  for(const a of save.actors){
   const d=a.data;
+  if(d.combatCommitted!==undefined&&typeof d.combatCommitted!=='boolean')fail();
   if(!numbers(d.needs)||!finite(d.hp)||!numbers(d.bodyHp)||!['head','torso','arms','legs'].every(k=>finite(d.bodyHp[k]))||!finite(a.movement.tilesPerSecond)||a.movement.progress<0||a.movement.progress>1)fail();
   if(d.inventory&&(!ITEM_TYPES.includes(d.inventory.type)||!finite(d.inventory.quantity)||d.inventory.quantity<0))fail();
   if(d.clothing&&Object.entries(d.clothing).some(([slot,type])=>!Object.hasOwn(CLOTHING,type as string)||CLOTHING[type as keyof typeof CLOTHING].slot!==slot))fail();

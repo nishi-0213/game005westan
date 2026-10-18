@@ -159,3 +159,15 @@ test('fourfold starting deer and wolf populations do not multiply later spawn wa
  spawned.length=0;s.wildlife.update(60);assert.equal(spawned.filter(k=>k==='deer').length,3);assert.equal(spawned.filter(k=>k==='wolf').length,0);
  spawned.length=0;s.wildlife.update(100);assert.equal(spawned.filter(k=>k==='wolf').length,2);
 });
+test('a wolf that entered retaliation never flees on later attacks and keeps its attack cooldown',()=>{
+ const s=scene(),wolf=createWolf(tile(8,8),1),attacker=s.human(7,8);s.wildlife.wolves.push(wolf);s.wildlife.random=()=>0;
+ assert.equal(s.wildlife.reactToAttack(wolf,attacker),'retaliate');assert.equal(wolf.combatCommitted,true);const job=wolf.attackJob;job.cooldown=.05;
+ s.wildlife.random=()=>.999;for(let i=0;i<5;i++){assert.equal(s.wildlife.reactToAttack(wolf,attacker),'retaliate');assert.equal(wolf.attackJob,job);assert.equal(wolf.attackJob.cooldown,.05);assert.equal(wolf.fleeGoal,undefined);}
+ s.combat.cancel(wolf);assert.equal(s.wildlife.reactToAttack(wolf,attacker),'retaliate');assert.equal(wolf.fleeGoal,undefined);assert.equal(s.wildlife.flee(wolf,attacker.movement.tile),false);
+});
+test('predatory combat also permanently prevents fleeing, including after sleeping and waking',()=>{
+ const s=scene(),wolf=createWolf(tile(8,8),1),prey=createDeer(tile(9,8),2),attacker=s.human(7,8);s.wildlife.wolves.push(wolf);s.wildlife.deer.push(prey);
+ assert.equal(s.combat.requestPredation(wolf,prey),true);assert.equal(wolf.combatCommitted,true);const job=wolf.attackJob;s.wildlife.random=()=>.999;
+ assert.equal(s.wildlife.reactToAttack(wolf,attacker),'retaliate');assert.equal(wolf.attackJob,job);assert.equal(wolf.attackJob.target,prey);assert.equal(wolf.fleeGoal,undefined);
+ s.combat.cancel(wolf);wolf.sleep={phase:'sleeping',goal:wolf.movement.tile};assert.equal(s.wildlife.wakeAndFlee(wolf,attacker.movement.tile),true);assert.equal(wolf.sleep,undefined);assert.equal(wolf.fleeGoal,undefined);assert.equal(wolf.combatCommitted,true);
+});
